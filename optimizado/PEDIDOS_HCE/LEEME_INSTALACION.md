@@ -175,6 +175,11 @@ CAMBIOS registra además TIPO_CORRECCION en la columna Q.
 
 ### 2.5 Validador (frmValidar)
 
+- **Botones arriba, siempre visibles**: Aplicar y siguiente (**Alt+A**), Sugerir cobertura cercana (**Alt+S**),
+  Buscar cobertura (**Alt+B**), Omitir (**Alt+O**), Anterior (**Alt+N**) y Cerrar.
+- Al abrir la revisión, el panel se oculta y **Excel pasa al frente en la hoja DEPOT**. El validador queda a la derecha y
+  la hoja se mueve a la fila del pedido que estás revisando. Al cerrar el validador, el panel vuelve solo.
+
 - **¿Por qué está en revisión?**: la acción del sistema explicada en lenguaje claro, más la evidencia (CP y provincia
   leídos de la dirección).
 - **Cliente escribió**: el dato original, que se conserva aunque ya se haya corregido.
@@ -186,6 +191,19 @@ CAMBIOS registra además TIPO_CORRECCION en la columna Q.
   - verde: RECOMENDADO / VÁLIDO;
   - naranja: ATENCIÓN, zona peligrosa;
   - rojo: NO RECOMENDADO, fuera de cobertura.
+
+### 2.6 Navegación en las listas
+
+- **Rueda del mouse** en todas las listas (panel, buscador de cobertura y sugerencias del validador). Solo actúa
+  mientras el mouse está sobre el formulario; en Excel la rueda funciona normal.
+- **Flechas arriba y abajo** recorren la lista y actualizan el detalle.
+- **Enter**: en el panel abre el pedido en el validador; en el buscador asigna la cobertura al pedido.
+
+### 2.7 Abreviaturas
+
+Antes de comparar, se expanden las abreviaturas FCO, PTO, STO, STA, GRAL, CNEL/CRNEL y MCAL. Así, "PUERTO FCO. DE
+ORELLANA" coincide con "PUERTO FRANCISCO DE ORELLANA (EL COCA)". Se comprobó que la expansión no junta ninguna
+combinación distinta de COBERTURA.
 
 ## 3. Reglas implementadas
 

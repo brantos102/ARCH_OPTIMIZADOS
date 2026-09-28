@@ -99,6 +99,16 @@ Function Normaliza(ByVal s As String) As String
     If (ch >= "A" And ch <= "Z") Or (ch >= "0" And ch <= "9") Then o = o & ch Else o = o & " "
   Next
   Do While InStr(o, "  ") > 0: o = Replace(o, "  ", " "): Loop
+  ' abreviaturas frecuentes (se aplican igual a COBERTURA y al pedido): PUERTO FCO. DE ORELLANA = PUERTO FRANCISCO DE ORELLANA
+  o = " " & Trim$(o) & " "
+  If InStr(o, " FCO ") > 0 Then o = Replace(o, " FCO ", " FRANCISCO ")
+  If InStr(o, " PTO ") > 0 Then o = Replace(o, " PTO ", " PUERTO ")
+  If InStr(o, " STO ") > 0 Then o = Replace(o, " STO ", " SANTO ")
+  If InStr(o, " STA ") > 0 Then o = Replace(o, " STA ", " SANTA ")
+  If InStr(o, " GRAL ") > 0 Then o = Replace(o, " GRAL ", " GENERAL ")
+  If InStr(o, " CNEL ") > 0 Then o = Replace(o, " CNEL ", " CORONEL ")
+  If InStr(o, " CRNEL ") > 0 Then o = Replace(o, " CRNEL ", " CORONEL ")
+  If InStr(o, " MCAL ") > 0 Then o = Replace(o, " MCAL ", " MARISCAL ")
   Normaliza = Trim$(o)
 End Function
 
@@ -1477,20 +1487,37 @@ sig:
 End Sub
 
 ' ---------- formularios ----------
+' Al revisar: se oculta el panel y Excel pasa al frente en DEPOT, con el validador a la derecha
+Private Sub PrepararExcelParaValidar()
+  Dim i As Long
+  On Error Resume Next
+  RuedaDesactivar
+  For i = 0 To VBA.UserForms.Count - 1
+    If VBA.UserForms(i).Name = "frmPanel" Then VBA.UserForms(i).Hide
+  Next
+  MostrarExcel
+  ThisWorkbook.Activate
+  ThisWorkbook.Worksheets(HD).Activate
+  On Error GoTo 0
+End Sub
+
 Sub AbrirValidador()
   CerrarForm "frmValidar"
+  PrepararExcelParaValidar
   gSoloRevisar = False
   frmValidar.Show vbModeless
 End Sub
 
 Sub AbrirValidadorRevisar()
   CerrarForm "frmValidar"
+  PrepararExcelParaValidar
   gSoloRevisar = True
   frmValidar.Show vbModeless
 End Sub
 
 Sub AbrirValidadorFila(ByVal fila As Long)
   CerrarForm "frmValidar"
+  PrepararExcelParaValidar
   gSoloRevisar = False: gFilaInicio = fila
   frmValidar.Show vbModeless
 End Sub

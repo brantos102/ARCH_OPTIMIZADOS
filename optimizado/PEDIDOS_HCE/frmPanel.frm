@@ -613,6 +613,7 @@ Private Sub IrAFila(ByVal avisar As Boolean)
   On Error GoTo 0
   If avisar Then
     LogP "Ir a Excel: hoja " & mHoja & " fila " & r & " (volver: Complementos > Panel HYCITE)"
+    RuedaDesactivar
     Me.Hide
     MostrarExcel
   End If
@@ -714,8 +715,26 @@ Private Sub chkDesc_Click()
   Refrescar
 End Sub
 
+Private Sub lst_MouseMove(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+  RuedaActivar lst, TITULO
+End Sub
+Private Sub UserForm_MouseMove(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+  RuedaDesactivar
+End Sub
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+  RuedaDesactivar
+End Sub
+' flechas arriba/abajo del teclado también actualizan el detalle
+Private Sub lst_Change()
+  If lst.ListIndex >= 0 Then MostrarDetalle
+End Sub
+
 Private Sub lst_Click()
   MostrarDetalle
+End Sub
+
+Private Sub lst_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+  If KeyCode = vbKeyReturn Then lst_DblClick Nothing
 End Sub
 
 Private Sub lst_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
@@ -797,6 +816,7 @@ Private Sub bDiag_Click()
 End Sub
 Private Sub bExcel_Click()
   LogP "PANEL: oculto para ver Excel (volver: Complementos > Panel HYCITE)"
+  RuedaDesactivar
   Me.Hide
   MostrarExcel
 End Sub

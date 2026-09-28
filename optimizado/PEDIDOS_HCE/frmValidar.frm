@@ -9,7 +9,7 @@ Option Explicit
 '   - Botón "Buscar cobertura" (frmCobertura) que devuelve la selección aquí
 ' =====================================================================================
 Private Const BASE_W As Single = 720
-Private Const BASE_H As Single = 540
+Private Const BASE_H As Single = 520
 Private Const C_NN As Long = 14, C_REF As Long = 3, C_DIR As Long = 2, C_SIG As Long = 12
 Private Const C_PROV As Long = 6, C_CANT As Long = 7, C_PARR As Long = 8, C_CORR As Long = 30
 
@@ -38,43 +38,45 @@ Private Sub UserForm_Initialize()
   Set lblDir = AddLbl("", 95, 28, 610): lblDir.Height = 28: lblDir.WordWrap = True
   AddLbl "Cliente escribió:", 10, 58, 85, True
   Set lblCli = AddLbl("", 95, 58, 610): lblCli.ForeColor = RGB(90, 90, 90)
-  Set lblPorQue = AddLbl("", 10, 76, 695): lblPorQue.Height = 44: lblPorQue.WordWrap = True
+  Set lblPorQue = AddLbl("", 10, 112, 695): lblPorQue.Height = 44: lblPorQue.WordWrap = True
   lblPorQue.BackColor = RGB(255, 242, 204): lblPorQue.BorderStyle = fmBorderStyleSingle: lblPorQue.ForeColor = RGB(128, 64, 0)
 
-  AddLbl "Provincia:", 10, 130, 85, True
-  Set cboProv = AddCbo(95, 127, 250)
-  AddLbl "Cantón/Ciudad:", 10, 154, 85, True
-  Set cboCant = AddCbo(95, 151, 250)
-  AddLbl "Parroquia:", 10, 178, 85, True
-  Set cboParr = AddCbo(95, 175, 420)
-  Set t = AddLbl("Tu selección. Puedes escribir, elegir de la lista o hacer clic en una opción sugerida.", 360, 130, 345)
+  AddLbl "Provincia:", 10, 166, 85, True
+  Set cboProv = AddCbo(95, 163, 250)
+  AddLbl "Cantón/Ciudad:", 10, 190, 85, True
+  Set cboCant = AddCbo(95, 187, 250)
+  AddLbl "Parroquia:", 10, 214, 85, True
+  Set cboParr = AddCbo(95, 211, 420)
+  Set t = AddLbl("Tu selección. Puedes escribir, elegir de la lista o hacer clic en una opción sugerida.", 360, 166, 345)
   t.Height = 40: t.WordWrap = True: t.ForeColor = RGB(120, 120, 120)
 
-  Set t = AddLbl("OPCIONES SUGERIDAS (clic para usar)", 10, 204, 400, True): t.ForeColor = RGB(48, 84, 150)
-  AddLbl "PARROQUIA", 13, 220, 190, True
-  AddLbl "CANTÓN", 203, 220, 130, True
-  AddLbl "POR QUÉ SE SUGIERE", 333, 220, 370, True
+  Set t = AddLbl("OPCIONES SUGERIDAS (clic para usar)", 10, 240, 400, True): t.ForeColor = RGB(48, 84, 150)
+  AddLbl "PARROQUIA", 13, 256, 190, True
+  AddLbl "CANTÓN", 203, 256, 130, True
+  AddLbl "POR QUÉ SE SUGIERE", 333, 256, 370, True
   Set lstSug = Me.Controls.Add("Forms.ListBox.1")
-  lstSug.Left = 10: lstSug.Top = 234: lstSug.Width = 695: lstSug.Height = 88
+  lstSug.Left = 10: lstSug.Top = 270: lstSug.Width = 695: lstSug.Height = 88
   lstSug.ColumnCount = 3: lstSug.ColumnWidths = "190;130;360": lstSug.Font.Size = 8
 
-  Set t = AddLbl("SI APLICAS ESTA SELECCIÓN", 10, 328, 400, True): t.ForeColor = RGB(48, 84, 150)
-  Set lblInfo = AddLbl("", 10, 342, 695): lblInfo.Height = 70: lblInfo.WordWrap = True
+  Set t = AddLbl("SI APLICAS ESTA SELECCIÓN", 10, 364, 400, True): t.ForeColor = RGB(48, 84, 150)
+  Set lblInfo = AddLbl("", 10, 378, 695): lblInfo.Height = 70: lblInfo.WordWrap = True
   lblInfo.BorderStyle = fmBorderStyleSingle: lblInfo.BackColor = RGB(248, 248, 248)
-  Set lblReco = AddLbl("", 10, 416, 695, True): lblReco.Height = 30: lblReco.WordWrap = True: lblReco.Font.Size = 9
+  Set lblReco = AddLbl("", 10, 452, 695, True): lblReco.Height = 30: lblReco.WordWrap = True: lblReco.Font.Size = 9
 
   Dim P
   For Each P In Array("AZUAY", "BOLIVAR", "CAÑAR", "CARCHI", "CHIMBORAZO", "COTOPAXI", "EL ORO", "ESMERALDAS", "GALAPAGOS", "GUAYAS", "IMBABURA", "LOJA", "LOS RIOS", "MANABI", "MORONA SANTIAGO", "NAPO", "ORELLANA", "PASTAZA", "PICHINCHA", "SANTA ELENA", "SANTO DOMINGO DE LOS TSACHILAS", "SUCUMBIOS", "TUNGURAHUA", "ZAMORA CHINCHIPE")
     cboProv.AddItem P
   Next
-  Set btnAplicar = PlaceBtn("Aplicar y siguiente", 10, 454, 130, RGB(112, 173, 71), "Guarda la selección como APROBADO y pasa al siguiente pedido.")
-  Set btnSugerir = PlaceBtn("Sugerir cobertura cercana", 146, 454, 150, RGB(47, 117, 181), _
+  Set btnAplicar = PlaceBtn("Aplicar y siguiente", 10, 78, 130, RGB(112, 173, 71), "Guarda la selección como APROBADO y pasa al siguiente pedido.")
+  Set btnSugerir = PlaceBtn("Sugerir cobertura cercana", 146, 78, 150, RGB(47, 117, 181), _
                             "Propone: misma parroquia mal escrita, parroquia principal del cantón, ciudad principal/secundaria o capital provincial.")
-  Set btnBuscar = PlaceBtn("Buscar cobertura...", 302, 454, 120, RGB(0, 112, 192), _
+  Set btnBuscar = PlaceBtn("Buscar cobertura...", 302, 78, 120, RGB(0, 112, 192), _
                            "Abre el buscador de COBERTURA filtrado por este pedido para elegir la parroquia exacta.")
-  Set btnOmitir = PlaceBtn("Omitir", 428, 454, 80, RGB(150, 150, 150), "Pasa al siguiente sin guardar.")
-  Set btnAnterior = PlaceBtn("Anterior", 514, 454, 80, RGB(150, 150, 150), "Vuelve al pedido anterior.")
-  Set btnCerrar = PlaceBtn("Cerrar", 600, 454, 105, RGB(192, 80, 77), "Cierra el validador.")
+  Set btnOmitir = PlaceBtn("Omitir", 428, 78, 80, RGB(150, 150, 150), "Pasa al siguiente sin guardar.")
+  Set btnAnterior = PlaceBtn("Anterior", 514, 78, 80, RGB(150, 150, 150), "Vuelve al pedido anterior.")
+  btnAplicar.Accelerator = "A": btnOmitir.Accelerator = "O": btnAnterior.Accelerator = "N"
+  btnSugerir.Accelerator = "S": btnBuscar.Accelerator = "B"
+  Set btnCerrar = PlaceBtn("Cerrar", 600, 78, 105, RGB(192, 80, 77), "Cierra el validador.")
 
   Dim soloRev As Boolean, ini As Long, lastD As Long, i As Long, e As String
   soloRev = gSoloRevisar: gSoloRevisar = False
@@ -97,7 +99,7 @@ Private Sub UserForm_Initialize()
   Me.Caption = mTitulo
   mInW0 = Me.InsideWidth: mInH0 = Me.InsideHeight
   HacerRedimensionable mTitulo
-  AjustarAPantalla Me, BASE_W, BASE_H, 0.8
+  AjustarAPantalla Me, BASE_W, BASE_H, 0.9, 1     ' a la derecha: Excel (DEPOT) visible a la izquierda
   If rws.Count = 0 Then MsgBox "No hay pedidos pendientes de revisar.", vbInformation
   CargarFila
 End Sub
@@ -123,7 +125,7 @@ Private Function AddCbo(L As Single, tp As Single, w As Single) As MSForms.Combo
 End Function
 Private Function PlaceBtn(cap As String, L As Single, tp As Single, w As Single, col As Long, tip As String) As MSForms.CommandButton
   Dim b As MSForms.CommandButton: Set b = Me.Controls.Add("Forms.CommandButton.1")
-  b.Caption = cap: b.Left = L: b.Top = tp: b.Width = w: b.Height = 32
+  b.Caption = cap: b.Left = L: b.Top = tp: b.Width = w: b.Height = 30
   b.BackColor = col: b.ForeColor = vbWhite: b.Font.Bold = True: b.ControlTipText = tip
   Set PlaceBtn = b
 End Function
@@ -138,7 +140,8 @@ Private Function Explicacion(ByVal accion As String) As String
     Case InStr(accion, "otra provincia") > 0
       Explicacion = "La parroquia que escribió el cliente pertenece a otra provincia. Revisa si está mal la provincia o la parroquia."
     Case InStr(accion, "Fuera de cobertura") > 0
-      Explicacion = "La parroquia del cliente NO está en COBERTURA. El sistema propone la cobertura más cercana (ver el motivo abajo). Acéptala o busca otra con 'Buscar cobertura'."
+      Explicacion = "La parroquia tal como la escribió el cliente no coincide con ningún nombre de COBERTURA (puede estar abreviada, mal escrita o no tener cobertura). " & _
+                    "La opción propuesta SÍ está en COBERTURA: revisa el 'Resultado'. Acéptala o busca otra con 'Buscar cobertura'."
     Case InStr(accion, "sugerida") > 0
       Explicacion = "La parroquia está mal escrita o no se reconoce. Elige la opción correcta de la lista."
     Case InStr(accion, "de la dirección") > 0
@@ -238,6 +241,12 @@ Private Sub CargarFila()
   LlenarSugerencias r
   mCarga = False
   ActualizarInfo
+  ' seguir la fila en Excel
+  On Error Resume Next
+  wsD.Activate
+  wsD.Cells(r, C_REF).Select
+  ActiveWindow.ScrollRow = IIf(r > 5, r - 4, 1)
+  On Error GoTo 0
 End Sub
 
 Private Sub ActualizarInfo()
@@ -314,6 +323,25 @@ Private Sub cboParr_Change()
   ActualizarInfo
 End Sub
 
+Private Sub lstSug_MouseMove(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+  RuedaActivar lstSug, mTitulo
+End Sub
+Private Sub UserForm_MouseMove(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+  RuedaDesactivar
+End Sub
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+  RuedaDesactivar
+End Sub
+' Al cerrar el validador vuelve el panel (si estaba abierto)
+Private Sub UserForm_Terminate()
+  Dim i As Long
+  RuedaDesactivar
+  On Error Resume Next
+  For i = 0 To VBA.UserForms.Count - 1
+    If VBA.UserForms(i).Name = "frmPanel" Then VBA.UserForms(i).Show vbModeless
+  Next
+End Sub
+
 Private Sub lstSug_Click()
   If lstSug.ListIndex < 0 Then Exit Sub
   Dim parr As String, cant As String
@@ -379,6 +407,7 @@ Private Sub btnAplicar_Click()
   LogP "Fila " & r & " pedido " & TX(wsD.Cells(r, C_REF)) & ": aprobado por el operario -> " & cboProv.Text & "/" & cant & "/" & parr & IIf(cambio, " (modificado)", " (propuesta del sistema)")
   nAprob = nAprob + 1
   If idx >= rws.Count Then
+    LogP "VALIDADOR: revisión terminada, " & nAprob & " aprobados por el operario"
     MsgBox "Revisión terminada. Aprobados: " & nAprob & vbCrLf & "Siguiente paso: '5 Aplicar aprobados'.", vbInformation
     Unload Me
   Else
