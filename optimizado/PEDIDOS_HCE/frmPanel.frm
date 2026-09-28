@@ -383,7 +383,7 @@ Private Sub CargarZonas()
             Array(32, 105, 110, 140, 200, 120, 200), 7
   mColFila = 1: mHoja = "ZONAS PELIGROSAS"
   Dim wz As Worksheet, lr As Long, lc As Long, v, i As Long, n As Long
-  Dim cP As Long, cC As Long, cQ As Long, cZ As Long, cS As Long, cPt As Long, cD As Long, cV As Long
+  Dim cP As Long, cC As Long, cQ As Long, cZ As Long, cS As Long, cPt As Long, cD As Long, cVal As Long
   mN = 0
   On Error Resume Next
   Set wz = ThisWorkbook.Worksheets("ZONAS PELIGROSAS")
@@ -394,7 +394,7 @@ Private Sub CargarZonas()
   If lr < 2 Then Exit Sub
   cP = FindCol(wz, lc, "PROVINCIA"): cC = FindCol(wz, lc, "CIUDAD"): cQ = FindCol(wz, lc, "PARROQUIA")
   cZ = FindCol(wz, lc, "ZONA PELIGROSA"): cS = FindCol(wz, lc, "SECTOR"): cPt = FindCol(wz, lc, "PUNTO DE ATENCION")
-  cD = FindCol(wz, lc, "DIRECC"): cV = FindCol(wz, lc, "VALIDACION")
+  cD = FindCol(wz, lc, "DIRECC"): cVal = FindCol(wz, lc, "VALIDACION")
   v = wz.Range(wz.Cells(1, 1), wz.Cells(lr, lc)).Value
   ReDim mData(1 To lr - 1, 1 To mNf)
   For i = 2 To lr
@@ -403,7 +403,7 @@ Private Sub CargarZonas()
       mData(n, 1) = CStr(i)
       mData(n, 2) = CV(v, i, cP): mData(n, 3) = CV(v, i, cC): mData(n, 4) = CV(v, i, cQ)
       mData(n, 5) = CV(v, i, cZ): mData(n, 6) = CV(v, i, cS): mData(n, 7) = CV(v, i, cPt)
-      mData(n, 8) = CV(v, i, cD): mData(n, 9) = CV(v, i, cV)
+      mData(n, 8) = CV(v, i, cD): mData(n, 9) = CV(v, i, cVal)
     End If
   Next
   mN = n

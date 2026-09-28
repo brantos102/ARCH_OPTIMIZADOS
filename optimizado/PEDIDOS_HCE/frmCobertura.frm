@@ -128,7 +128,7 @@ End Function
 ' ---------- datos ----------
 Private Sub CargarDatos()
   Dim wc As Worksheet, lr As Long, lc As Long, v, i As Long, n As Long, f As Long
-  Dim cQ As Long, cR As Long, cS As Long, P As String, nc As String, Q As String, tr As String, marca As String, rk As Long
+  Dim cQ As Long, cR As Long, cS As Long, P As String, nCan As String, Q As String, tr As String, marca As String, rk As Long
   Dim nz As Long, pts As String, provs As Object, k
   Set wc = ThisWorkbook.Worksheets("COBERTURA")
   lr = wc.Cells(wc.Rows.Count, 1).End(xlUp).Row
@@ -141,15 +141,15 @@ Private Sub CargarDatos()
   For i = 2 To lr
     If Len(VS(v(i, 1))) > 0 Then
       n = n + 1
-      P = Normaliza(VS(v(i, 1))): nc = Normaliza(VS(v(i, 2))): Q = Normaliza(VS(v(i, 3)))
+      P = Normaliza(VS(v(i, 1))): nCan = Normaliza(VS(v(i, 2))): Q = Normaliza(VS(v(i, 3)))
       If cS > 0 Then tr = UCase$(VS(v(i, cS))) Else tr = ""
       marca = "": rk = 9
-      If Len(mSugQ) > 0 And P = mSugP And nc = mSugNc And Q = mSugQ Then marca = "SUGERIDA": rk = 1
+      If Len(mSugQ) > 0 And P = mSugP And nCan = mSugNc And Q = mSugQ Then marca = "SUGERIDA": rk = 1
       If Len(mCtxP) > 0 And P = mCtxP And Len(Q) >= 4 And InStr(mCtxA, " " & Q & " ") > 0 Then
         marca = marca & IIf(Len(marca) > 0, " + ", "") & "DIRECCION"
         If rk > 2 Then rk = 2
       End If
-      If Q = nc Then
+      If Q = nCan Then
         marca = marca & IIf(Len(marca) > 0, " + ", "") & "PRINCIPAL"
         If rk > 3 Then rk = 3
       End If
@@ -161,7 +161,7 @@ Private Sub CargarDatos()
         marca = marca & IIf(Len(marca) > 0, " + ", "") & "CS"
         If rk > 5 Then rk = 5
       End If
-      nz = ContarZonas(P, nc, Q, pts)
+      nz = ContarZonas(P, nCan, Q, pts)
       If nz > 0 Then marca = marca & IIf(Len(marca) > 0, " + ", "") & "ZONA(" & nz & ")"
       mData(n, 1) = marca
       mData(n, 2) = VS(v(i, 3)): mData(n, 3) = VS(v(i, 2)): mData(n, 4) = VS(v(i, 1)): mData(n, 5) = VS(v(i, 4))
