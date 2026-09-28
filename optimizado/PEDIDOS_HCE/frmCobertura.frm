@@ -11,7 +11,7 @@ Private Const BASE_H As Single = 580
 Private Const TITULO As String = "Buscar cobertura HYCITE"
 
 Private mData() As String, mNorm() As String, mRank() As Long, mN As Long
-Private mIdx() As Long, mNIdx As Long, mCarga As Boolean, mInW0 As Single, mInH0 As Single
+Private mIdx() As Long, mNIdx As Long, mCarga As Boolean, mLay As Variant, mCW As Single, mCH As Single, mEsc As Double, mEscalando As Boolean
 Private mCtxP As String, mCtxNc As String, mCtxQ As String, mCtxA As String, mSugP As String, mSugQ As String, mSugNc As String, mSugMot As String
 Private lblCtx As MSForms.Label, lblInfo As MSForms.Label, lblCnt As MSForms.Label
 Private WithEvents cboProv As MSForms.ComboBox
@@ -78,19 +78,26 @@ Private Sub UserForm_Initialize()
   End If
   bAsignar.Enabled = FormAbierto("frmValidar") And Len(gCtxPedido) > 0
   CargarDatos
-  mInW0 = Me.InsideWidth: mInH0 = Me.InsideHeight
+  mLay = CapturarLayout(Me, mCW, mCH): mEsc = 1       ' diseño al 100 %
   HacerRedimensionable TITULO
   AjustarAPantalla Me, BASE_W, BASE_H, 0.85
+  Reescalar
 End Sub
 
 Private Sub UserForm_Resize()
-  If mInW0 = 0 Or mInH0 = 0 Then Exit Sub
+  Reescalar
+End Sub
+
+' Reacomoda todos los controles al tamaño actual de la ventana (sin Zoom)
+Private Sub Reescalar()
+  If Not IsArray(mLay) Or mEscalando Then Exit Sub
   Dim f As Double
-  f = Me.InsideWidth / mInW0
-  If Me.InsideHeight / mInH0 < f Then f = Me.InsideHeight / mInH0
-  If f < 0.4 Then f = 0.4
-  If f > 3 Then f = 3
-  If Abs(Me.Zoom - f * 100) > 1 Then Me.Zoom = f * 100
+  f = EscalaAjuste(Me, mCW, mCH)
+  If Abs(f - mEsc) < 0.01 Then Exit Sub
+  mEscalando = True
+  mEsc = f
+  EscalarLayout Me, mLay, f, mCW, mCH
+  mEscalando = False
 End Sub
 
 Private Function NL(cap As String, L As Single, tp As Single, w As Single, Optional bold As Boolean = False) As MSForms.Label

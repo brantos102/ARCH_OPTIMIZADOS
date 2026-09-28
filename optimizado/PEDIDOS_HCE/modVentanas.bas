@@ -90,9 +90,12 @@ fallo:
   AreaTrabajo = False
 End Function
 
-' Ajusta un formulario al porcentaje indicado de la pantalla y devuelve el zoom aplicado.
+' Da al formulario un tamaño inicial que quepa en la pantalla (sin usar Zoom).
+' El contenido se reacomoda luego con EscalarLayout desde el evento Resize del formulario.
 ' alinear: 0 = centrado, 1 = a la derecha (deja ver Excel a la izquierda)
-Public Function AjustarAPantalla(frm As Object, ByVal baseW As Single, ByVal baseH As Single, ByVal pct As Double, Optional ByVal alinear As Long = 0) As Double
+' maxCrec: cuánto puede crecer respecto al diseño (1.15 = 115 %) para no quedar gigante.
+Public Function AjustarAPantalla(frm As Object, ByVal baseW As Single, ByVal baseH As Single, ByVal pct As Double, _
+                                 Optional ByVal alinear As Long = 0, Optional ByVal maxCrec As Double = 1.15) As Double
   Dim L As Single, T As Single, W As Single, H As Single, f As Double
   If Not AreaTrabajo(L, T, W, H) Then
     L = 0: T = 0: W = Application.UsableWidth: H = Application.UsableHeight + 60
@@ -106,18 +109,103 @@ Public Function AjustarAPantalla(frm As Object, ByVal baseW As Single, ByVal bas
   On Error GoTo 0
   f = (W * pct) / baseW
   If (H * pct) / baseH < f Then f = (H * pct) / baseH
-  If f < 0.5 Then f = 0.5
-  If f > 2.5 Then f = 2.5
+  If f > maxCrec Then f = maxCrec
+  If f < 0.45 Then f = 0.45
   frm.StartUpPosition = 0
-  frm.Zoom = f * 100
+  frm.Zoom = 100
   frm.Width = baseW * f: frm.Height = baseH * f
+  If frm.Width > W Then frm.Width = W
+  If frm.Height > H Then frm.Height = H
   If alinear = 1 Then
     frm.Left = L + W - frm.Width - 4: frm.Top = T + (H - frm.Height) / 2
   Else
     frm.Left = L + (W - frm.Width) / 2: frm.Top = T + (H - frm.Height) / 2
   End If
+  If frm.Left < L Then frm.Left = L
   If frm.Top < T Then frm.Top = T
   AjustarAPantalla = f
+End Function
+
+' =====================================================================================
+'  ESCALADO PROPIO (reemplaza a UserForm.Zoom, que falla con el escalado de Windows
+'  125 %/150 % y dejaba botones fuera de la ventana).
+'  CapturarLayout guarda posición, tamaño, fuente y anchos de columna de cada control
+'  tal como se diseñaron; EscalarLayout los recalcula para que TODO quepa en el área
+'  interior real de la ventana. Si la ventana es demasiado chica aparecen barras de
+'  desplazamiento, así ningún botón queda inalcanzable.
+' =====================================================================================
+Public Function CapturarLayout(frm As Object, ByRef contW As Single, ByRef contH As Single) As Variant
+  Dim c As Object, n As Long, i As Long, a() As Variant
+  n = frm.Controls.Count
+  contW = 0: contH = 0
+  If n = 0 Then CapturarLayout = Empty: Exit Function
+  ReDim a(1 To n, 1 To 7)
+  On Error Resume Next
+  For Each c In frm.Controls
+    i = i + 1
+    a(i, 1) = c.Name: a(i, 2) = c.Left: a(i, 3) = c.Top: a(i, 4) = c.Width: a(i, 5) = c.Height
+    a(i, 6) = 0: a(i, 6) = c.Font.Size
+    a(i, 7) = ""
+    If TypeName(c) = "ListBox" Then c.IntegralHeight = False: a(i, 7) = c.ColumnWidths
+    If TypeName(c) = "ComboBox" Then a(i, 7) = c.ColumnWidths
+    If c.Left + c.Width > contW Then contW = c.Left + c.Width
+    If c.Top + c.Height > contH Then contH = c.Top + c.Height
+  Next
+  On Error GoTo 0
+  contW = contW + 8: contH = contH + 8
+  CapturarLayout = a
+End Function
+
+' Factor que hace caber el contenido (contW x contH) en el interior actual del formulario
+Public Function EscalaAjuste(frm As Object, ByVal contW As Single, ByVal contH As Single) As Double
+  Dim f As Double
+  If contW <= 0 Or contH <= 0 Then EscalaAjuste = 1: Exit Function
+  f = frm.InsideWidth / contW
+  If frm.InsideHeight / contH < f Then f = frm.InsideHeight / contH
+  If f < 0.6 Then f = 0.6          ' más chico ya no se lee: se usan barras de desplazamiento
+  If f > 2 Then f = 2
+  EscalaAjuste = f
+End Function
+
+Public Sub EscalarLayout(frm As Object, lay As Variant, ByVal f As Double, ByVal contW As Single, ByVal contH As Single)
+  Dim i As Long, c As Object, fs As Double
+  If Not IsArray(lay) Then Exit Sub
+  On Error Resume Next
+  frm.Zoom = 100
+  For i = 1 To UBound(lay, 1)
+    Set c = Nothing
+    Set c = frm.Controls(CStr(lay(i, 1)))
+    If Not c Is Nothing Then
+      c.Left = lay(i, 2) * f: c.Top = lay(i, 3) * f
+      c.Width = lay(i, 4) * f: c.Height = lay(i, 5) * f
+      If lay(i, 6) > 0 Then
+        fs = Round(lay(i, 6) * f, 1): If fs < 6 Then fs = 6
+        c.Font.Size = fs
+      End If
+      If Len(lay(i, 7)) > 0 Then c.ColumnWidths = EscalarColumnas(CStr(lay(i, 7)), f)
+    End If
+  Next
+  ' respaldo: si aun así no cabe (ventana muy chica), barras de desplazamiento
+  frm.KeepScrollBarsVisible = 0
+  If contW * f > frm.InsideWidth + 1 Or contH * f > frm.InsideHeight + 1 Then
+    frm.ScrollBars = 3
+    frm.ScrollWidth = contW * f: frm.ScrollHeight = contH * f
+  Else
+    frm.ScrollBars = 0
+    frm.ScrollLeft = 0: frm.ScrollTop = 0
+  End If
+  On Error GoTo 0
+End Sub
+
+' "190 pt;130 pt;360 pt" x f  ->  "209;143;396"
+Public Function EscalarColumnas(ByVal cw As String, ByVal f As Double) As String
+  Dim p, i As Long, r As String, v As Double
+  p = Split(cw, ";")
+  For i = LBound(p) To UBound(p)
+    v = Val(Replace(Trim$(CStr(p(i))), ",", "."))
+    r = r & IIf(i > LBound(p), ";", "") & CStr(CLng(v * f))
+  Next
+  EscalarColumnas = r
 End Function
 
 ' Mostrar Excel (el panel se oculta; se vuelve con Complementos > Panel HYCITE)

@@ -14,7 +14,7 @@ Private Const C_NN As Long = 14, C_REF As Long = 3, C_DIR As Long = 2, C_SIG As 
 Private Const C_PROV As Long = 6, C_CANT As Long = 7, C_PARR As Long = 8, C_CORR As Long = 30
 
 Private rws As Collection, idx As Long, wsD As Worksheet, nAprob As Long, mCarga As Boolean, mMotivo As String
-Private mTitulo As String, mInW0 As Single, mInH0 As Single
+Private mTitulo As String, mLay As Variant, mCW As Single, mCH As Single, mEsc As Double, mEscalando As Boolean
 Private lblRef As MSForms.Label, lblDir As MSForms.Label, lblCli As MSForms.Label
 Private lblPorQue As MSForms.Label, lblInfo As MSForms.Label, lblReco As MSForms.Label
 Private WithEvents cboProv As MSForms.ComboBox
@@ -97,21 +97,28 @@ Private Sub UserForm_Initialize()
   End If
   mTitulo = "Revisión de cobertura HYCITE" & IIf(soloRev, " - solo REVISAR (" & rws.Count & ")", "")
   Me.Caption = mTitulo
-  mInW0 = Me.InsideWidth: mInH0 = Me.InsideHeight
+  mLay = CapturarLayout(Me, mCW, mCH): mEsc = 1       ' diseño al 100 %
   HacerRedimensionable mTitulo
-  AjustarAPantalla Me, BASE_W, BASE_H, 0.9, 1     ' a la derecha: Excel (DEPOT) visible a la izquierda
+  AjustarAPantalla Me, BASE_W, BASE_H, 0.92, 1    ' a la derecha: Excel (DEPOT) visible a la izquierda
+  Reescalar
   If rws.Count = 0 Then MsgBox "No hay pedidos pendientes de revisar.", vbInformation
   CargarFila
 End Sub
 
 Private Sub UserForm_Resize()
-  If mInW0 = 0 Or mInH0 = 0 Then Exit Sub
+  Reescalar
+End Sub
+
+' Reacomoda todos los controles al tamaño actual de la ventana (sin Zoom)
+Private Sub Reescalar()
+  If Not IsArray(mLay) Or mEscalando Then Exit Sub
   Dim f As Double
-  f = Me.InsideWidth / mInW0
-  If Me.InsideHeight / mInH0 < f Then f = Me.InsideHeight / mInH0
-  If f < 0.4 Then f = 0.4
-  If f > 3 Then f = 3
-  If Abs(Me.Zoom - f * 100) > 1 Then Me.Zoom = f * 100
+  f = EscalaAjuste(Me, mCW, mCH)
+  If Abs(f - mEsc) < 0.01 Then Exit Sub
+  mEscalando = True
+  mEsc = f
+  EscalarLayout Me, mLay, f, mCW, mCH
+  mEscalando = False
 End Sub
 
 Private Function AddLbl(t As String, L As Single, tp As Single, Optional w As Single = 60, Optional bold As Boolean = False) As MSForms.Label

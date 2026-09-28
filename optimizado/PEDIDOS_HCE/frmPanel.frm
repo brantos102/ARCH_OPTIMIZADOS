@@ -17,7 +17,7 @@ Private Const TITULO As String = "Panel de validación HYCITE - Etapa 1: pedidos
 
 Private wsD As Worksheet
 Private mVista As String, mCargando As Boolean, mListo As Boolean
-Private mInW0 As Single, mInH0 As Single, txtLog As MSForms.TextBox
+Private mLay As Variant, mCW As Single, mCH As Single, mEsc As Double, mEscalando As Boolean, txtLog As MSForms.TextBox
 Private mData() As String, mNorm() As String, mBus() As String
 Private mN As Long, mNf As Long, mNd As Long
 Private mHdr() As String, mW() As Single, mColFila As Long, mHoja As String
@@ -161,9 +161,10 @@ Private Sub UserForm_Initialize()
                       "CORREGIDOS", "SIN APLICAR", "SIN VALIDAR", "DESTINO PRO (TRAMACO)", "DESTINO UIO", "DESTINO GYE", "DESTINO GPS")
     cboRapido.AddItem f
   Next
-  mInW0 = Me.InsideWidth: mInH0 = Me.InsideHeight   ' medidas al 100 %
+  mLay = CapturarLayout(Me, mCW, mCH): mEsc = 1       ' diseño al 100 %
   HacerRedimensionable TITULO
   AjustarAPantalla Me, BASE_W, BASE_H, 0.96
+  Reescalar
   mCargando = False
   cboVista.ListIndex = 0          ' carga PEDIDOS
   mListo = True
@@ -172,13 +173,20 @@ End Sub
 
 ' Al arrastrar el borde o maximizar, toda la interfaz se escala
 Private Sub UserForm_Resize()
-  If mInW0 = 0 Or mInH0 = 0 Then Exit Sub
+  Reescalar
+End Sub
+
+' Reacomoda todos los controles al tamaño actual de la ventana (sin Zoom)
+Private Sub Reescalar()
+  If Not IsArray(mLay) Or mEscalando Then Exit Sub
   Dim f As Double
-  f = Me.InsideWidth / mInW0
-  If Me.InsideHeight / mInH0 < f Then f = Me.InsideHeight / mInH0
-  If f < 0.4 Then f = 0.4
-  If f > 3 Then f = 3
-  If Abs(Me.Zoom - f * 100) > 1 Then Me.Zoom = f * 100
+  f = EscalaAjuste(Me, mCW, mCH)
+  If Abs(f - mEsc) < 0.01 Then Exit Sub
+  mEscalando = True
+  mEsc = f
+  EscalarLayout Me, mLay, f, mCW, mCH
+  If mNd > 0 Then PonerEncabezados
+  mEscalando = False
 End Sub
 
 ' ---------- registro de actividad ----------
@@ -433,13 +441,14 @@ Private Sub CargarDatos()
 End Sub
 
 Private Sub PonerEncabezados()
-  Dim i As Long, x As Single, w As String
-  x = lst.Left + 3
+  Dim i As Long, x As Single, w As String, e As Double
+  e = mEsc: If e <= 0 Then e = 1          ' escala actual de la ventana
+  x = lst.Left + 3 * e
   For i = 1 To 14
     If i <= mNd Then
-      hdr(i).Caption = " " & mHdr(i): hdr(i).Left = x: hdr(i).Width = mW(i) - 1: hdr(i).Visible = True
-      x = x + mW(i)
-      w = w & IIf(Len(w) > 0, ";", "") & CStr(CLng(mW(i)))
+      hdr(i).Caption = " " & mHdr(i): hdr(i).Left = x: hdr(i).Width = mW(i) * e - 1: hdr(i).Visible = True
+      x = x + mW(i) * e
+      w = w & IIf(Len(w) > 0, ";", "") & CStr(CLng(mW(i) * e))
     Else
       hdr(i).Visible = False
     End If
@@ -828,6 +837,7 @@ Private Sub bMas_Click()
 End Sub
 Private Sub bAjus_Click()
   AjustarAPantalla Me, BASE_W, BASE_H, 0.96
+  Reescalar
 End Sub
 Private Sub bLogL_Click()
   txtLog.Text = ""

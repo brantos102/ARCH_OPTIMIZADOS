@@ -44,6 +44,10 @@ y todo el proceso se hace desde ahí.
     y letra);
   - también puedes usar **A−**, **A+** y **Ajustar**.
   - frmValidar y frmCobertura también se pueden agrandar.
+  - El escalado **no usa `Zoom`** (con Windows al 125 %/150 % dejaba botones fuera de la ventana): cada control se
+    reubica y cambia de tamaño y de letra para que **todo quepa en el interior real de la ventana**. Al abrir, ninguna
+    ventana crece más de 115 % del diseño ni sale de la pantalla; si la achicas demasiado aparecen **barras de
+    desplazamiento**, así ningún botón queda inalcanzable.
 
 > **Por qué no se minimiza Excel.** Con Excel minimizado, sus mensajes (confirmaciones, avisos de "¿aplicar?",
 > resultados) quedan ocultos en la barra de tareas y el proceso parece congelado. Por eso el panel cubre la pantalla y
