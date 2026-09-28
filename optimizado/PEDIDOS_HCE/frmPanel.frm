@@ -9,13 +9,15 @@ Option Explicit
 '   - Columna SEÑAL: zona peligrosa, verificar sector, revisar, cobertura cercana, aprobado, corregido
 '   - Detalle del pedido: original vs propuesta, gestor asignado vs cobertura (Q) vs sugerido (R), trayecto (S)
 ' =====================================================================================
-Private Const BASE_W As Single = 1000
-Private Const BASE_H As Single = 600
-Private Const X0 As Single = 166          ' inicio del área derecha
-Private Const ANCHO As Single = 826       ' ancho del área derecha
+Private Const BASE_W As Single = 1180
+Private Const BASE_H As Single = 700
+Private Const X0 As Single = 176          ' inicio del área derecha
+Private Const ANCHO As Single = 994       ' ancho del área derecha
+Private Const TITULO As String = "Panel de validación HYCITE - Etapa 1: pedidos y cobertura"
 
 Private wsD As Worksheet
 Private mVista As String, mCargando As Boolean, mListo As Boolean
+Private mInW0 As Single, mInH0 As Single, txtLog As MSForms.TextBox
 Private mData() As String, mNorm() As String, mBus() As String
 Private mN As Long, mNf As Long, mNd As Long
 Private mHdr() As String, mW() As Single, mColFila As Long, mHoja As String
@@ -49,6 +51,13 @@ Private WithEvents bRef As MSForms.CommandButton
 Private WithEvents bDesb As MSForms.CommandButton
 Private WithEvents bCer As MSForms.CommandButton
 Private WithEvents bLimpF As MSForms.CommandButton
+Private WithEvents bCob As MSForms.CommandButton      ' Buscar cobertura
+Private WithEvents bDiag As MSForms.CommandButton     ' Diagnóstico
+Private WithEvents bExcel As MSForms.CommandButton    ' Ver Excel
+Private WithEvents bMenos As MSForms.CommandButton    ' A-
+Private WithEvents bMas As MSForms.CommandButton      ' A+
+Private WithEvents bAjus As MSForms.CommandButton     ' ajustar a pantalla
+Private WithEvents bLogL As MSForms.CommandButton     ' limpiar registro
 
 ' =====================================================================================
 '  Construcción de la interfaz
@@ -56,12 +65,12 @@ Private WithEvents bLimpF As MSForms.CommandButton
 Private Sub UserForm_Initialize()
   Set wsD = ThisWorkbook.Worksheets("DEPOT")
   mCargando = True
-  Me.Caption = "Panel de validación HYCITE - Etapa 1: pedidos y cobertura"
-  Me.Width = BASE_W: Me.Height = BASE_H
+  Me.Caption = TITULO
+  Me.Zoom = 100: Me.Width = BASE_W: Me.Height = BASE_H
 
   ' ----- pasos (columna izquierda) -----
   Dim t As MSForms.Label, i As Long
-  Set t = NewLbl("PASOS DEL PROCESO", 8, 6, 150, True): t.ForeColor = RGB(48, 84, 150)
+  Set t = NewLbl("PASOS DEL PROCESO", 8, 6, 160, True): t.ForeColor = RGB(48, 84, 150)
   Set b0 = PasoBtn(0, "0 Actualizar datos", RGB(89, 89, 89), _
     "Trae los pedidos del día desde DEPOT y la lista de TMS (consultas). Luego ofrece limpiar la validación anterior.")
   Set b1 = PasoBtn(1, "1 Limpiar", RGB(127, 127, 127), _
@@ -78,14 +87,24 @@ Private Sub UserForm_Initialize()
     "Recalcula sigla, gestor y zona si editaste a mano las columnas F:H.")
   Set b7 = PasoBtn(7, "7 Enviar a EGR", RGB(0, 128, 96), _
     "Envía los pedidos a la hoja DATOS del archivo Formato EGR_FL_HYCITE (debe estar abierto).")
-  Set lblGuia = NewLbl("", 8, 300, 150, True)
-  lblGuia.Height = 72: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204)
+  Set lblGuia = NewLbl("", 8, 284, 160, True)
+  lblGuia.Height = 66: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204)
   lblGuia.BorderStyle = fmBorderStyleSingle: lblGuia.ForeColor = RGB(128, 64, 0)
-  Set bCamb = Btn("Exportar CAMBIOS", 8, 380, 150, 26, RGB(84, 130, 53), "Guarda en un archivo los cambios de hoy o todo el historial.")
-  Set bIr = Btn("Ir a la fila en Excel", 8, 410, 150, 26, RGB(120, 120, 120), "Selecciona en la hoja la fila del registro elegido.")
-  Set bRef = Btn("Actualizar lista", 8, 440, 150, 26, RGB(120, 120, 120), "Vuelve a leer la hoja (usa después de editar en Excel).")
-  Set bDesb = Btn("Desbloquear", 8, 470, 150, 26, RGB(120, 120, 120), "Restaura pantalla, eventos y cálculo si Excel quedó bloqueado.")
-  Set bCer = Btn("Cerrar panel", 8, 536, 150, 26, RGB(192, 80, 77), "Cierra este panel (los datos quedan en la hoja).")
+  Set t = NewLbl("HERRAMIENTAS", 8, 356, 160, True): t.ForeColor = RGB(48, 84, 150)
+  Set bCob = Btn("Buscar cobertura", 8, 372, 160, 26, RGB(47, 117, 181), _
+    "Abre el buscador de COBERTURA (provincia, cantón, parroquia) con la parroquia principal, la más cercana a la dirección y el gestor.")
+  Set bDiag = Btn("Diagnóstico de errores", 8, 402, 160, 26, RGB(192, 80, 77), _
+    "Revisa todos los pedidos: parroquia inexistente, cantón mal redactado, duplicados, sin teléfono, zonas. El detalle queda en el registro.")
+  Set bCamb = Btn("Exportar CAMBIOS", 8, 432, 160, 26, RGB(84, 130, 53), "Guarda en un archivo los cambios de hoy o todo el historial.")
+  Set bIr = Btn("Ir a la fila en Excel", 8, 462, 160, 26, RGB(120, 120, 120), "Oculta el panel y selecciona en la hoja la fila del registro elegido.")
+  Set bRef = Btn("Actualizar lista", 8, 492, 160, 26, RGB(120, 120, 120), "Vuelve a leer la hoja (usa después de editar en Excel).")
+  Set bDesb = Btn("Desbloquear", 8, 522, 160, 26, RGB(120, 120, 120), "Restaura pantalla, eventos y cálculo si Excel quedó bloqueado.")
+  Set bExcel = Btn("Ver Excel", 8, 560, 160, 28, RGB(0, 97, 0), _
+    "Oculta el panel para trabajar en Excel. Para volver: Complementos > Panel HYCITE (los filtros se conservan).")
+  Set bMenos = Btn("A -", 8, 594, 50, 22, RGB(120, 120, 120), "Achicar el panel.")
+  Set bMas = Btn("A +", 63, 594, 50, 22, RGB(120, 120, 120), "Agrandar el panel.")
+  Set bAjus = Btn("Ajustar", 118, 594, 50, 22, RGB(120, 120, 120), "Ajustar el panel a la pantalla. También puedes arrastrar el borde de la ventana.")
+  Set bCer = Btn("Cerrar panel", 8, 640, 160, 26, RGB(192, 80, 77), "Cierra este panel (los datos quedan en la hoja).")
 
   ' ----- filtros (área derecha) -----
   NewLbl "Vista:", X0, 9, 32
@@ -121,11 +140,20 @@ Private Sub UserForm_Initialize()
     hdr(i).Font.Size = 8: hdr(i).Visible = False
   Next
   Set lst = Me.Controls.Add("Forms.ListBox.1")
-  lst.Left = X0: lst.Top = 102: lst.Width = ANCHO: lst.Height = 336: lst.Font.Size = 8
+  lst.Left = X0: lst.Top = 102: lst.Width = ANCHO: lst.Height = 380: lst.Font.Size = 8
   lst.ControlTipText = "Clic = ver detalle abajo. Doble clic = abrir el pedido en el validador (o ir a la fila en COBERTURA/ZONAS)."
-  Set lblDet = NewLbl("Selecciona un registro para ver el detalle.", X0, 444, ANCHO, False)
-  lblDet.Height = 118: lblDet.WordWrap = True: lblDet.BorderStyle = fmBorderStyleSingle
+  Set t = NewLbl("DETALLE DEL REGISTRO", X0, 488, 590, True): t.ForeColor = RGB(48, 84, 150)
+  Set lblDet = NewLbl("Selecciona un registro para ver el detalle.", X0, 504, 590, False)
+  lblDet.Height = 166: lblDet.WordWrap = True: lblDet.BorderStyle = fmBorderStyleSingle
   lblDet.BackColor = RGB(248, 248, 248): lblDet.Font.Size = 9
+
+  Set t = NewLbl("REGISTRO DE ACTIVIDAD (avance de procesos y errores)", X0 + 600, 488, 330, True): t.ForeColor = RGB(48, 84, 150)
+  Set bLogL = Btn("Limpiar", X0 + 934, 486, 60, 16, RGB(150, 150, 150), "Vacía el registro en pantalla (la hoja oculta LOG_PROCESO conserva el historial).")
+  Set txtLog = Me.Controls.Add("Forms.TextBox.1")
+  txtLog.Left = X0 + 600: txtLog.Top = 504: txtLog.Width = 394: txtLog.Height = 166
+  txtLog.MultiLine = True: txtLog.ScrollBars = fmScrollBarsVertical: txtLog.Locked = True: txtLog.WordWrap = True
+  txtLog.Font.Name = "Consolas": txtLog.Font.Size = 8: txtLog.BackColor = RGB(30, 30, 30): txtLog.ForeColor = RGB(220, 220, 220)
+  CargarLogPrevio
 
   Dim f
   For Each f In Array("PEDIDOS", "COBERTURA", "ZONAS PELIGROSAS"): cboVista.AddItem f: Next
@@ -133,30 +161,62 @@ Private Sub UserForm_Initialize()
                       "CORREGIDOS", "SIN APLICAR", "SIN VALIDAR", "DESTINO PRO (TRAMACO)", "DESTINO UIO", "DESTINO GYE", "DESTINO GPS")
     cboRapido.AddItem f
   Next
-  AjustarPantalla
+  mInW0 = Me.InsideWidth: mInH0 = Me.InsideHeight   ' medidas al 100 %
+  HacerRedimensionable TITULO
+  AjustarAPantalla Me, BASE_W, BASE_H, 0.96
   mCargando = False
   cboVista.ListIndex = 0          ' carga PEDIDOS
   mListo = True
+  LogP "PANEL: abierto por " & Application.UserName
 End Sub
 
-Private Sub AjustarPantalla()
-  Dim fct As Double, uw As Double, uh As Double
-  On Error Resume Next
-  uw = Application.UsableWidth: uh = Application.UsableHeight
-  On Error GoTo 0
-  fct = 1
-  If uw > 200 Then
-    If uw - 20 < BASE_W * fct Then fct = (uw - 20) / BASE_W
-  End If
-  If uh > 200 Then
-    If uh - 10 < BASE_H * fct Then fct = (uh - 10) / BASE_H
-  End If
-  If fct < 0.6 Then fct = 0.6
-  If fct < 1 Then
-    Me.Zoom = fct * 100
-    Me.Width = BASE_W * fct: Me.Height = BASE_H * fct
-  End If
+' Al arrastrar el borde o maximizar, toda la interfaz se escala
+Private Sub UserForm_Resize()
+  If mInW0 = 0 Or mInH0 = 0 Then Exit Sub
+  Dim f As Double
+  f = Me.InsideWidth / mInW0
+  If Me.InsideHeight / mInH0 < f Then f = Me.InsideHeight / mInH0
+  If f < 0.4 Then f = 0.4
+  If f > 3 Then f = 3
+  If Abs(Me.Zoom - f * 100) > 1 Then Me.Zoom = f * 100
 End Sub
+
+' ---------- registro de actividad ----------
+Public Sub AgregarLog(ByVal linea As String)
+  If txtLog Is Nothing Then Exit Sub
+  Dim t As String
+  t = txtLog.Text
+  If Len(t) > 60000 Then t = Right$(t, 40000)
+  txtLog.Text = t & IIf(Len(t) > 0, vbCrLf, "") & linea
+  txtLog.SelStart = Len(txtLog.Text)
+  Me.Repaint
+End Sub
+
+Private Sub CargarLogPrevio()
+  Dim it, t As String
+  If gLog Is Nothing Then Exit Sub
+  For Each it In gLog
+    t = t & IIf(Len(t) > 0, vbCrLf, "") & it
+  Next
+  txtLog.Text = t
+  txtLog.SelStart = Len(t)
+End Sub
+
+' Ejecuta un paso evitando lanzar dos procesos a la vez
+Private Function Ejecutar(ByVal macro As String) As Boolean
+  If gOcupado Then MsgBox "Hay un proceso en curso. Espera a que termine.", vbInformation: Exit Function
+  gOcupado = True
+  On Error GoTo fallo
+  Application.Run macro
+  gOcupado = False
+  Ejecutar = True
+  Exit Function
+fallo:
+  gOcupado = False
+  LogP "Error en " & macro & ": " & Err.Description, "ERROR"
+  MsgBox "Error en " & macro & ": " & Err.Description, vbExclamation
+End Function
+
 
 Private Function NewLbl(cap As String, L As Single, tp As Single, w As Single, Optional bold As Boolean = False) As MSForms.Label
   Dim c As MSForms.Label: Set c = Me.Controls.Add("Forms.Label.1")
@@ -183,7 +243,7 @@ Private Function Btn(cap As String, L As Single, tp As Single, w As Single, h As
 End Function
 Private Function PasoBtn(ByVal i As Long, cap As String, col As Long, tip As String) As MSForms.CommandButton
   Dim b As MSForms.CommandButton
-  Set b = Btn(cap, 8, 24 + i * 34, 150, 30, col, tip)
+  Set b = Btn(cap, 8, 24 + i * 32, 160, 28, col, tip)
   Set bArr(i) = b: mCap(i) = cap: mColBase(i) = col
   Set PasoBtn = b
 End Function
@@ -241,7 +301,7 @@ Private Sub CargarPedidos()
   SetCampos Array("SEÑAL", "FILA", "PEDIDO", "DESTINATARIO", "PROVINCIA", "CANTON", "PARROQUIA", "ESTADO", "CORRECCION", "GESTOR", "DEST", "TRAYECTO", _
                   "GESTOR COBERTURA (Q)", "GESTOR SUGERIDO (R)", "TIPO ENTREGA", "ZONA PELIGROSA", "ACCION", "SIGLA", "ORIGINAL CLIENTE", _
                   "DIRECCION", "SUGERENCIAS", "APLICADO"), _
-            Array(52, 28, 58, 100, 70, 72, 100, 54, 98, 56, 32, 68), 12
+            Array(56, 30, 64, 136, 86, 88, 136, 58, 122, 70, 36, 92), 12
   mColFila = 2: mHoja = "DEPOT"
   Dim lr As Long, v, i As Long, n As Long, e As String, zona As String, corr As String, apl As String
   lr = wsD.Cells(wsD.Rows.Count, 3).End(xlUp).Row
@@ -290,7 +350,7 @@ End Sub
 Private Sub CargarCobertura()
   SetCampos Array("FILA", "PROVINCIA", "CANTON", "PARROQUIA", "SIGLA", "GESTOR (Q)", "SUGERIDO (R)", "TRAYECTO (S)", "ZONA", _
                   "TIEMPO", "DIAS FRECUENCIA", "TIPO DE TRAYECTO"), _
-            Array(28, 90, 92, 122, 122, 122, 62, 100, 50), 9
+            Array(32, 110, 112, 150, 150, 150, 72, 120, 60), 9
   mColFila = 1: mHoja = "COBERTURA"
   Dim wc As Worksheet, lr As Long, lc As Long, v, i As Long, n As Long
   Dim cQ As Long, cR As Long, cS As Long, cZ As Long, cT As Long, cF As Long, cTT As Long
@@ -320,7 +380,7 @@ End Sub
 
 Private Sub CargarZonas()
   SetCampos Array("FILA", "PROVINCIA", "CIUDAD", "PARROQUIA", "ZONA PELIGROSA", "SECTOR", "PUNTO TMC", "DIRECCION DEL PUNTO", "VALIDACION"), _
-            Array(28, 85, 90, 115, 165, 95, 150), 7
+            Array(32, 105, 110, 140, 200, 120, 200), 7
   mColFila = 1: mHoja = "ZONAS PELIGROSAS"
   Dim wz As Worksheet, lr As Long, lc As Long, v, i As Long, n As Long
   Dim cP As Long, cC As Long, cQ As Long, cZ As Long, cS As Long, cPt As Long, cD As Long, cV As Long
@@ -551,6 +611,11 @@ Private Sub IrAFila(ByVal avisar As Boolean)
   ws.Activate
   ws.Cells(r, IIf(mHoja = "DEPOT", 3, 1)).Select
   On Error GoTo 0
+  If avisar Then
+    LogP "Ir a Excel: hoja " & mHoja & " fila " & r & " (volver: Complementos > Panel HYCITE)"
+    Me.Hide
+    MostrarExcel
+  End If
 End Sub
 
 ' =====================================================================================
@@ -672,37 +737,37 @@ Private Sub bLimpF_Click()
 End Sub
 
 Private Sub b0_Click()
-  ActualizarDatosDepot
+  Ejecutar "ActualizarDatosDepot"
   Recargar
 End Sub
 Private Sub b1_Click()
-  LimpiarValidacion
+  Ejecutar "LimpiarValidacion"
   Recargar
 End Sub
 Private Sub b2_Click()
-  ValidarPedidos
+  Ejecutar "ValidarPedidos"
   Recargar
 End Sub
 Private Sub b3_Click()
   AbrirValidadorRevisar
 End Sub
 Private Sub b4_Click()
-  AprobarTodas
+  Ejecutar "AprobarTodas"
   Recargar
 End Sub
 Private Sub b5_Click()
-  AplicarAprobados
+  Ejecutar "AplicarAprobados"
   Recargar
 End Sub
 Private Sub b6_Click()
-  ActualizarSiglas
+  Ejecutar "ActualizarSiglas"
   Recargar
 End Sub
 Private Sub b7_Click()
-  ExportarADatos
+  Ejecutar "ExportarADatos"
 End Sub
 Private Sub bCamb_Click()
-  ExportarCambios
+  Ejecutar "ExportarCambios"
 End Sub
 Private Sub bIr_Click()
   IrAFila True
@@ -715,4 +780,35 @@ Private Sub bDesb_Click()
 End Sub
 Private Sub bCer_Click()
   Unload Me
+End Sub
+
+Private Sub bCob_Click()
+  ' contexto: el pedido seleccionado (si hay uno en la vista PEDIDOS)
+  gCtxFila = 0: gCtxPedido = "": gCtxProv = "": gCtxCant = "": gCtxParr = "": gCtxDir = ""
+  If mVista = "PEDIDOS" And lst.ListIndex >= 0 And mNIdx > 0 Then
+    Dim r As Long: r = mIdx(lst.ListIndex + 1)
+    gCtxFila = CLng(mData(r, 2)): gCtxPedido = mData(r, 3)
+    gCtxProv = mData(r, 5): gCtxCant = mData(r, 6): gCtxParr = mData(r, 7): gCtxDir = mData(r, 20)
+  End If
+  AbrirCobertura
+End Sub
+Private Sub bDiag_Click()
+  Ejecutar "DiagnosticarPedidos"
+End Sub
+Private Sub bExcel_Click()
+  LogP "PANEL: oculto para ver Excel (volver: Complementos > Panel HYCITE)"
+  Me.Hide
+  MostrarExcel
+End Sub
+Private Sub bMenos_Click()
+  Me.Width = Me.Width * 0.9: Me.Height = Me.Height * 0.9
+End Sub
+Private Sub bMas_Click()
+  Me.Width = Me.Width * 1.1: Me.Height = Me.Height * 1.1
+End Sub
+Private Sub bAjus_Click()
+  AjustarAPantalla Me, BASE_W, BASE_H, 0.96
+End Sub
+Private Sub bLogL_Click()
+  txtLog.Text = ""
 End Sub

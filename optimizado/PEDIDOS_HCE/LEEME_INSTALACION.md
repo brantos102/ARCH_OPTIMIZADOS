@@ -14,16 +14,42 @@ Esta versión mantiene **los mismos nombres de macros, las mismas columnas A:U d
    | **Módulo1** | Selecciona todo el código (`Ctrl+A`), bórralo y pega [`Modulo1.bas`](Modulo1.bas) |
    | **frmValidar** (clic derecho › *Ver código*) | Borra todo y pega [`frmValidar.frm`](frmValidar.frm). El diseño del formulario no se toca: los controles se crean solos |
    | **ThisWorkbook** | Borra todo y pega [`ThisWorkbook.cls`](ThisWorkbook.cls) |
+   | **frmPanel** (si ya existe) | Borra todo y pega [`frmPanel.frm`](frmPanel.frm) |
 
-4. **Crea el panel nuevo**: *Insertar › UserForm*. En Propiedades pon `(Name)` = **frmPanel**. Abre su código, borra lo
-   que traiga y pega [`frmPanel.frm`](frmPanel.frm). **Este paso es obligatorio**, porque Módulo1 usa `frmPanel`.
+4. **Crea lo que falte**. Los tres elementos son obligatorios, porque Módulo1 los usa:
+
+   | Elemento | Cómo crearlo | Código |
+   |---|---|---|
+   | Módulo **modVentanas** | *Insertar › Módulo*; en Propiedades, `(Name)` = `modVentanas` | [`modVentanas.bas`](modVentanas.bas) |
+   | UserForm **frmCobertura** | *Insertar › UserForm*; `(Name)` = `frmCobertura` | [`frmCobertura.frm`](frmCobertura.frm) |
+   | UserForm **frmPanel** (si todavía no existe) | *Insertar › UserForm*; `(Name)` = `frmPanel` | [`frmPanel.frm`](frmPanel.frm) |
+
+   En los UserForms no hay que dibujar nada: los controles se crean solos.
 5. Ejecuta *Depuración › Compilar VBAProject*. No debe aparecer ningún error; antes fallaba por `frmRevisar`.
 6. Guarda, cierra y vuelve a abrir el libro. La pestaña **Complementos** muestra la barra nueva.
 
 > No pegues líneas que empiecen con `Attribute`: dan error de sintaxis.
 > Para volver atrás, basta con el respaldo del paso 1.
 
-## 2. Flujo diario (barra en Complementos, o botón **Panel HYCITE**)
+## 2. Flujo diario
+
+**Para empezar el día basta con _Complementos › Panel HYCITE_.** El panel se abre ocupando la pantalla, delante de Excel,
+y todo el proceso se hace desde ahí.
+
+- **Ver Excel** oculta el panel para trabajar en la hoja. Para volver, pulsa otra vez *Panel HYCITE*: vuelve igual que
+  estaba, con los filtros y la selección.
+- **Ir a la fila en Excel** oculta el panel y selecciona la fila del registro elegido.
+- **Tamaño**:
+  - arrastra el borde de la ventana o usa el botón maximizar, y **toda la interfaz se escala** (lista, filtros, botones
+    y letra);
+  - también puedes usar **A−**, **A+** y **Ajustar**.
+  - frmValidar y frmCobertura también se pueden agrandar.
+
+> **Por qué no se minimiza Excel.** Con Excel minimizado, sus mensajes (confirmaciones, avisos de "¿aplicar?",
+> resultados) quedan ocultos en la barra de tareas y el proceso parece congelado. Por eso el panel cubre la pantalla y
+> el botón *Ver Excel* lo oculta cuando necesitas la hoja.
+
+Pasos (los mismos botones están en la barra de Complementos):
 
 | Paso | Botón | Qué hace |
 |---|---|---|
@@ -105,6 +131,61 @@ código.
 | AD | TIPO_CORRECCION: SIN CAMBIO, CORREGIDO SISTEMA, COBERTURA CERCANA, CORRECCION DE ESCRITURA, DMQ → CALDERON (QUI), MANUAL OPERARIO… |
 
 CAMBIOS registra además TIPO_CORRECCION en la columna Q.
+
+### 2.3 Registro de actividad (panel, abajo a la derecha)
+
+- Muestra en vivo el avance de cada proceso:
+  - actualizar consultas (tabla por tabla, con número de filas);
+  - validar (avance cada 40 filas y cada pedido que queda en REVISAR, con el dato del cliente y la propuesta);
+  - aplicar (avance, cambios registrados y **pedidos aplicados fuera de cobertura**);
+  - aprobar en lote;
+  - enviar a EGR (archivo destino y cantidad);
+  - las aprobaciones del operario y las asignaciones desde el buscador.
+- Niveles: `[REVISAR]`, `[ZONA]`, `[AVISO]` y `[ERROR]`.
+- **Diagnóstico de errores** revisa todos los pedidos y lista:
+  - provincia inválida;
+  - **cantón mal redactado o inexistente**, con "¿quiso decir…?";
+  - **parroquia inexistente en COBERTURA**, o que existe en otro cantón;
+  - pedidos duplicados;
+  - dirección vacía o muy corta;
+  - pedidos sin teléfono o sin destinatario;
+  - pedidos aún en REVISAR o sin validar;
+  - zonas peligrosas.
+- Todo queda también en la hoja oculta **LOG_PROCESO** (fecha, nivel, mensaje y usuario), que sirve de historial.
+- Mientras un proceso corre, el panel no deja lanzar otro. Si algo queda trabado, usa **Desbloquear**.
+
+### 2.4 Buscar cobertura (frmCobertura)
+
+- Se abre desde el panel (*Buscar cobertura*, usando el pedido seleccionado) o desde el validador
+  (*Buscar cobertura...*), y funciona a la par con él.
+- Filtros: provincia y cantón en listas, "parroquia contiene", búsqueda libre y **Solo marcadas**.
+- Cada parroquia lleva su **marca**. Las marcadas salen primero:
+
+  | Marca | Significado |
+  |---|---|
+  | **SUGERIDA** | La cobertura **más cercana a la dirección del pedido actual**, con el motivo |
+  | **DIRECCION** | La parroquia se menciona en la dirección |
+  | **PRINCIPAL** | La parroquia principal (cabecera) del cantón |
+  | **CP / CS** | Ciudad principal / secundaria de TRAMACO |
+  | **ZONA(n)** | Zonas peligrosas registradas en esa parroquia |
+
+- El detalle explica **por qué elegirla** y qué pasará si se asigna: gestor, destino, trayecto, gestor Q, sugerido R y
+  punto TMC.
+- **Asignar al pedido** (o doble clic) la pasa al validador; allí se confirma con *Aplicar y siguiente*.
+
+### 2.5 Validador (frmValidar)
+
+- **¿Por qué está en revisión?**: la acción del sistema explicada en lenguaje claro, más la evidencia (CP y provincia
+  leídos de la dirección).
+- **Cliente escribió**: el dato original, que se conserva aunque ya se haya corregido.
+- **Opciones sugeridas** en una lista con tres columnas (parroquia, cantón y **por qué se sugiere**). Clic en una opción
+  para usarla. Incluye la propuesta del sistema, las parecidas, la cobertura cercana y la parroquia principal del cantón.
+- **Si aplicas esta selección**: en cobertura o no, sigla, gestor asignado, destino, trayecto, gestor Q, sugerido R,
+  tipo de entrega y zona.
+- **Recomendación** con colores:
+  - verde: RECOMENDADO / VÁLIDO;
+  - naranja: ATENCIÓN, zona peligrosa;
+  - rojo: NO RECOMENDADO, fuera de cobertura.
 
 ## 3. Reglas implementadas
 

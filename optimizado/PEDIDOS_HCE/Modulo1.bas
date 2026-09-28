@@ -27,6 +27,10 @@ Const ZONA_PELIGROSA_A_REVISAR As Boolean = False   ' True = una zona peligrosa 
 
 Public gSoloRevisar As Boolean          ' frmValidar: mostrar solo REVISAR
 Public gFilaInicio As Long              ' frmValidar: fila con la que empieza
+Public gOcupado As Boolean              ' evita lanzar dos procesos a la vez desde el panel
+Public gLog As Collection               ' registro de actividad (se muestra en el panel)
+' Contexto para frmCobertura (lo llena frmValidar o el panel)
+Public gCtxFila As Long, gCtxPedido As String, gCtxProv As String, gCtxCant As String, gCtxParr As String, gCtxDir As String
 
 Dim mTriple As Object, mCantonProvM As Object
 Dim mPC As Object, mRev As Object, mProvParr As Object, mParrList As Object
@@ -38,6 +42,7 @@ Dim cGest As Long, cGestSug As Long, cTray As Long
 
 Sub Desbloquear()
   On Error Resume Next
+  gOcupado = False
   Application.ScreenUpdating = True: Application.EnableEvents = True
   Application.Calculation = xlCalculationAutomatic: Application.Cursor = xlDefault
   Application.DisplayAlerts = True
@@ -717,6 +722,7 @@ Sub ValidarPedidos()
   CargarBases
   Dim lr As Long: lr = ws.Cells(ws.Rows.Count, C_REF).End(xlUp).Row
   Dim okC As Long, revC As Long
+  LogP "VALIDAR: inicio (" & IIf(lr > 1, lr - 1, 0) & " filas en DEPOT)"
   If lr < 2 Then GoTo fin
   Dim d, out, out2, ex, i As Long, j As Long
   d = ws.Range(ws.Cells(1, 1), ws.Cells(lr, C_PARR)).Value
@@ -938,6 +944,10 @@ tras_resolucion:
     End Select
     out2(i - 1, N_EXTC + 2) = tipoCorr
     ws.Cells(i, C_SIG).Value = SiglaFinal(prov, ncF, parrFin, parrO)
+    If est = "REVISAR" Then LogP "Fila " & i & " pedido " & TXV(d(i, C_REF)) & ": " & accion & " | cliente: " & _
+         TXV(d(i, C_PROV)) & "/" & TXV(d(i, C_CANT)) & "/" & rawParr & " -> propuesta: " & Pretty(prov) & "/" & cantonFin & "/" & parrO, "REVISAR"
+    If Len(ex(4)) > 0 Then LogP "Fila " & i & " pedido " & TXV(d(i, C_REF)) & ": " & ex(4) & " -> " & ex(3), "ZONA"
+    If (i Mod 40) = 0 Then LogP "VALIDAR: " & (i - 1) & "/" & (lr - 1) & " procesados...": DoEvents
 sig:
   Next
   ws.Range(ws.Cells(2, C_NN), ws.Cells(lr, C_NN + 7)).Value = out
@@ -946,6 +956,7 @@ sig:
   ColorearCambios ws, lr
 fin:
   Application.Calculation = xlCalculationAutomatic: Application.ScreenUpdating = True
+  LogP "VALIDAR: terminado. OK " & okC & " | REVISAR " & revC
   If revC > 0 Then
     If MsgBox("Validación lista." & vbCrLf & "OK: " & okC & "    Por revisar: " & revC & vbCrLf & vbCrLf & _
               "¿Revisar ahora los " & revC & " casos pendientes en el validador?", _
@@ -956,6 +967,7 @@ fin:
   Exit Sub
 cleanup:
   Application.Calculation = xlCalculationAutomatic: Application.ScreenUpdating = True: Application.EnableEvents = True
+  LogP "VALIDAR: se detuvo por un error: " & Err.Description, "ERROR"
   MsgBox "Se detuvo por un error (pantalla liberada): " & Err.Description, vbExclamation
 End Sub
 
@@ -967,6 +979,7 @@ Sub LimpiarValidacion()
 End Sub
 
 Private Sub LimpiarPanel()
+  LogP "LIMPIAR: validación anterior borrada (L y N:AD)"
   Dim ws As Worksheet: Set ws = ThisWorkbook.Worksheets(HD)
   Dim lr As Long: lr = ws.Cells(ws.Rows.Count, C_REF).End(xlUp).Row
   If lr < 2 Then lr = 2
@@ -983,7 +996,11 @@ Sub ActualizarDatosDepot()
   Application.Cursor = xlWait
   For Each ws In ThisWorkbook.Worksheets
     For Each lo In ws.ListObjects
-      If lo.SourceType = xlSrcQuery Then lo.QueryTable.Refresh BackgroundQuery:=False: n = n + 1
+      If lo.SourceType = xlSrcQuery Then
+        LogP "ACTUALIZAR: consultando " & lo.Name & " (" & ws.Name & ")...": DoEvents
+        lo.QueryTable.Refresh BackgroundQuery:=False: n = n + 1
+        LogP "ACTUALIZAR: " & lo.Name & " listo (" & lo.ListRows.Count & " filas)"
+      End If
     Next
   Next
   Application.Cursor = xlDefault
@@ -996,6 +1013,7 @@ Sub ActualizarDatosDepot()
   Exit Sub
 fallo:
   Application.Cursor = xlDefault
+  LogP "ACTUALIZAR: error " & Err.Description & " (revisa ODBC DEPOTUIO / TMS1)", "ERROR"
   MsgBox "No se pudo actualizar: " & Err.Description & vbCrLf & "Revisa la conexión ODBC (DEPOTUIO / TMS1) y vuelve a intentar.", vbExclamation
 End Sub
 
@@ -1055,6 +1073,7 @@ Sub AprobarTodas()
       End If
     End If
   Next
+  LogP "APROBAR LOTE: " & cntRev & " pedidos aprobados con la sugerencia del sistema"
   MsgBox cntRev & " aprobados. Usa 'Aplicar aprobados'.", vbInformation
 End Sub
 
@@ -1080,7 +1099,8 @@ Sub AplicarAprobados()
   Dim lr As Long: lr = ws.Cells(ws.Rows.Count, C_REF).End(xlUp).Row
   Dim lg As Worksheet: Set lg = HojaLog()
   Dim i As Long, n As Long, g As Long, g0 As Long, est As String, canton As String, parr As String
-  Dim oF As String, oG As String, oH As String, nF As String, mot As String, origen As String
+  Dim oF As String, oG As String, oH As String, nF As String, mot As String, origen As String, nFuera As Long
+  LogP "APLICAR: inicio (copia la propuesta N:P a F:H en OK y APROBADO)"
   g = lg.Cells(lg.Rows.Count, 1).End(xlUp).Row + 1: If g < 2 Then g = 2
   g0 = g
   Application.ScreenUpdating = False
@@ -1113,6 +1133,11 @@ Sub AplicarAprobados()
         lg.Cells(g, 17).Value = TX(ws.Cells(i, C_EXT + N_EXTC + 1))
         g = g + 1
       End If
+      If Not ExisteTriada(Normaliza(nF), Normaliza(canton), Normaliza(parr)) And InStr(Normaliza(parr), "DISTRITO METROPOLITANO") = 0 Then
+        nFuera = nFuera + 1
+        LogP "Fila " & i & " pedido " & TX(ws.Cells(i, C_REF)) & ": aplicado FUERA DE COBERTURA (" & nF & "/" & canton & "/" & parr & "). Revisa con 'Buscar cobertura'.", "ERROR"
+      End If
+      If (n Mod 40) = 0 And n > 0 Then LogP "APLICAR: " & n & " pedidos aplicados...": DoEvents
       ws.Cells(i, C_PROV).Value = nF
       ws.Cells(i, C_CANT).Value = canton
       ws.Cells(i, C_PARR).Value = parr
@@ -1122,7 +1147,9 @@ cont:
   Next
   lg.Columns("A:Q").AutoFit
   Application.ScreenUpdating = True
-  MsgBox n & " aplicados." & vbCrLf & (g - g0) & " cambios agregados al historial de la hoja CAMBIOS.", vbInformation
+  LogP "APLICAR: terminado. " & n & " aplicados, " & (g - g0) & " cambios registrados en CAMBIOS" & IIf(nFuera > 0, ", " & nFuera & " fuera de cobertura", "")
+  MsgBox n & " aplicados." & vbCrLf & (g - g0) & " cambios agregados al historial de la hoja CAMBIOS." & _
+         IIf(nFuera > 0, vbCrLf & nFuera & " quedaron FUERA DE COBERTURA (ver registro).", ""), vbInformation
 End Sub
 
 Private Function EsHoy(v As Variant) As Boolean
@@ -1249,7 +1276,9 @@ Sub ExportarADatos()
   Next
   Dim lrT As Long: lrT = wsT.Cells(wsT.Rows.Count, 3).End(xlUp).Row
   If lrT >= 2 Then wsT.Range(wsT.Cells(2, 3), wsT.Cells(lrT, 14)).ClearContents
+  LogP "ENVIAR: escribiendo " & cnt & " pedidos en '" & wbT.Name & "' hoja DATOS (C2:N" & (cnt + 1) & ")"
   wsT.Range(wsT.Cells(2, 3), wsT.Cells(cnt + 1, 14)).Value = data
+  LogP "ENVIAR: terminado" & IIf(nRev > 0, " (" & nRev & " seguían en REVISAR)", "") & IIf(nSinAplicar > 0, " (" & nSinAplicar & " sin aplicar)", "")
   MsgBox cnt & " filas exportadas a '" & wbT.Name & "' hoja DATOS (C2:N" & (cnt + 1) & ").", vbInformation
 End Sub
 
@@ -1467,8 +1496,124 @@ Sub AbrirValidadorFila(ByVal fila As Long)
 End Sub
 
 Sub AbrirPanel()
-  CerrarForm "frmPanel"
+  Dim i As Long
+  For i = 0 To VBA.UserForms.Count - 1
+    If VBA.UserForms(i).Name = "frmPanel" Then VBA.UserForms(i).Show vbModeless: Exit Sub   ' ya abierto: solo mostrar
+  Next
   frmPanel.Show vbModeless
+End Sub
+
+Sub AbrirCobertura()
+  CerrarForm "frmCobertura"
+  frmCobertura.Show vbModeless
+End Sub
+
+' =====================================================================================
+'  REGISTRO DE ACTIVIDAD (panel + hoja oculta LOG_PROCESO)
+' =====================================================================================
+Public Sub LogP(ByVal msg As String, Optional ByVal nivel As String = "INFO")
+  Dim linea As String, i As Long, wl As Worksheet, r As Long
+  linea = Format(Now, "hh:nn:ss") & "  " & IIf(nivel = "INFO", "", "[" & nivel & "] ") & msg
+  If gLog Is Nothing Then Set gLog = New Collection
+  gLog.Add linea
+  If gLog.Count > 500 Then gLog.Remove 1
+  On Error Resume Next
+  For i = 0 To VBA.UserForms.Count - 1
+    If VBA.UserForms(i).Name = "frmPanel" Then VBA.UserForms(i).AgregarLog linea
+  Next
+  Set wl = HojaLogProceso()
+  If Not wl Is Nothing Then
+    r = wl.Cells(wl.Rows.Count, 1).End(xlUp).Row + 1
+    wl.Cells(r, 1).Value = Now: wl.Cells(r, 2).Value = nivel: wl.Cells(r, 3).Value = msg: wl.Cells(r, 4).Value = Application.UserName
+  End If
+  On Error GoTo 0
+End Sub
+
+Private Function HojaLogProceso() As Worksheet
+  Dim wl As Worksheet
+  On Error Resume Next
+  Set wl = ThisWorkbook.Worksheets("LOG_PROCESO")
+  On Error GoTo 0
+  If wl Is Nothing Then
+    Set wl = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Worksheets(ThisWorkbook.Worksheets.Count))
+    wl.Name = "LOG_PROCESO"
+    wl.Range("A1:D1").Value = Array("FECHA_HORA", "NIVEL", "MENSAJE", "USUARIO")
+    wl.Range("A1:D1").Font.Bold = True
+    wl.Columns(1).NumberFormat = "yyyy-mm-dd hh:mm:ss"
+    wl.Visible = xlSheetHidden
+  End If
+  Set HojaLogProceso = wl
+End Function
+
+' Zonas peligrosas registradas para una parroquia (para frmCobertura)
+Public Function ContarZonas(ByVal P As String, ByVal nc As String, ByVal Q As String, Optional ByRef puntos As String) As Long
+  Dim z
+  If mZonas Is Nothing Then CargarBases
+  puntos = ""
+  For Each z In mZonas
+    If Len(z(0)) = 0 Or P = z(0) Or Left$(P, Len(z(0)) + 1) = z(0) & " " Then
+      If z(2) = Q Or (Len(z(2)) = 0 And z(1) = nc) Then
+        ContarZonas = ContarZonas + 1
+        If Len(z(5)) > 0 And InStr(puntos, z(5)) = 0 Then puntos = puntos & IIf(Len(puntos) > 0, ", ", "") & z(5)
+      End If
+    End If
+  Next
+End Function
+
+' =====================================================================================
+'  DIAGNÓSTICO: revisa los pedidos y deja los errores en el registro
+' =====================================================================================
+Sub DiagnosticarPedidos()
+  Dim ws As Worksheet: Set ws = ThisWorkbook.Worksheets(HD)
+  Dim lr As Long, i As Long, P As String, nc As String, Q As String, ref As String, rawP As String, rawC As String, rawQ As String
+  Dim nErr As Long, nAdv As Long, refs As Object, it, best As String, bd As Long, dd As Long, e As String
+  CargarBases
+  lr = ws.Cells(ws.Rows.Count, C_REF).End(xlUp).Row
+  LogP "DIAGNOSTICO: inicio (" & IIf(lr > 1, lr - 1, 0) & " pedidos)"
+  Set refs = CreateObject("Scripting.Dictionary")
+  For i = 2 To lr
+    If SOLO_FILTRADO And ws.Rows(i).Hidden Then GoTo sigD
+    ref = TX(ws.Cells(i, C_REF))
+    If Len(ref) = 0 Then GoTo sigD
+    If refs.Exists(ref) Then
+      nErr = nErr + 1: LogP "Fila " & i & " pedido " & ref & ": pedido DUPLICADO (también en la fila " & refs(ref) & ")", "ERROR"
+    Else
+      refs(ref) = i
+    End If
+    ' se revisa la propuesta (N:P); si no hay validación, el dato del cliente (F:H)
+    rawP = TX(ws.Cells(i, C_NN)): rawC = TX(ws.Cells(i, C_NN + 1)): rawQ = TX(ws.Cells(i, C_NN + 2))
+    If Len(rawP) = 0 Then rawP = TX(ws.Cells(i, C_PROV)): rawC = TX(ws.Cells(i, C_CANT)): rawQ = TX(ws.Cells(i, C_PARR))
+    P = Normaliza(rawP): nc = Normaliza(rawC): Q = Normaliza(rawQ)
+    If Not mPC.Exists(P) Then
+      nErr = nErr + 1: LogP "Fila " & i & " pedido " & ref & ": provincia inválida '" & rawP & "'", "ERROR"
+    ElseIf Not mCantonParr.Exists(P & "|" & nc) Then
+      best = "": bd = 999
+      For Each it In ListaCantones(P)
+        dd = Lev(nc, Normaliza(CStr(it)))
+        If dd < bd Then bd = dd: best = CStr(it)
+      Next
+      nErr = nErr + 1: LogP "Fila " & i & " pedido " & ref & ": cantón mal redactado o inexistente '" & rawC & "' en " & rawP & _
+                          IIf(Len(best) > 0, " (¿quiso decir " & best & "?)", ""), "ERROR"
+    ElseIf Not mTriple.Exists(P & "|" & nc & "|" & Q) And Not (P = "PICHINCHA" And nc = "QUITO" And InStr(Q, "DISTRITO METROPOLITANO") > 0) Then
+      nErr = nErr + 1
+      If mProvParr.Exists(P) And InStr(mProvParr(P), "|" & Q & "|") > 0 Then
+        LogP "Fila " & i & " pedido " & ref & ": la parroquia '" & rawQ & "' existe en " & rawP & " pero no en el cantón " & rawC, "ERROR"
+      Else
+        LogP "Fila " & i & " pedido " & ref & ": parroquia inexistente en COBERTURA '" & rawQ & "' (" & rawP & "/" & rawC & ")", "ERROR"
+      End If
+    End If
+    If Len(TX(ws.Cells(i, C_DIR))) < 10 Then nAdv = nAdv + 1: LogP "Fila " & i & " pedido " & ref & ": dirección vacía o muy corta", "AVISO"
+    If Len(TX(ws.Cells(i, 9))) + Len(TX(ws.Cells(i, 10))) = 0 Then nAdv = nAdv + 1: LogP "Fila " & i & " pedido " & ref & ": sin teléfono", "AVISO"
+    If Len(TX(ws.Cells(i, 5))) = 0 Then nAdv = nAdv + 1: LogP "Fila " & i & " pedido " & ref & ": sin destinatario", "AVISO"
+    e = UCase$(TX(ws.Cells(i, C_NN + 3)))
+    If e = "REVISAR" Then nAdv = nAdv + 1: LogP "Fila " & i & " pedido " & ref & ": sigue en REVISAR (" & TX(ws.Cells(i, C_NN + 6)) & ")", "AVISO"
+    If Len(e) = 0 Then nAdv = nAdv + 1: LogP "Fila " & i & " pedido " & ref & ": sin validar", "AVISO"
+    If Left$(TX(ws.Cells(i, C_EXT + 4)), 4) = "ZONA" Then nAdv = nAdv + 1: LogP "Fila " & i & " pedido " & ref & ": " & TX(ws.Cells(i, C_EXT + 4)), "ZONA"
+sigD:
+  Next
+  LogP "DIAGNOSTICO: terminado. Errores: " & nErr & " | Avisos: " & nAdv
+  MsgBox "Diagnóstico terminado." & vbCrLf & "Errores: " & nErr & "    Avisos: " & nAdv & vbCrLf & "El detalle está en el registro del panel (y en la hoja oculta LOG_PROCESO).", _
+         IIf(nErr > 0, vbExclamation, vbInformation), "Diagnóstico"
 End Sub
 
 ' Antes llamaba a frmRevisar (no existe) y rompía "Depuración > Compilar". Ahora abre los pendientes.
