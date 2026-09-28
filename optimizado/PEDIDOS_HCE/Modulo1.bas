@@ -19,8 +19,9 @@ Const C_DIR As Long = 2, C_REF As Long = 3
 Const C_PROV As Long = 6, C_CANT As Long = 7, C_PARR As Long = 8
 Const C_SIG As Long = 12
 Const C_NN As Long = 14                 ' N:U panel de validación (igual que antes)
-Const C_EXT As Long = 22                ' V:Z columnas nuevas
-Const N_EXT As Long = 5
+Const C_EXT As Long = 22                ' V:AD columnas nuevas
+Const N_EXT As Long = 9                 ' V:AD
+Const N_EXTC As Long = 7                ' V:AB calculadas por DatosExt (AC = original, AD = tipo de corrección)
 Const SOLO_FILTRADO As Boolean = True
 Const ZONA_PELIGROSA_A_REVISAR As Boolean = False   ' True = una zona peligrosa deja el pedido en REVISAR
 
@@ -412,7 +413,14 @@ Public Function DatosExt(ByVal P As String, ByVal nc As String, ByVal Q As Strin
       tipo = "CONFIRMAR ENTREGA (ZONA PELIGROSA)"
     End If
   End If
-  DatosExt = Array(gest, dest, tray, tipo, zona)
+  Dim inf, gq As String, gr As String
+  If mCobInfo.Exists(P & "|" & nc & "|" & Q) Then
+    inf = mCobInfo(P & "|" & nc & "|" & Q)
+  ElseIf mCobInfo.Exists(P & "||" & Q) Then
+    inf = mCobInfo(P & "||" & Q)
+  End If
+  If IsArray(inf) Then gq = inf(0): gr = inf(1)
+  DatosExt = Array(gest, dest, tray, tipo, zona, gq, gr)
 End Function
 
 ' ---------- resolución de cantón / cobertura ----------
@@ -622,7 +630,7 @@ Public Sub EscribirExtFila(ws As Worksheet, ByVal r As Long)
   Dim ex, j As Long, a As String
   a = " " & Normaliza(TX(ws.Cells(r, C_DIR))) & " "
   ex = DatosExt(Normaliza(TX(ws.Cells(r, C_NN))), Normaliza(TX(ws.Cells(r, C_NN + 1))), Normaliza(TX(ws.Cells(r, C_NN + 2))), a)
-  For j = 0 To N_EXT - 1: ws.Cells(r, C_EXT + j).Value = ex(j): Next
+  For j = 0 To N_EXTC - 1: ws.Cells(r, C_EXT + j).Value = ex(j): Next
 End Sub
 
 ' ---------- accesos para los formularios ----------
@@ -727,6 +735,7 @@ Sub ValidarPedidos()
   Dim locs, uDup As Object, z, pparts, keyd As String
   Dim usedCola As Boolean, cpStr As String, qAlert As String, ncCola As String
   Dim rawParr As String, ncS As String, sc, motivoS As String, cantonSug As String, ambig As Boolean
+  Dim tipoCorr As String, origParts
   For i = 2 To lr
     If SOLO_FILTRADO And ws.Rows(i).Hidden Then GoTo sig
     nP = Normaliza(TXV(d(i, C_PROV))): nG = Normaliza(TXV(d(i, C_CANT))): nQ = Normaliza(TXV(d(i, C_PARR)))
@@ -907,7 +916,27 @@ tras_resolucion:
     End If
     out(i - 1, 1) = Pretty(prov): out(i - 1, 2) = cantonFin: out(i - 1, 3) = parrO
     out(i - 1, 4) = est: out(i - 1, 5) = Trim$(evid): out(i - 1, 6) = sug: out(i - 1, 7) = accion: out(i - 1, 8) = alert
-    For j = 0 To N_EXT - 1: out2(i - 1, j + 1) = ex(j): Next
+    For j = 0 To N_EXTC - 1: out2(i - 1, j + 1) = ex(j): Next
+    ' AC: dato original del cliente (se conserva aunque se aplique la corrección)
+    If Len(TXV(out2(i - 1, N_EXTC + 1))) = 0 Then out2(i - 1, N_EXTC + 1) = TXV(d(i, C_PROV)) & " / " & TXV(d(i, C_CANT)) & " / " & rawParr
+    ' AD: tipo de corrección
+    Select Case estParr
+      Case "FUERA_COB": tipoCorr = "COBERTURA CERCANA: " & motivoS
+      Case "SUGERIR"
+        If Len(motivoS) > 0 Then tipoCorr = "CORRECCION DE ESCRITURA" Else tipoCorr = "SUGERENCIA POR SIMILITUD"
+      Case "QUITO": tipoCorr = "DMQ -> CALDERON (QUI)"
+      Case "AMBIG": tipoCorr = "VERIFICAR CANTON"
+      Case "OTRA_PROV": tipoCorr = "PARROQUIA DE OTRA PROVINCIA"
+      Case "DIR": tipoCorr = "PARROQUIA TOMADA DE LA DIRECCION"
+      Case "COLA": tipoCorr = "CONFIRMAR PARROQUIA"
+      Case Else
+        origParts = Split(TXV(out2(i - 1, N_EXTC + 1)), " / ")
+        tipoCorr = "CORREGIDO SISTEMA"
+        If UBound(origParts) >= 2 Then
+          If Normaliza(CStr(origParts(0))) = prov And Normaliza(CStr(origParts(1))) = ncF And Normaliza(CStr(origParts(2))) = Normaliza(parrO) Then tipoCorr = "SIN CAMBIO"
+        End If
+    End Select
+    out2(i - 1, N_EXTC + 2) = tipoCorr
     ws.Cells(i, C_SIG).Value = SiglaFinal(prov, ncF, parrFin, parrO)
 sig:
   Next
@@ -931,14 +960,43 @@ cleanup:
 End Sub
 
 Sub LimpiarValidacion()
+  If MsgBox("Se limpiará el panel de validación (N:AD), la columna L y sus colores." & vbCrLf & _
+     "La data del cliente (A:K) NO se toca. ¿Continuar?", vbYesNo + vbQuestion) <> vbYes Then Exit Sub
+  LimpiarPanel
+  MsgBox "Panel y siglas limpiados. Listo para la nueva data del día.", vbInformation
+End Sub
+
+Private Sub LimpiarPanel()
   Dim ws As Worksheet: Set ws = ThisWorkbook.Worksheets(HD)
   Dim lr As Long: lr = ws.Cells(ws.Rows.Count, C_REF).End(xlUp).Row
   If lr < 2 Then lr = 2
-  If MsgBox("Se limpiará el panel de validación (N:Z), la columna L y sus colores." & vbCrLf & _
-     "La data del cliente (A:K) NO se toca. ¿Continuar?", vbYesNo + vbQuestion) <> vbYes Then Exit Sub
   With ws.Range(ws.Cells(2, C_SIG), ws.Cells(lr, C_SIG)): .ClearContents: .Interior.ColorIndex = xlNone: End With
   With ws.Range(ws.Cells(2, C_NN), ws.Cells(lr, C_EXT + N_EXT - 1)): .ClearContents: .Interior.ColorIndex = xlNone: End With
-  MsgBox "Panel y siglas limpiados. Listo para la nueva data del día.", vbInformation
+End Sub
+
+' Paso 0: refresca las consultas (DEPOT y TMS) y ofrece limpiar la validación anterior
+Sub ActualizarDatosDepot()
+  Dim ws As Worksheet, lo As ListObject, n As Long, lr As Long
+  If MsgBox("Se actualizarán los pedidos desde DEPOT y la lista de TMS (consultas ODBC)." & vbCrLf & _
+            "Tarda unos segundos. ¿Continuar?", vbYesNo + vbQuestion, "Paso 0 - Actualizar datos") <> vbYes Then Exit Sub
+  On Error GoTo fallo
+  Application.Cursor = xlWait
+  For Each ws In ThisWorkbook.Worksheets
+    For Each lo In ws.ListObjects
+      If lo.SourceType = xlSrcQuery Then lo.QueryTable.Refresh BackgroundQuery:=False: n = n + 1
+    Next
+  Next
+  Application.Cursor = xlDefault
+  On Error GoTo 0
+  Set ws = ThisWorkbook.Worksheets(HD)
+  lr = ws.Cells(ws.Rows.Count, C_REF).End(xlUp).Row
+  If MsgBox(n & " consultas actualizadas. Pedidos en DEPOT: " & (lr - 1) & vbCrLf & vbCrLf & _
+            "Los resultados de la validación anterior pueden no corresponder a los pedidos nuevos." & vbCrLf & _
+            "¿Limpiar la validación ahora? (recomendado)", vbYesNo + vbQuestion, "Paso 0 - Actualizar datos") = vbYes Then LimpiarPanel
+  Exit Sub
+fallo:
+  Application.Cursor = xlDefault
+  MsgBox "No se pudo actualizar: " & Err.Description & vbCrLf & "Revisa la conexión ODBC (DEPOTUIO / TMS1) y vuelve a intentar.", vbExclamation
 End Sub
 
 Sub FormatoPanel(ws As Worksheet, lr As Long)
@@ -949,7 +1007,7 @@ Sub FormatoPanel(ws As Worksheet, lr As Long)
       .Value = h(j): .Interior.Color = RGB(48, 84, 150): .Font.Color = vbWhite: .Font.Bold = True
     End With
   Next
-  h = Array("GESTOR_ASIGNADO", "DESTINO", "TRAYECTO_TRAMACO", "TIPO_ENTREGA", "ZONA_PELIGROSA")
+  h = Array("GESTOR_ASIGNADO", "DESTINO", "TRAYECTO_TRAMACO", "TIPO_ENTREGA", "ZONA_PELIGROSA", "GESTOR_COBERTURA(Q)", "GESTOR_SUGERIDO(R)", "ORIGINAL_CLIENTE", "TIPO_CORRECCION")
   For j = 0 To N_EXT - 1
     With ws.Cells(1, C_EXT + j)
       .Value = h(j): .Interior.Color = RGB(0, 128, 96): .Font.Color = vbWhite: .Font.Bold = True
@@ -1009,10 +1067,10 @@ Public Function HojaLog() As Worksheet
   If lg Is Nothing Then
     Set lg = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Worksheets(HD)): lg.Name = HLOG
   End If
-  If TX(lg.Cells(1, 12)) <> "ORIGEN" Then
-    lg.Range("A1:P1").Value = Array("FECHA_PROCESO", "NRO_REFERENCIA", "DESTINATARIO", "DIRECCION_CLIENTE", "PROV_ORIGINAL", "PROV_NUEVA", _
-      "CANTON_ORIGINAL", "CANTON_NUEVO", "PARROQUIA_ORIG", "PARROQUIA_NUEVA", "MOTIVO", "ORIGEN", "USUARIO", "SIGLA", "GESTOR", "DESTINO")
-    With lg.Range("A1:P1"): .Font.Bold = True: .Interior.Color = RGB(48, 84, 150): .Font.Color = vbWhite: End With
+  If TX(lg.Cells(1, 12)) <> "ORIGEN" Or TX(lg.Cells(1, 17)) <> "TIPO_CORRECCION" Then
+    lg.Range("A1:Q1").Value = Array("FECHA_PROCESO", "NRO_REFERENCIA", "DESTINATARIO", "DIRECCION_CLIENTE", "PROV_ORIGINAL", "PROV_NUEVA", _
+      "CANTON_ORIGINAL", "CANTON_NUEVO", "PARROQUIA_ORIG", "PARROQUIA_NUEVA", "MOTIVO", "ORIGEN", "USUARIO", "SIGLA", "GESTOR", "DESTINO", "TIPO_CORRECCION")
+    With lg.Range("A1:Q1"): .Font.Bold = True: .Interior.Color = RGB(48, 84, 150): .Font.Color = vbWhite: End With
   End If
   Set HojaLog = lg
 End Function
@@ -1052,6 +1110,7 @@ Sub AplicarAprobados()
         lg.Cells(g, 14).Value = TX(ws.Cells(i, C_SIG))
         lg.Cells(g, 15).Value = TX(ws.Cells(i, C_EXT))
         lg.Cells(g, 16).Value = TX(ws.Cells(i, C_EXT + 1))
+        lg.Cells(g, 17).Value = TX(ws.Cells(i, C_EXT + N_EXTC + 1))
         g = g + 1
       End If
       ws.Cells(i, C_PROV).Value = nF
@@ -1061,7 +1120,7 @@ Sub AplicarAprobados()
     End If
 cont:
   Next
-  lg.Columns("A:P").AutoFit
+  lg.Columns("A:Q").AutoFit
   Application.ScreenUpdating = True
   MsgBox n & " aplicados." & vbCrLf & (g - g0) & " cambios agregados al historial de la hoja CAMBIOS.", vbInformation
 End Sub
@@ -1081,14 +1140,14 @@ Sub ExportarCambios()
   Dim wbN As Workbook, wsN As Worksheet, i As Long, g As Long, f As String
   Set wbN = Workbooks.Add(xlWBATWorksheet)
   Set wsN = wbN.Worksheets(1): wsN.Name = "CAMBIOS"
-  lg.Range("A1:P1").Copy wsN.Range("A1")
+  lg.Range("A1:Q1").Copy wsN.Range("A1")
   g = 2
   For i = 2 To lr
     If r = vbNo Or EsHoy(lg.Cells(i, 1).Value) Then
-      lg.Range(lg.Cells(i, 1), lg.Cells(i, 16)).Copy wsN.Cells(g, 1): g = g + 1
+      lg.Range(lg.Cells(i, 1), lg.Cells(i, 17)).Copy wsN.Cells(g, 1): g = g + 1
     End If
   Next
-  wsN.Columns("A:P").AutoFit
+  wsN.Columns("A:Q").AutoFit
   If Len(ThisWorkbook.Path) > 0 Then
     f = ThisWorkbook.Path & Application.PathSeparator & "CAMBIOS_HYCITE_" & Format(Now, "yyyymmdd_hhnn") & ".xlsx"
     On Error Resume Next
@@ -1202,7 +1261,8 @@ Sub CrearMenuHycite()
   Dim bar As CommandBar
   Set bar = Application.CommandBars.Add(Name:="Validacion HYCITE", Position:=msoBarTop, Temporary:=True)
   AddBtn bar, "Panel HYCITE", "AbrirPanel", 2174, True
-  AddBtn bar, "1 Limpiar", "LimpiarValidacion", 47, True
+  AddBtn bar, "0 Actualizar datos", "ActualizarDatosDepot", 37, True
+  AddBtn bar, "1 Limpiar", "LimpiarValidacion", 47, False
   AddBtn bar, "2 Validar", "ValidarPedidos", 25, False
   AddBtn bar, "3 Revisar pendientes", "AbrirValidadorRevisar", 6362, False
   AddBtn bar, "4 Aprobar lote", "AprobarTodas", 356, False
@@ -1379,7 +1439,7 @@ Sub ActualizarSiglas()   ' recalcula L y V:Z desde F/G/H (editados a mano)
     If Len(P) > 0 And Len(Q) > 0 Then
       ws.Cells(i, C_SIG).Value = SiglaFinal(P, ncF, Q, parrO): n = n + 1
       ex = DatosExt(P, ncF, Q, " " & Normaliza(TX(ws.Cells(i, C_DIR))) & " ")
-      For j = 0 To N_EXT - 1: ws.Cells(i, C_EXT + j).Value = ex(j): Next
+      For j = 0 To N_EXTC - 1: ws.Cells(i, C_EXT + j).Value = ex(j): Next
     End If
 sig:
   Next

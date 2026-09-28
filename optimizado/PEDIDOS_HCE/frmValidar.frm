@@ -6,7 +6,7 @@ Option Explicit
 '  botón "Sugerir cobertura cercana" (cabecera cantonal / ciudad principal o secundaria),
 '  vista previa de sigla, gestor, destino y zona peligrosa, y aviso si queda fuera de cobertura.
 ' =====================================================================================
-Private rws As Collection, idx As Long, wsD As Worksheet, nAprob As Long, mCarga As Boolean
+Private rws As Collection, idx As Long, wsD As Worksheet, nAprob As Long, mCarga As Boolean, mMotivo As String
 Private lblRef As MSForms.Label, lblDir As MSForms.Label, lblCli As MSForms.Label
 Private lblSug As MSForms.Label, lblInfo As MSForms.Label
 Private WithEvents cboProv As MSForms.ComboBox
@@ -18,7 +18,7 @@ Private WithEvents btnOmitir As MSForms.CommandButton
 Private WithEvents btnAnterior As MSForms.CommandButton
 Private WithEvents btnCerrar As MSForms.CommandButton
 Private Const C_NN As Long = 14, C_REF As Long = 3, C_DIR As Long = 2, C_SIG As Long = 12
-Private Const C_PROV As Long = 6, C_CANT As Long = 7, C_PARR As Long = 8
+Private Const C_PROV As Long = 6, C_CANT As Long = 7, C_PARR As Long = 8, C_CORR As Long = 30
 
 Private Sub UserForm_Initialize()
   Set wsD = ThisWorkbook.Worksheets("DEPOT")
@@ -126,7 +126,7 @@ Private Sub CargarFila()
   If idx < 1 Then idx = 1
   If idx > rws.Count Then idx = rws.Count
   Dim r As Long: r = rws(idx)
-  mCarga = True
+  mCarga = True: mMotivo = ""
   lblRef.Caption = TX(wsD.Cells(r, C_REF)) & "   (fila " & r & " · " & idx & "/" & rws.Count & ")   " & _
                    TX(wsD.Cells(r, C_NN + 3)) & " - " & TX(wsD.Cells(r, C_NN + 6))
   lblDir.Caption = TX(wsD.Cells(r, C_DIR))
@@ -204,6 +204,7 @@ Private Sub btnSugerir_Click()
   mCarga = False
   ActualizarInfo
   lblSug.Caption = "Sugerido: " & sc(1) & " [" & sc(0) & "] - " & motivo
+  mMotivo = motivo
 End Sub
 
 Private Sub btnAplicar_Click()
@@ -218,6 +219,13 @@ Private Sub btnAplicar_Click()
     If MsgBox("La combinación " & cboProv.Text & " / " & cant & " / " & parr & " NO está en COBERTURA." & vbCrLf & _
               "Sugerencia: usa 'Sugerir cobertura cercana'." & vbCrLf & vbCrLf & "¿Aplicar de todas formas?", _
               vbYesNo + vbExclamation, "Fuera de cobertura") <> vbYes Then Exit Sub
+  End If
+  Dim cambio As Boolean
+  cambio = (Normaliza(TX(wsD.Cells(r, C_NN))) <> P Or Normaliza(TX(wsD.Cells(r, C_NN + 1))) <> nc Or Normaliza(TX(wsD.Cells(r, C_NN + 2))) <> Q)
+  If Len(mMotivo) > 0 Then
+    wsD.Cells(r, C_CORR).Value = "COBERTURA CERCANA (operario): " & mMotivo
+  ElseIf cambio Then
+    wsD.Cells(r, C_CORR).Value = "MANUAL OPERARIO"
   End If
   wsD.Cells(r, C_NN).Value = Replace(cboProv.Text, "-", " ")
   wsD.Cells(r, C_NN + 1).Value = cant

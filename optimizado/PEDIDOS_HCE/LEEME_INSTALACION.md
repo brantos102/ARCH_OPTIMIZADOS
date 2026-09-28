@@ -1,7 +1,7 @@
-# PEDIDOS HCE: versión optimizada v2 (VBA)
+# PEDIDOS HCE: versión final (VBA) - Etapa 1 del sistema de egresos
 
 Esta versión mantiene **los mismos nombres de macros, las mismas columnas A:U de DEPOT y el mismo envío C:N a
-`DATOS`** del archivo EGR. Todo lo nuevo se agrega aparte: columnas V:Z, un panel nuevo e historial en CAMBIOS.
+`DATOS`** del archivo EGR. Todo lo nuevo se agrega aparte: columnas V:AD, un panel nuevo e historial en CAMBIOS.
 
 ## 1. Instalación (unos 10 minutos)
 
@@ -27,19 +27,84 @@ Esta versión mantiene **los mismos nombres de macros, las mismas columnas A:U d
 
 | Paso | Botón | Qué hace |
 |---|---|---|
-| 0 | Datos › Actualizar todo | Trae los pedidos del día (igual que antes) |
-| 1 | **1 Limpiar** | Borra L y el panel N:Z |
-| 2 | **2 Validar** | Valida y rellena N:U, la sigla L y las columnas nuevas V:Z. Al terminar pregunta: *"¿Revisar ahora los N casos pendientes?"*. **Sí** abre el validador solo con los REVISAR |
+| 0 | **0 Actualizar datos** | Refresca las consultas DEPOT y TMS sin ir a *Datos*, y ofrece limpiar la validación anterior |
+| 1 | **1 Limpiar** | Borra L y el panel N:AD |
+| 2 | **2 Validar** | Valida y rellena N:U, la sigla L y las columnas nuevas V:AD. Al terminar pregunta: *"¿Revisar ahora los N casos pendientes?"*. **Sí** abre el validador solo con los REVISAR |
 | 3 | **3 Revisar pendientes** | `frmValidar` recorre solo los REVISAR |
 | 4 | **4 Aprobar lote** | Aprueba en bloque las sugerencias restantes (avisa cuántas son fuera de cobertura) |
 | 5 | **5 Aplicar aprobados** | Copia la propuesta N:P a F:H y **agrega** los cambios al historial CAMBIOS |
-| 6 | **6 Actualizar siglas** | Recalcula L y V:Z si se editó F:H a mano |
+| 6 | **6 Actualizar siglas** | Recalcula L y V:AB si se editó F:H a mano |
 | 7 | **7 Enviar a EGR** | Mismo envío C:N a `DATOS`. Avisa si quedan pedidos REVISAR o correcciones sin aplicar |
 | — | **Exportar CAMBIOS** | Guarda un `.xlsx` con los cambios de hoy o con todo el historial |
-| — | **Panel HYCITE** | Matriz con todos los pedidos, filtros (REVISAR, zona peligrosa, PRO…), indicadores y los mismos botones. Doble clic en un pedido lo abre en el validador |
+| — | **Panel HYCITE** | Interfaz principal: ver la sección 2.1 |
 
 "Filtrar día" se quitó de la barra porque la consulta DEPOT no trae columna FECHA: nunca funcionó. La macro sigue en el
 código.
+
+### 2.1 Panel HYCITE (interfaz principal)
+
+- **Pasos 0 a 7 en columna, a la izquierda**, en orden.
+  - Al pasar el mouse sobre cada botón se explica qué hace.
+  - El recuadro **SIGUIENTE PASO** indica qué toca hacer y resalta en naranja ese botón (`>> paso <<`). Lo calcula
+    según el estado real: sin pedidos, sin validar, con REVISAR, correcciones sin aplicar o listo para enviar.
+- **Funciona a la par con Excel**: la ventana no bloquea la hoja.
+  - "Seguir fila en Excel" selecciona la fila del registro elegido.
+  - Al volver del validador, la lista se actualiza sola.
+- **Vistas**:
+  - **PEDIDOS**.
+  - **COBERTURA**: permite buscar y filtrar cualquier provincia, cantón o parroquia, con sigla, gestor Q, sugerido R y
+    trayecto S.
+  - **ZONAS PELIGROSAS**: barrio, sector y punto TMC.
+- **Encabezados alineados** sobre cada columna. Hay 12 columnas visibles, calculadas para que no aparezca la barra
+  horizontal; el resto de datos se ve en el **detalle**.
+- **Filtros**:
+  - **Filtro rápido**: con señal, REVISAR, APROBADO, OK, zona peligrosa, cobertura cercana, corregidos, sin aplicar,
+    sin validar y destino PRO/UIO/GYE/GPS.
+  - **Buscar**: busca en todas las columnas mientras se escribe.
+  - **Filtro 1** y **Filtro 2**: eligen un campo (pedido, fila, provincia, cantón, parroquia, gestor, sugerido R…) y un
+    texto.
+  - **Orden** por cualquier campo, ascendente o descendente.
+- **Columna SEÑAL** (en orden de prioridad):
+
+  | Señal | Significado |
+  |---|---|
+  | `!! ZONA` | Zona peligrosa |
+  | `! SECTOR` | Verificar sector |
+  | `? REVISAR` | El pedido está en REVISAR |
+  | `~ CERCANA` | Se asignó una cobertura cercana (cabecera o ciudad principal/secundaria) |
+  | `+ APROBADO` | Aprobado por el operario o en lote |
+  | `* CORREGIDO` | El sistema corrigió el dato del cliente |
+  | `- SIN VALIDAR` | Todavía no se validó |
+  | `OK` | Sin cambios |
+
+- **Detalle** del registro seleccionado:
+  - dirección;
+  - **dato original del cliente → propuesta** y si ya se aplicó a F:H;
+  - tipo de corrección;
+  - gestor asignado frente a **gestor de cobertura (Q)** y **sugerido (R)**, indicando si coinciden;
+  - trayecto (S), tipo de entrega y zona peligrosa con su punto TMC, **en rojo**.
+- **Tamaño**: 1000 × 600 puntos. Si la pantalla es más chica, se reduce proporcionalmente (hasta el 60 %) para no
+  salirse.
+- Doble clic en un pedido lo abre en el validador; en COBERTURA o ZONAS, lleva a la fila de la hoja.
+
+### 2.2 Columnas de DEPOT
+
+| Columnas | Contenido |
+|---|---|
+| A:K | Datos del cliente |
+| L | Sigla |
+| N:U | Panel de validación (igual que antes) |
+| V | GESTOR_ASIGNADO |
+| W | DESTINO |
+| X | TRAYECTO_TRAMACO |
+| Y | TIPO_ENTREGA |
+| Z | ZONA_PELIGROSA |
+| AA | GESTOR_COBERTURA (Q) |
+| AB | GESTOR_SUGERIDO (R) |
+| AC | ORIGINAL_CLIENTE (se conserva aunque se aplique la corrección) |
+| AD | TIPO_CORRECCION: SIN CAMBIO, CORREGIDO SISTEMA, COBERTURA CERCANA, CORRECCION DE ESCRITURA, DMQ → CALDERON (QUI), MANUAL OPERARIO… |
+
+CAMBIOS registra además TIPO_CORRECCION en la columna Q.
 
 ## 3. Reglas implementadas
 
