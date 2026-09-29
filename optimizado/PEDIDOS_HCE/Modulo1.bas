@@ -495,6 +495,34 @@ Private Function OrigParr(ByVal k As String, ByVal defecto As String) As String
   If mCobInfo.Exists(k) Then OrigParr = mCobInfo(k)(4)
 End Function
 
+' Nombre EXACTO de la parroquia en COBERTURA para ese cantón.
+' Ej.: IMBABURA / IBARRA / "SAN FRANCISCO (COT)" -> "SAN FRANCISCO (IBA)" (el de Cotacachi es otro destino).
+Public Function NombreCobertura(ByVal P As String, ByVal nc As String, ByVal Q As String, ByVal defecto As String) As String
+  If mCobInfo Is Nothing Then CargarBases
+  NombreCobertura = defecto
+  If mCobInfo.Exists(P & "|" & nc & "|" & Q) Then NombreCobertura = mCobInfo(P & "|" & nc & "|" & Q)(4)
+End Function
+
+' True si el texto trae un sufijo "(XXX)" que en COBERTURA pertenece a OTRO cantón con la misma parroquia.
+' Devuelve ese cantón y el nombre exacto de la parroquia allí.
+Public Function SufijoOtroCanton(ByVal P As String, ByVal nc As String, ByVal Q As String, ByVal texto As String, _
+                                 ByRef altCant As String, ByRef altParr As String) As Boolean
+  Dim suf As String, it, k As String, cod As String
+  If mPcSet Is Nothing Then CargarBases
+  altCant = "": altParr = ""
+  suf = CodigoSig(texto)
+  If Len(suf) = 0 Or Not mPcSet.Exists(P & "|" & Q) Then Exit Function
+  If CodigoSig(NombreCobertura(P, nc, Q, "")) = suf Then Exit Function      ' el sufijo es el de este cantón
+  For Each it In mPcSet(P & "|" & Q)
+    If it(0) <> nc Then
+      k = P & "|" & it(0) & "|" & Q
+      cod = CodigoSig(OrigParr(k, ""))
+      If Len(cod) = 0 And mSiglas.Exists(k) Then cod = CodigoSig(mSiglas(k))
+      If cod = suf Then altCant = it(1): altParr = OrigParr(k, texto): SufijoOtroCanton = True: Exit Function
+    End If
+  Next
+End Function
+
 ' Sugerencia de cobertura cercana. Devuelve Array(cantón, parroquia) o Empty.
 ' Orden: 0) misma parroquia mal escrita  1) cabecera cantonal (parroquia = cantón)
 '        2) ciudad principal / secundaria del mismo cantón
@@ -751,7 +779,7 @@ Sub ValidarPedidos()
   Dim locs, uDup As Object, z, pparts, keyd As String
   Dim usedCola As Boolean, cpStr As String, qAlert As String, ncCola As String
   Dim rawParr As String, ncS As String, sc, motivoS As String, cantonSug As String, ambig As Boolean
-  Dim tipoCorr As String, origParts
+  Dim tipoCorr As String, origParts, sufConf As Boolean, altC As String, altP As String
   For i = 2 To lr
     If SOLO_FILTRADO And ws.Rows(i).Hidden Then GoTo sig
     nP = Normaliza(TXV(d(i, C_PROV))): nG = Normaliza(TXV(d(i, C_CANT))): nQ = Normaliza(TXV(d(i, C_PARR)))
@@ -887,6 +915,16 @@ tras_resolucion:
     If Len(parrO) = 0 Then parrO = Pretty(prov)
     If Len(cantonFin) = 0 Then cantonFin = parrO
     ncF = Normaliza(cantonFin)
+    ' nombre exacto de COBERTURA para ESE cantón (antes se tomaba el primero de la provincia:
+    ' IBARRA quedaba con "SAN FRANCISCO (COT)", que es de Cotacachi) + aviso si el cliente puso el sufijo de otro cantón
+    sufConf = False: altC = "": altP = ""
+    If estParr <> "QUITO" Then
+      parrO = NombreCobertura(prov, ncF, parrFin, parrO)
+      If SufijoOtroCanton(prov, ncF, parrFin, rawParr, altC, altP) Then
+        sufConf = True
+        sug = altP & " [" & altC & "] (sufijo escrito por el cliente = cantón " & altC & ")" & IIf(Len(sug) > 0, " | " & sug, "")
+      End If
+    End If
     cantonConf = False
     For Each ci2 In aCinP
       If CStr(ci2) = ncF Then cantonConf = True: Exit For
@@ -913,11 +951,13 @@ tras_resolucion:
     If esOK And Not (nP = "" Or nP = prov) And Not usedCola Then esOK = False
     If esOK And (Len(alert) > 0 And Not cantonConf) And Not usedCola Then esOK = False
     If esOK And ZONA_PELIGROSA_A_REVISAR And Len(ex(4)) > 0 Then esOK = False
+    If esOK And sufConf Then esOK = False
     If esOK Then
       est = "OK": accion = "Sin acción": okC = okC + 1
     Else
       est = "REVISAR": revC = revC + 1
       Select Case True
+        Case sufConf: accion = "Sufijo de otro cantón: confirmar parroquia"
         Case estParr = "COLA": accion = "Confirmar parroquia (dirección/CP)"
         Case estParr = "AMBIG": accion = "Verificar cantón (parroquia en varios cantones)"
         Case estParr = "OTRA_PROV": accion = "Parroquia de otra provincia"
@@ -936,7 +976,8 @@ tras_resolucion:
     ' AC: dato original del cliente (se conserva aunque se aplique la corrección)
     If Len(TXV(out2(i - 1, N_EXTC + 1))) = 0 Then out2(i - 1, N_EXTC + 1) = TXV(d(i, C_PROV)) & " / " & TXV(d(i, C_CANT)) & " / " & rawParr
     ' AD: tipo de corrección
-    Select Case estParr
+    Select Case IIf(sufConf, "SUFIJO", estParr)
+      Case "SUFIJO": tipoCorr = "SUFIJO DE OTRO CANTON: (" & CodigoSig(rawParr) & ") es " & altC
       Case "FUERA_COB": tipoCorr = "COBERTURA CERCANA: " & motivoS
       Case "SUGERIR"
         If Len(motivoS) > 0 Then tipoCorr = "CORRECCION DE ESCRITURA" Else tipoCorr = "SUGERENCIA POR SIMILITUD"
@@ -949,7 +990,10 @@ tras_resolucion:
         origParts = Split(TXV(out2(i - 1, N_EXTC + 1)), " / ")
         tipoCorr = "CORREGIDO SISTEMA"
         If UBound(origParts) >= 2 Then
-          If Normaliza(CStr(origParts(0))) = prov And Normaliza(CStr(origParts(1))) = ncF And Normaliza(CStr(origParts(2))) = Normaliza(parrO) Then tipoCorr = "SIN CAMBIO"
+          If Normaliza(CStr(origParts(0))) = prov And Normaliza(CStr(origParts(1))) = ncF And Normaliza(CStr(origParts(2))) = Normaliza(parrO) Then
+            tipoCorr = "SIN CAMBIO"
+            If UCase$(Trim$(rawParr)) <> UCase$(Trim$(parrO)) Then tipoCorr = "NOMBRE SEGUN COBERTURA"
+          End If
         End If
     End Select
     out2(i - 1, N_EXTC + 2) = tipoCorr

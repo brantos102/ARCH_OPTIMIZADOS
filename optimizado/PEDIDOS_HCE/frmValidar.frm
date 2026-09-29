@@ -140,6 +140,9 @@ End Function
 ' ---------- textos de ayuda ----------
 Private Function Explicacion(ByVal accion As String) As String
   Select Case True
+    Case InStr(accion, "Sufijo de otro") > 0
+      Explicacion = "La parroquia trae entre paréntesis el código de OTRO cantón (ej.: SAN FRANCISCO (COT) es de Cotacachi, pero el cliente puso IBARRA). " & _
+                    "La propuesta usa el nombre exacto de COBERTURA para el cantón escrito; la otra opción de la lista es la del sufijo. Compara con la dirección y elige."
     Case InStr(accion, "Confirmar parroquia") > 0
       Explicacion = "La parroquia leída al final de la dirección no coincide exactamente con COBERTURA. Confirma la parroquia correcta."
     Case InStr(accion, "Verificar cantón") > 0
@@ -268,11 +271,19 @@ Private Sub ActualizarInfo()
   sg = SiglaFinal(P, nc, Q, cboParr.Text)
   ex = DatosExt(P, nc, Q, " " & Normaliza(lblDir.Caption) & " ")
   igualProp = (P = Normaliza(TX(wsD.Cells(r, C_NN))) And nc = Normaliza(TX(wsD.Cells(r, C_NN + 1))) And Q = Normaliza(TX(wsD.Cells(r, C_NN + 2))))
+  Dim exacto As String, altC As String, altP As String, sufOtro As Boolean, nota As String
+  exacto = NombreCobertura(P, nc, Q, cboParr.Text)
+  sufOtro = SufijoOtroCanton(P, nc, Q, cboParr.Text, altC, altP)
+  If ok And UCase$(Trim$(exacto)) <> UCase$(Trim$(cboParr.Text)) Then nota = vbCrLf & "Nombre exacto en COBERTURA: " & exacto & "  (se guardará así)"
   lblInfo.Caption = cboProv.Text & " / " & cboCant.Text & " / " & cboParr.Text & "   ->   " & IIf(ok, "EN COBERTURA", "FUERA DE COBERTURA") & vbCrLf & _
                     "Sigla: " & sg & "      Gestor asignado: " & ex(0) & " (destino " & ex(1) & ")" & IIf(Len(ex(2)) > 0, "      Trayecto: " & ex(2), "") & vbCrLf & _
                     "Gestor en cobertura (Q): " & IIf(Len(ex(5)) > 0, ex(5), "-") & "      Sugerido (R): " & IIf(Len(ex(6)) > 0, ex(6), "-") & vbCrLf & _
-                    "Tipo de entrega: " & ex(3) & IIf(Len(ex(4)) > 0, "      " & ex(4), "") & IIf(Len(mMotivo) > 0, vbCrLf & "Elegida por: " & mMotivo, "")
-  If Not ok Then
+                    "Tipo de entrega: " & ex(3) & IIf(Len(ex(4)) > 0, "      " & ex(4), "") & IIf(Len(mMotivo) > 0, vbCrLf & "Elegida por: " & mMotivo, "") & nota
+  If ok And sufOtro Then
+    lblReco.ForeColor = RGB(191, 90, 0)
+    lblReco.Caption = "ATENCIÓN: '" & cboParr.Text & "' tiene el sufijo de " & altC & ". En " & cboCant.Text & " la parroquia es '" & exacto & _
+                      "'. Si la dirección es de " & altC & ", elige esa opción en la lista."
+  ElseIf Not ok Then
     lblReco.ForeColor = RGB(192, 0, 0)
     lblReco.Caption = "NO RECOMENDADO: esta combinación no está en COBERTURA. Usa una opción sugerida, 'Sugerir cobertura cercana' o 'Buscar cobertura'."
   ElseIf Left$(ex(4), 4) = "ZONA" Then
@@ -398,6 +409,7 @@ Private Sub btnAplicar_Click()
               vbYesNo + vbExclamation, "Fuera de cobertura") <> vbYes Then Exit Sub
     LogP "Fila " & r & " pedido " & TX(wsD.Cells(r, C_REF)) & ": aprobado FUERA DE COBERTURA por el operario (" & cboProv.Text & "/" & cant & "/" & parr & ")", "AVISO"
   End If
+  parr = NombreCobertura(P, nc, Q, parr)          ' siempre el nombre exacto de COBERTURA para ese cantón
   cambio = (Normaliza(TX(wsD.Cells(r, C_NN))) <> P Or Normaliza(TX(wsD.Cells(r, C_NN + 1))) <> nc Or Normaliza(TX(wsD.Cells(r, C_NN + 2))) <> Q)
   If Len(mMotivo) > 0 And cambio Then
     wsD.Cells(r, C_CORR).Value = "COBERTURA CERCANA (operario): " & mMotivo

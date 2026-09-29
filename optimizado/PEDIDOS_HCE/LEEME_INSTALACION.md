@@ -209,6 +209,23 @@ Antes de comparar, se expanden las abreviaturas FCO, PTO, STO, STA, GRAL, CNEL/C
 ORELLANA" coincide con "PUERTO FRANCISCO DE ORELLANA (EL COCA)". Se comprobó que la expansión no junta ninguna
 combinación distinta de COBERTURA.
 
+### 2.8 Parroquias con el mismo nombre en varios cantones
+
+COBERTURA tiene 17 parroquias cuyo nombre se repite en dos cantones de la misma provincia y solo se distinguen por el
+código entre paréntesis. Por ejemplo, `SAN FRANCISCO (COT)` es de Cotacachi y `SAN FRANCISCO (IBA)` es de Ibarra; en
+Pichincha, `RUMIPAMBA (QUI)` es de Quito y `RUMIPAMBA (RUM)` es de Rumiñahui.
+
+- **Antes:** la propuesta tomaba el primer nombre de la provincia, sin mirar el cantón. Un pedido de IBARRA podía
+  quedar con `SAN FRANCISCO (COT)` y el operario no veía el error, porque la sigla sí salía bien.
+- **Ahora:** la propuesta (columna P) siempre usa el **nombre exacto de COBERTURA para el cantón del pedido**.
+  - Si solo cambia la escritura, el pedido queda OK y AD dice `NOMBRE SEGUN COBERTURA`.
+  - Si el cliente puso el sufijo de **otro** cantón (IBARRA + `SAN FRANCISCO (COT)`), el pedido pasa a **REVISAR** con
+    la acción "Sufijo de otro cantón: confirmar parroquia". El validador muestra las dos opciones: la del cantón escrito
+    y la del sufijo.
+- En el validador, "Aplicar y siguiente" guarda siempre el nombre exacto de COBERTURA. Si la parroquia elegida tiene el
+  sufijo de otro cantón, aparece un aviso en naranja.
+- Los pedidos que ya se aplicaron con el sufijo equivocado se detectan al volver a validar (paso 2).
+
 ## 3. Reglas implementadas
 
 ### 3.1 Gestor y destino (columnas V `GESTOR_ASIGNADO` y W `DESTINO`)
