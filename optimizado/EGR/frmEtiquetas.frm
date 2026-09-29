@@ -13,7 +13,7 @@ Private Const PY As Single = 40
 Private Const ES As Single = 0.5        ' 800 x 400 puntos Zebra -> 400 x 200 en pantalla
 
 Private mLay As Variant, mCW As Single, mCH As Single, mEsc As Double, mEscalando As Boolean
-Private mFilas() As Long, mN As Long
+Private mFilas() As Long, mN As Long, mCerrando As Boolean
 Private lblInfo As MSForms.Label, fondo As MSForms.Label
 Private lblNum As MSForms.Label, lblDest As MSForms.Label, lblParr As MSForms.Label, lblNom As MSForms.Label, lblApe As MSForms.Label
 Private barras(1 To 80) As MSForms.Label
@@ -95,6 +95,10 @@ Private Sub UserForm_Initialize()
   Reescalar
 End Sub
 
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+  mCerrando = True
+End Sub
+
 Private Sub UserForm_Resize()
   Reescalar
 End Sub
@@ -107,7 +111,7 @@ Private Sub Reescalar()
   mEscalando = True
   mEsc = f
   EscalarLayout Me, mLay, f, mCW, mCH
-  If lst.ListIndex >= 0 Then Muestra lst.ListIndex + 1
+  If Not lst Is Nothing Then If lst.ListIndex >= 0 Then Muestra lst.ListIndex + 1
   mEscalando = False
 End Sub
 
@@ -133,7 +137,7 @@ End Function
 Private Sub Muestra(ByVal k As Long)
   Dim wsD As Worksheet, f As Long, ped As String, nom As String, ape As String, parr As String, m As String
   Dim i As Long, x As Single, w As Single, nBar As Long, e As Double, ox As Single, oy As Single
-  If k < 1 Or k > mN Then Exit Sub
+  If k < 1 Or k > mN Or fondo Is Nothing Or lblNum Is Nothing Then Exit Sub
   Set wsD = ThisWorkbook.Worksheets(HDAT)
   f = mFilas(k)
   ped = TXE(wsD.Cells(f, D_PED).Value)
@@ -178,10 +182,12 @@ Private Function Marcadas() As Collection
 End Function
 
 Private Sub ActualizarBoton()
+  If mCerrando Or bImprimir Is Nothing Or lst Is Nothing Then Exit Sub
   bImprimir.Caption = "Imprimir " & Marcadas().Count & " etiqueta(s)"
 End Sub
 
 Private Sub lst_Change()
+  If mCerrando Or lst Is Nothing Or lblNum Is Nothing Then Exit Sub
   If lst.ListIndex >= 0 Then Muestra lst.ListIndex + 1
   ActualizarBoton
 End Sub
@@ -207,6 +213,7 @@ Private Sub bImprimir_Click()
   n = ImprimirFilas(c, cboImp.Text, False)
   If n > 0 Then
     MsgBox n & " etiqueta(s) enviadas a " & cboImp.Text & ".", vbInformation
+    mCerrando = True
     Unload Me
   Else
     MsgBox "No se pudo imprimir. Revisa que la Zebra esté encendida y conectada (detalle en el registro).", vbExclamation
@@ -222,5 +229,6 @@ Private Sub bZpl_Click()
 End Sub
 
 Private Sub bCancel_Click()
+  mCerrando = True
   Unload Me
 End Sub
