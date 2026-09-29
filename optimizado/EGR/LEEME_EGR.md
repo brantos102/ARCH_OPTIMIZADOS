@@ -128,6 +128,37 @@ Todo queda en el **registro** del panel y en la hoja oculta **LOG_EGR**: fecha, 
   Así no queda activo durante mensajes, macros largas ni al cambiar de libro. **Pega el modVentanas nuevo en los dos
   archivos.**
 
+### Operar sin el panel: botones en Complementos
+
+La barra **Despacho EGR HYCITE** (pestaña Complementos) tiene las mismas funciones que el panel, sin abrir formularios:
+
+| Botón | Qué hace |
+|---|---|
+| Panel EGR | Abre el panel (opcional) |
+| **0 Limpiar día** | Borra la validación anterior de DATOS: destinos confirmados (AF:AH), datos de PEDIDOS HCE (AI:AO) y el estado de las etiquetas (ETIQUETAS F, M, N). Pregunta si también borra los pedidos de ayer (C:N). Guarda un respaldo antes |
+| 1 Revisar cobertura TMS | Lista los pedidos fuera de cobertura, sin código postal o sin teléfono, y va al primero |
+| 2 Aplicar destinos sugeridos | Muestra los cambios (reglas + cobertura) y los confirma todos. Para elegir uno por uno, usa el panel |
+| 3 Imprimir etiquetas pendientes | Imprime las que no se imprimieron o cambiaron de destino, con confirmación. No abre la vista previa |
+| Reimprimir pedido(s) | Pide los números de pedido |
+| 4 Avance empaque | Resumen de picking y empaque |
+| 5 Exportar reportes | Pide la hoja (1 TRAMACO, 2 TMS, 3 DESPACHOS, 4 las tres) y el formato (1 CSV, 2 XLSX, 3 PDF) |
+| Actualizar datos · Productos · Cajas · Impresora · Reparar fórmulas · Desbloquear | Igual que en el panel |
+
+### Impresora Zebra compartida ("ZDesigner ZD230-203dpi ZPL en emphycite")
+
+Windows muestra las impresoras compartidas como `IMPRESORA en SERVIDOR`, pero su nombre real es
+`\\SERVIDOR\IMPRESORA`. El envío prueba en este orden:
+
+1. el nombre tal como aparece;
+2. `\\emphycite\ZDesigner ZD230-203dpi ZPL`;
+3. como último recurso, copia el ZPL directo al recurso compartido (`copy /b`).
+
+Cada intento y su código de error de Windows quedan en el registro, así se ve exactamente por qué falló.
+
+Si falla todo, en la PC donde está conectada la Zebra (emphycite): Panel de control › Dispositivos e impresoras ›
+Zebra › Propiedades de impresora › **Compartir**. Anota el **nombre del recurso compartido** y escríbelo en CONFIG_EGR
+(`IMPRESORA_ZEBRA`) como `\\emphycite\NOMBRE_COMPARTIDO`.
+
 ## 3. Reglas de destino (PRO / GYE / UIO / GPS)
 
 El destino de DATOS!A alimenta TMS, TRAMACO, DESPACHOS y las etiquetas. Por eso las reglas **solo proponen**, en la

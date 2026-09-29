@@ -675,6 +675,8 @@ Public Function ProponerDestinos() As Long
   reglas = CargarReglas()
   If Not IsArray(reglas) Then LogE "DESTINOS: no hay reglas activas en REGLAS_DESTINO", "ERROR": Exit Function
   v = ws.Range(ws.Cells(1, 1), ws.Cells(lr, D_RMOT)).Value
+  Dim dC As Object, g As String, k As String
+  Set dC = DictCobertura()
   For i = 2 To lr
     If Len(TXE(v(i, D_PED))) > 0 Then
       If TXE(v(i, D_PROV)) = "" Or UCase$(TXE(v(i, D_PROV))) = "VALIDAR" Then
@@ -682,6 +684,13 @@ Public Function ProponerDestinos() As Long
       Else
         nuevo = DestinoPorReglas(reglas, TXE(v(i, D_PROV)), TXE(v(i, D_CANT)), TXE(v(i, D_PARR)), TXE(v(i, D_DIR)), mot)
         act = UCase$(TXE(v(i, D_DEST)))
+        If (nuevo = "" Or nuevo = act) And (act = "UIO" Or act = "GYE") Then       ' lógica de PEDIDOS HCE
+          k = ClaveTMS(TXE(v(i, D_H)), TXE(v(i, D_I)), TXE(v(i, D_J))): g = ""
+          If dC.Exists(k) Then g = CStr(dC(k)(0))
+          If Len(g) > 0 And InStr(1, g, "ITSANET", vbTextCompare) = 0 And InStr(1, g, "LAAR", vbTextCompare) = 0 Then
+            nuevo = "PRO": mot = "Cobertura TMS: " & g & " (sin ITSANET/LAAR para " & act & ")"
+          End If
+        End If
         If Len(nuevo) > 0 And nuevo <> act Then
           gPropuestas.Add Array(i, TXE(v(i, D_PED)), TXE(v(i, D_NOM)), TXE(v(i, D_PROV)), TXE(v(i, D_CANT)), TXE(v(i, D_PARR)), act, nuevo, mot)
         End If
@@ -893,7 +902,7 @@ Public Function RevisarCoberturaTMS(lista As Collection) As Long
       If Len(prob) > 0 Then
         n = n + 1
         lista.Add Array(i, TXE(v(i, D_PED)), TXE(v(i, D_NOM)), TXE(v(i, D_H)) & " / " & TXE(v(i, D_I)) & " / " & TXE(v(i, D_J)), prob)
-        LogE "COBERTURA TMS fila " & i & " pedido " & TXE(v(i, D_PED)) & ": " & prob, "REVISAR"
+        If n <= 30 Then LogE "COBERTURA TMS fila " & i & " pedido " & TXE(v(i, D_PED)) & ": " & prob, "REVISAR"
       End If
     End If
   Next
@@ -1183,18 +1192,135 @@ Sub AbrirPanelEGR()
 End Sub
 
 Sub CrearMenuEGR()
-  Dim bar As CommandBar, b As CommandBarButton
+  Dim bar As CommandBar
   On Error Resume Next
   Application.CommandBars("Despacho EGR HYCITE").Delete
   On Error GoTo 0
   Set bar = Application.CommandBars.Add(Name:="Despacho EGR HYCITE", Position:=msoBarTop, Temporary:=True)
-  Set b = bar.Controls.Add(Type:=msoControlButton)
-  b.Caption = "Panel EGR (despacho)": b.OnAction = "'" & ThisWorkbook.Name & "'!AbrirPanelEGR"
-  b.Style = msoButtonIconAndCaption: b.FaceId = 1087
-  Set b = bar.Controls.Add(Type:=msoControlButton)
-  b.Caption = "Desbloquear": b.OnAction = "'" & ThisWorkbook.Name & "'!Desbloquear"
-  b.Style = msoButtonIconAndCaption: b.FaceId = 346: b.BeginGroup = True
+  BotonMenu bar, "Panel EGR", "AbrirPanelEGR", 1087, False
+  BotonMenu bar, "0 Limpiar día", "LimpiarDia", 358, True
+  BotonMenu bar, "1 Revisar cobertura TMS", "MenuRevisarCobertura", 1098, True
+  BotonMenu bar, "2 Aplicar destinos sugeridos", "MenuAplicarDestinos", 1099, False
+  BotonMenu bar, "3 Imprimir etiquetas pendientes", "MenuImprimirPendientes", 4, False
+  BotonMenu bar, "Reimprimir pedido(s)", "MenuReimprimir", 4, False
+  BotonMenu bar, "4 Avance empaque", "MenuAvance", 1016, False
+  BotonMenu bar, "5 Exportar reportes", "MenuExportar", 3, False
+  BotonMenu bar, "Actualizar datos", "ActualizarTodo", 459, True
+  BotonMenu bar, "Productos", "MenuProductos", 1087, False
+  BotonMenu bar, "Cajas", "MenuCajas", 1087, False
+  BotonMenu bar, "Impresora", "ElegirImpresoraMenu", 4, False
+  BotonMenu bar, "Reparar fórmulas", "RepararFormulasEGR", 1100, False
+  BotonMenu bar, "Desbloquear", "Desbloquear", 346, True
   bar.Visible = True
+End Sub
+
+Private Sub BotonMenu(bar As CommandBar, ByVal cap As String, ByVal macro As String, ByVal cara As Long, ByVal grupo As Boolean)
+  Dim b As CommandBarButton
+  Set b = bar.Controls.Add(Type:=msoControlButton)
+  b.Caption = cap: b.OnAction = "'" & ThisWorkbook.Name & "'!" & macro
+  b.Style = msoButtonIconAndCaption: b.BeginGroup = grupo
+  On Error Resume Next
+  b.FaceId = cara
+End Sub
+
+' ---------- operación desde Complementos (sin formularios) ----------
+Private Function PanelOcupado() As Boolean
+  RuedaDesactivar
+  If gOcupadoE Then MsgBox "Hay un proceso en curso.", vbInformation: PanelOcupado = True
+End Function
+
+Sub MenuRevisarCobertura()
+  Dim c As New Collection, n As Long, i As Long, s As String, ws As Worksheet
+  If PanelOcupado() Then Exit Sub
+  n = RevisarCoberturaTMS(c)
+  If n = 0 Then MsgBox "Todos los pedidos están en la cobertura TMS, con código postal y teléfono.", vbInformation: Exit Sub
+  For i = 1 To c.Count
+    If i <= 15 Then s = s & vbCrLf & "Fila " & c(i)(0) & "  " & c(i)(1) & ": " & Left$(c(i)(4), 70)
+  Next
+  MsgBox n & " pedido(s) con observación:" & s & IIf(n > 15, vbCrLf & "...", "") & vbCrLf & vbCrLf & _
+         "Los fuera de cobertura no tendrán destino ni etiqueta hasta corregirlos (detalle en LOG_EGR).", vbExclamation, "Cobertura TMS"
+  Set ws = ThisWorkbook.Worksheets(HDAT)
+  ws.Activate
+  ws.Cells(c(1)(0), D_PED).Select
+End Sub
+
+Sub MenuAplicarDestinos()
+  Dim n As Long, i As Long, s As String, p
+  If PanelOcupado() Then Exit Sub
+  n = ProponerDestinos()
+  If n = 0 Then MsgBox "Ningún pedido cambia de destino según las reglas y la cobertura.", vbInformation: Exit Sub
+  For i = 1 To gPropuestas.Count
+    p = gPropuestas(i)
+    If i <= 20 Then s = s & vbCrLf & p(1) & "  " & IIf(Len(p(6)) > 0, p(6), "(vacío)") & " -> " & p(7) & "  (" & Left$(p(8), 55) & ")"
+  Next
+  If MsgBox(n & " pedido(s) cambian de destino:" & s & IIf(n > 20, vbCrLf & "...", "") & vbCrLf & vbCrLf & _
+            "¿Confirmar TODOS? (para elegir uno por uno usa el Panel EGR)", vbYesNo + vbQuestion, "Destinos sugeridos") <> vbYes Then Exit Sub
+  AplicarDestinos
+  MsgBox n & " destino(s) confirmados. Si ya tenían etiqueta, reimprímelas y vuelve a exportar.", vbInformation
+End Sub
+
+Sub MenuAvance()
+  Dim c As New Collection, res As String
+  If PanelOcupado() Then Exit Sub
+  AvancePedidos c, res
+  MsgBox res & vbCrLf & vbCrLf & "Avisos de costos (SKU o cajas sin datos) en el registro LOG_EGR.", vbInformation, "Avance de empaque"
+End Sub
+
+Sub MenuExportar()
+  Dim h As String, f As String, hojas, fmt As String
+  If PanelOcupado() Then Exit Sub
+  h = InputBox("¿Qué exportar?" & vbCrLf & "1 = TRAMACO (" & FilasExport("TRAMACO").Count & " filas)" & vbCrLf & _
+               "2 = TMS (" & FilasExport("TMS").Count & " filas)" & vbCrLf & "3 = DESPACHOS (" & FilasExport("DESPACHOS").Count & " filas)" & vbCrLf & "4 = las tres", "Exportar reportes", "1")
+  Select Case Trim$(h)
+    Case "1": hojas = Array("TRAMACO")
+    Case "2": hojas = Array("TMS")
+    Case "3": hojas = Array("DESPACHOS")
+    Case "4": hojas = Array("TMS", "TRAMACO", "DESPACHOS")
+    Case Else: Exit Sub
+  End Select
+  f = InputBox("Formato:" & vbCrLf & "1 = CSV" & vbCrLf & "2 = XLSX" & vbCrLf & "3 = PDF", "Exportar reportes", "1")
+  Select Case Trim$(f)
+    Case "1": fmt = "CSV"
+    Case "2": fmt = "XLSX"
+    Case "3": fmt = "PDF"
+    Case Else: Exit Sub
+  End Select
+  ExportarReportes fmt, hojas, (MsgBox("¿Crear también el correo de Outlook con los archivos?", vbYesNo + vbQuestion) = vbYes)
+End Sub
+
+Sub MenuProductos()
+  If PanelOcupado() Then Exit Sub
+  EditarMaestro "PRODUCTOS"
+End Sub
+
+Sub MenuCajas()
+  If PanelOcupado() Then Exit Sub
+  EditarMaestro "CAJAS"
+End Sub
+
+' Inicio del día: borra la validación anterior de DATOS (destinos confirmados, datos de PEDIDOS HCE)
+' y el estado de las etiquetas. Opcionalmente también los pedidos de ayer (C:N).
+Sub LimpiarDia()
+  Dim ws As Worksheet, wsE As Worksheet, r As VbMsgBoxResult
+  If PanelOcupado() Then Exit Sub
+  r = MsgBox("INICIAR EL DÍA: se borrará la validación anterior de DATOS:" & vbCrLf & _
+             "  - destinos confirmados (AF:AH)" & vbCrLf & "  - datos de PEDIDOS HCE (AI:AO)" & vbCrLf & _
+             "  - estado de etiquetas impresas (ETIQUETAS F, M, N)" & vbCrLf & vbCrLf & _
+             "¿Borrar también los PEDIDOS de ayer (DATOS C:N)?" & vbCrLf & _
+             "  Sí = borra todo    No = conserva los pedidos    Cancelar = no hace nada", vbYesNoCancel + vbQuestion, "Limpiar día")
+  If r = vbCancel Then Exit Sub
+  Respaldo "antes_limpiar_dia"
+  Set ws = ThisWorkbook.Worksheets(HDAT): Set wsE = ThisWorkbook.Worksheets("ETIQUETAS")
+  Application.ScreenUpdating = False
+  ws.Range(ws.Cells(2, D_RDEST), ws.Cells(MAXF, 41)).ClearContents
+  If r = vbYes Then ws.Range(ws.Cells(2, 3), ws.Cells(MAXF, 14)).ClearContents
+  wsE.Range(wsE.Cells(2, 6), wsE.Cells(501, 6)).Value = "-"
+  wsE.Range(wsE.Cells(2, 13), wsE.Cells(501, 14)).ClearContents
+  Application.Calculate
+  Application.ScreenUpdating = True
+  LogE "LIMPIAR DÍA: validación anterior borrada" & IIf(r = vbYes, " (también los pedidos C:N)", " (pedidos conservados)")
+  RefrescarPanel
+  MsgBox "Listo para el nuevo día. Siguiente: en PEDIDOS HCE, paso 7 'Enviar a EGR'.", vbInformation
 End Sub
 
 Sub BorrarMenuEGR()

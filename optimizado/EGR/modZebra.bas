@@ -76,19 +76,61 @@ End Function
 
 ' ---------- envío RAW a la impresora ----------
 Public Function EnviarRaw(ByVal impresora As String, ByVal datos As String) As Boolean
-  Dim h As LongPtr, di As DOCINFO, b() As Byte, esc As Long
-  If Len(datos) = 0 Then Exit Function
-  If OpenPrinter(impresora, h, 0) = 0 Then LogE "ETIQUETAS: no se pudo abrir la impresora '" & impresora & "'", "ERROR": Exit Function
+  Dim nombres As New Collection, nm, p As Long
+  If Len(datos) = 0 Or Len(impresora) = 0 Then Exit Function
+  nombres.Add impresora
+  ' Windows muestra las impresoras compartidas como "IMPRESORA en SERVIDOR"; el nombre real es \\SERVIDOR\IMPRESORA
+  p = InStrRev(impresora, " en ")
+  If p > 0 And Left$(impresora, 2) <> "\\" Then nombres.Add "\\" & Mid$(impresora, p + 4) & "\" & Left$(impresora, p - 1)
+  For Each nm In nombres
+    If EnviarRawA(CStr(nm), datos) Then EnviarRaw = True: Exit Function
+  Next
+  ' último recurso para impresoras compartidas: copiar el ZPL directo al recurso compartido
+  For Each nm In nombres
+    If Left$(nm, 2) = "\\" Then
+      If CopiarAImpresora(CStr(nm), datos) Then EnviarRaw = True: Exit Function
+    End If
+  Next
+End Function
+
+Private Function EnviarRawA(ByVal impresora As String, ByVal datos As String) As Boolean
+  Dim h As LongPtr, di As DOCINFO, b() As Byte, esc As Long, r As Long
+  On Error GoTo fallo
+  If OpenPrinter(impresora, h, 0) = 0 Then
+    LogE "ETIQUETAS: no se pudo abrir '" & impresora & "' (código Windows " & Err.LastDllError & ")", "AVISO"
+    Exit Function
+  End If
   di.pDocName = "Etiquetas HYCITE": di.pOutputFile = vbNullString: di.pDatatype = "RAW"
-  If StartDocPrinter(h, 1, di) = 0 Then ClosePrinter h: LogE "ETIQUETAS: la impresora rechazó el trabajo", "ERROR": Exit Function
+  If StartDocPrinter(h, 1, di) = 0 Then
+    LogE "ETIQUETAS: '" & impresora & "' rechazó el trabajo (código Windows " & Err.LastDllError & ")", "AVISO"
+    ClosePrinter h: Exit Function
+  End If
   StartPagePrinter h
   b = StrConv(datos, vbFromUnicode)
-  WritePrinter h, b(0), UBound(b) + 1, esc
+  r = WritePrinter(h, b(0), UBound(b) + 1, esc)
   EndPagePrinter h
   EndDocPrinter h
   ClosePrinter h
-  EnviarRaw = (esc = UBound(b) + 1)
-  If Not EnviarRaw Then LogE "ETIQUETAS: se enviaron " & esc & " de " & (UBound(b) + 1) & " bytes", "ERROR"
+  EnviarRawA = (r <> 0 And esc = UBound(b) + 1)
+  If Not EnviarRawA Then LogE "ETIQUETAS: '" & impresora & "' recibió " & esc & " de " & (UBound(b) + 1) & " bytes", "AVISO"
+  Exit Function
+fallo:
+  LogE "ETIQUETAS: error al enviar a '" & impresora & "': " & Err.Description, "AVISO"
+  On Error Resume Next
+  If h <> 0 Then ClosePrinter h
+End Function
+
+Private Function CopiarAImpresora(ByVal destino As String, ByVal datos As String) As Boolean
+  Dim f As String, ff As Integer, r As Long
+  On Error GoTo fallo
+  f = Environ$("TEMP") & "\etiquetas_hycite.zpl"
+  ff = FreeFile: Open f For Output As #ff: Print #ff, datos;: Close #ff
+  r = CreateObject("WScript.Shell").Run("cmd /c copy /b """ & f & """ """ & destino & """", 0, True)
+  CopiarAImpresora = (r = 0)
+  LogE "ETIQUETAS: copia directa a " & destino & IIf(r = 0, " correcta", " falló (código " & r & ")"), IIf(r = 0, "INFO", "AVISO")
+  Exit Function
+fallo:
+  LogE "ETIQUETAS: copia directa a " & destino & ": " & Err.Description, "AVISO"
 End Function
 
 ' Lista de impresoras instaladas (primero WScript.Network, más liviano; WMI solo si hace falta)
@@ -164,3 +206,72 @@ Public Function Code128Modulos(ByVal s As String) As String
   o = o & pat(chk Mod 103) & pat(106)
   Code128Modulos = o          ' anchos alternados barra/espacio en módulos
 End Function
+
+
+' ---------- impresión desde Complementos (sin formularios) ----------
+Public Sub ElegirImpresoraMenu()
+  Dim c As Collection, i As Long, s As String, r As String, sug As Long
+  RuedaDesactivar
+  Set c = ListaImpresoras()
+  If c.Count = 0 Then MsgBox "No se encontraron impresoras instaladas.", vbExclamation: Exit Sub
+  For i = 1 To c.Count
+    s = s & i & ") " & c(i) & vbCrLf
+    If sug = 0 And (InStr(1, c(i), "ZD", vbTextCompare) > 0 Or InStr(1, c(i), "ZEBRA", vbTextCompare) > 0) Then sug = i
+  Next
+  r = InputBox("Impresora de etiquetas:" & vbCrLf & vbCrLf & s & vbCrLf & "Escribe el número:", "Elegir impresora", IIf(sug > 0, CStr(sug), ""))
+  If Len(r) = 0 Then Exit Sub
+  If Val(r) < 1 Or Val(r) > c.Count Then MsgBox "Número no válido.", vbExclamation: Exit Sub
+  SetCfg "IMPRESORA_ZEBRA", c(Val(r))
+  LogE "ETIQUETAS: impresora elegida = " & c(Val(r))
+  MsgBox "Impresora guardada: " & c(Val(r)), vbInformation
+End Sub
+
+' modo: "PENDIENTES" (sin imprimir o por reimprimir), "TODAS", "PEDIDOS" (lista)
+Public Sub ImprimirMenu(ByVal modo As String, Optional ByVal lista As String = "")
+  Dim wsD As Worksheet, wsE As Worksheet, lr As Long, i As Long, filas As New Collection, dest As String, ped As String
+  Dim impr As String, n As Long, l As String
+  RuedaDesactivar
+  Set wsD = ThisWorkbook.Worksheets(HDAT): Set wsE = ThisWorkbook.Worksheets(HETQ)
+  Application.Calculate
+  lr = UltimaFilaDatos()
+  l = "," & Replace(Replace(lista, " ", ""), ";", ",") & ","
+  For i = 2 To lr
+    ped = TXE(wsD.Cells(i, D_PED).Value): dest = UCase$(TXE(wsD.Cells(i, D_DEST).Value))
+    If Len(ped) > 0 And Len(dest) > 0 Then
+      Select Case modo
+        Case "TODAS": filas.Add i
+        Case "PEDIDOS": If InStr(l, "," & ped & ",") > 0 Then filas.Add i
+        Case Else
+          If UCase$(TXE(wsE.Cells(i, 6).Value)) <> "OK" Or (Len(TXE(wsE.Cells(i, 13).Value)) > 0 And UCase$(TXE(wsE.Cells(i, 13).Value)) <> dest) Then filas.Add i
+      End Select
+    End If
+  Next
+  If filas.Count = 0 Then MsgBox "No hay etiquetas para imprimir con esa opción.", vbInformation: Exit Sub
+  impr = Cfg("IMPRESORA_ZEBRA")
+  If Len(impr) = 0 Then ElegirImpresoraMenu: impr = Cfg("IMPRESORA_ZEBRA")
+  If Len(impr) = 0 Then Exit Sub
+  If MsgBox("Imprimir " & filas.Count & " etiqueta(s) en:" & vbCrLf & impr & "?", vbYesNo + vbQuestion, "Etiquetas") <> vbYes Then Exit Sub
+  Application.Cursor = xlWait
+  n = ImprimirFilas(filas, impr, False)
+  Application.Cursor = xlDefault
+  If n > 0 Then
+    MsgBox n & " etiqueta(s) enviadas.", vbInformation
+  Else
+    MsgBox "No se pudo imprimir en '" & impr & "'. Revisa el registro (LOG_EGR) o elige otra vez la impresora.", vbExclamation
+  End If
+End Sub
+
+Sub MenuImprimirPendientes()
+  ImprimirMenu "PENDIENTES"
+End Sub
+
+Sub MenuImprimirTodas()
+  ImprimirMenu "TODAS"
+End Sub
+
+Sub MenuReimprimir()
+  Dim s As String
+  RuedaDesactivar
+  s = InputBox("Número(s) de pedido a imprimir, separados por coma:", "Reimprimir etiquetas")
+  If Len(Trim$(s)) > 0 Then ImprimirMenu "PEDIDOS", s
+End Sub
