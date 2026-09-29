@@ -61,6 +61,30 @@ Para traer otra fecha (por ejemplo, ayer y hoy), cambia esa línea por:
 
 Las tablas dinámicas no dependen del modelo: leen la hoja EMPAQUETADO (C:K).
 
+### EMPAQUETADO trae miles de filas vacías (37 109 filas con la fecha de hoy)
+
+**Causa:** en el Google Sheets los operadores llenan la FECHA hacia abajo en miles de filas antes de registrar las
+cajas. La consulta anterior filtraba por fecha, pero dejaba pasar esas filas sin número de orden, así que la tabla, las
+fórmulas F:K y las tablas dinámicas procesaban 37 mil filas.
+
+**Solución:** reemplaza el texto de la consulta por [`EMPAQUETADO.m`](EMPAQUETADO.m). La consulta nueva:
+
+1. descarta primero las filas **sin "# ORDEN"**;
+2. filtra la fecha de hoy, aceptando dd/mm/aaaa o mm/dd/aaaa;
+3. deja la orden como texto limpio;
+4. pone un tope de seguridad de 2 000 cajas.
+
+Pasos:
+
+1. Datos › Consultas y conexiones › clic derecho en **EMPAQUETADO** › **Editar**.
+2. En Power Query: **Inicio › Editor avanzado**. **Copia la URL** de la línea `Origen = Csv.Document(Web.Contents("...")`.
+3. Borra todo, pega el contenido de `EMPAQUETADO.m` y reemplaza `PEGA_AQUI_LA_URL` por la URL copiada (entre comillas).
+4. **Listo** › **Cerrar y cargar**. La tabla queda solo con las cajas de hoy (decenas o cientos de filas).
+5. Pulsa **Actualizar datos** y **guarda** el archivo, para que Excel libere el espacio de las filas que ya no existen.
+
+No hace falta pedir a los operadores que dejen de llenar la fecha: la consulta ya ignora las filas vacías. Si quieres
+que el Google Sheets también sea más liviano, la fecha se puede llenar solo cuando se registra la orden.
+
 ## 2. Panel EGR y orden del día
 
 Al abrir el panel (Complementos › **Panel EGR (despacho)**) se ven **todos los pedidos** de DATOS, igual que en PEDIDOS HCE:
