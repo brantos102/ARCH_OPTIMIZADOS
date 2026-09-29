@@ -7,6 +7,8 @@ REPOSITORIO DE LOS ARCHIVOS OPTIMIMZADOS A CODIGO EXCEL
   *Formato EGR_FL_HYCITE* (hojas, fórmulas, consultas, VBA, conexiones, hallazgos y puntos a decidir antes del archivo único).
 - [`docs/ANALISIS_EGR_Y_DECISION.md`](docs/ANALISIS_EGR_Y_DECISION.md): estado actual de *Formato EGR_FL_HYCITE*
   (16 hojas, hallazgos, causas de bloqueo de Excel) y decisión de unificarlo sobre PEDIDOS HCE por fases.
+- [`optimizado/EGR/`](optimizado/EGR/): VBA de *Formato EGR_FL_HYCITE* (panel de despacho, reglas de destino,
+  etiquetas Zebra ZPL, avance, exportación CSV/XLSX/PDF y actualización segura) con su [guía](optimizado/EGR/LEEME_EGR.md).
 - [`fuentes_originales/`](fuentes_originales/): código VBA, Power Query, SQL e inventario de fórmulas extraídos de los
   libros originales (línea base).
 - [`optimizado/PEDIDOS_HCE/`](optimizado/PEDIDOS_HCE/): versión optimizada v2 del VBA de PEDIDOS HCE (Módulo1,
