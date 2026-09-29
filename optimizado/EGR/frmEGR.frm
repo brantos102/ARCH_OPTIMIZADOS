@@ -14,6 +14,8 @@ Private Const ANCHO As Single = 1000
 Private Const NF As Long = 30
 
 Private mLay As Variant, mCW As Single, mCH As Single, mEsc As Double, mEscalando As Boolean
+Private mPasoBtn(1 To 5) As MSForms.CommandButton, mPasoCap(1 To 5) As String, mPasoCol(1 To 5) As Long
+Private lblGuia As MSForms.Label, mCobRevisada As Boolean, mExportado As Boolean
 Private mPrimera As Boolean, mVista As String, mData() As Variant, mN As Long, mIdx() As Long, mNIdx As Long, mListo As Boolean
 Private lblVista As MSForms.Label, lblKpi As MSForms.Label, lblDet As MSForms.Label, lblFilasExp As MSForms.Label
 Private hdr(1 To 14) As MSForms.Label, txtLog As MSForms.TextBox
@@ -97,8 +99,10 @@ Private Sub UserForm_Initialize()
   Set bDesb = NB("Desbloquear", 8, 484, 93, 22, RGB(120, 120, 120), "Restaura pantalla, eventos y cálculo si Excel quedó bloqueado.")
   Set bExcel = NB("Ver Excel", 105, 484, 93, 22, RGB(0, 97, 0), "Oculta el panel. Para volver: Complementos > Panel EGR.")
   Set bCer = NB("Cerrar panel", 8, 514, 190, 24, RGB(192, 80, 77), "Cierra el panel.")
-  Set t = NL("Flujo: PEDIDOS HCE (Enviar a EGR) > revisar cobertura TMS > confirmar destinos > etiquetas > empaque (Actualizar datos) > exportar. Si cambia un destino: reimprimir etiqueta y volver a exportar.", 8, 544, 190)
-  t.Height = 70: t.WordWrap = True: t.BackColor = RGB(255, 242, 204): t.BorderStyle = fmBorderStyleSingle: t.ForeColor = RGB(128, 64, 0)
+  Set lblGuia = NL("", 8, 544, 190)
+  lblGuia.Height = 110: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204): lblGuia.BorderStyle = fmBorderStyleSingle: lblGuia.ForeColor = RGB(128, 64, 0)
+  Set mPasoBtn(1) = bCob: Set mPasoBtn(2) = bCamb: Set mPasoBtn(3) = bEtqSel: Set mPasoBtn(4) = bVEmp: Set mPasoBtn(5) = bExp
+  For i = 1 To 5: mPasoCap(i) = mPasoBtn(i).Caption: mPasoCol(i) = mPasoBtn(i).BackColor: Next
 
   ' ----- área derecha -----
   Set lblVista = NL("PEDIDOS DEL DÍA", X0, 6, 400, True): lblVista.ForeColor = RGB(48, 84, 150)
@@ -206,6 +210,7 @@ End Sub
 ' Antes de cualquier acción: sin gancho de rueda (evita cierres de Excel con mensajes o procesos largos)
 Private Function Listo() As Boolean
   RuedaDesactivar
+  If Not ControlesOK() Then Exit Function
   If gOcupadoE Then MsgBox "Hay un proceso en curso. Espera a que termine.", vbInformation: Exit Function
   Listo = True
 End Function
@@ -252,11 +257,11 @@ Public Sub Recargar()
       mData(n, 5) = TXE(v(i, D_PROV)): mData(n, 6) = TXE(v(i, D_CANT)): mData(n, 7) = TXE(v(i, D_PARR))
       mData(n, 8) = dest: mData(n, 9) = IIf(Len(sug) > 0 And sug <> dest, sug, "")
       mData(n, 10) = TXE(v(i, D_COUR))
-      mData(n, 11) = IIf(Len(TXE(v(i, 37))) > 0, TXE(v(i, 37)), IIf(IsArray(cob), cob(2), ""))      ' AK trayecto o cobertura V
+      mData(n, 11) = TXE(v(i, 37)): If Len(mData(n, 11)) = 0 Then mData(n, 11) = CobVal(cob, 2)       ' AK trayecto o cobertura V
       mData(n, 12) = zona: mData(n, 13) = etq: mData(n, 14) = emp
       mData(n, 15) = mot: mData(n, 16) = TXE(v(i, D_DIR))
-      mData(n, 17) = IIf(IsArray(cob), cob(0), "")
-      mData(n, 18) = IIf(Len(TXE(v(i, 41))) > 0, TXE(v(i, 41)), IIf(IsArray(cob), cob(1), ""))      ' AO sugerido R
+      mData(n, 17) = CobVal(cob, 0)
+      mData(n, 18) = TXE(v(i, 41)): If Len(mData(n, 18)) = 0 Then mData(n, 18) = CobVal(cob, 1)       ' AO sugerido R
       mData(n, 19) = TXE(v(i, 38))                                                                   ' AL tipo de entrega
       mData(n, 20) = IIf(fuera, "FUERA: " & TXE(v(i, D_DIAG)) & IIf(Len(TXE(v(i, D_SUG))) > 0, " (sugerida: " & TXE(v(i, D_SUG)) & ")", ""), "OK")
       mData(n, 21) = IIf(conf, TXE(v(i, D_RMOT)), "")
@@ -286,8 +291,13 @@ mostrar:
   Exit Sub
 fallo:
   Application.Cursor = xlDefault
-  LogE "PANEL: error al leer los datos: " & Err.Description, "ERROR"
+  LogE "PANEL: error al leer los datos (fila " & i & "): " & Err.Description, "ERROR"
+  MsgBox "No se pudieron leer los pedidos (fila " & i & " de DATOS): " & Err.Description & vbCrLf & "Detalle en el registro.", vbExclamation
 End Sub
+
+Private Function CobVal(cob As Variant, ByVal k As Long) As String
+  If IsArray(cob) Then CobVal = CStr(cob(k))
+End Function
 
 Private Sub ContarExport()
   Dim s As String, h
@@ -317,10 +327,21 @@ Private Function Pasa(ByVal r As Long) As Boolean
   End Select
 End Function
 
+' Si se detuvo una macro o se editó el código con el panel abierto, VBA borra sus variables: se avisa y se cierra
+Private Function ControlesOK() As Boolean
+  ControlesOK = Not (lblKpi Is Nothing Or lst Is Nothing Or cboFiltro Is Nothing Or txtBuscar Is Nothing)
+  If Not ControlesOK Then
+    MsgBox "El panel perdió su estado (se detuvo una macro o se editó el código con el panel abierto)." & vbCrLf & _
+           "Se cerrará: vuelve a abrirlo desde Complementos > Panel EGR.", vbExclamation
+    Unload Me
+  End If
+End Function
+
 Private Sub Filtrar()
   Dim r As Long, j As Long, q As String, s As String, cols, arr(), k As Long, nc As Long
   Dim nFue As Long, nZon As Long, nCam As Long, nRei As Long, nEmp As Long, nPen As Long, nPro As Long, nGye As Long, nUio As Long, nGps As Long
   If Not mListo Then Exit Sub
+  If Not ControlesOK() Then Exit Sub
   q = UCase$(Trim$(txtBuscar.Text))
   ReDim mIdx(1 To IIf(mN > 0, mN, 1)): mNIdx = 0
   For r = 1 To mN
@@ -350,6 +371,7 @@ sig:
                    "  |  fuera TMS " & nFue & " · zonas " & nZon & " · cambios sugeridos " & nCam & _
                    "  |  etiquetas pendientes " & nPen & " · reimprimir " & nRei & "  |  empacados " & nEmp & "/" & mN & _
                    IIf(mN > 0, " (" & Format(nEmp / mN, "0%") & ")", "")
+  GuiaFlujo nFue, nCam, nPen, nRei, nEmp
   cols = ColumnasVista()
   nc = UBound(cols) + 1
   PonerColumnas
@@ -363,6 +385,38 @@ sig:
   Next
   lst.ColumnCount = nc
   lst.List = arr
+End Sub
+
+' Resalta el siguiente paso (como en PEDIDOS HCE) y explica qué hacer
+Private Sub GuiaFlujo(ByVal nFue As Long, ByVal nCam As Long, ByVal nPen As Long, ByVal nRei As Long, ByVal nEmp As Long)
+  Dim hecho(1 To 5) As Boolean, sig As Long, i As Long, txt As String
+  If lblGuia Is Nothing Then Exit Sub
+  hecho(1) = mCobRevisada Or nFue = 0
+  hecho(2) = (nCam = 0)
+  hecho(3) = (nPen = 0 And nRei = 0 And mN > 0)
+  hecho(4) = (nEmp >= mN And mN > 0)
+  hecho(5) = mExportado
+  For i = 1 To 5
+    If Not hecho(i) And sig = 0 Then sig = i
+  Next
+  For i = 1 To 5
+    If i = sig Then
+      mPasoBtn(i).Caption = ">> " & mPasoCap(i) & " <<": mPasoBtn(i).BackColor = RGB(255, 140, 0)
+    ElseIf hecho(i) Then
+      mPasoBtn(i).Caption = mPasoCap(i) & "  (hecho)": mPasoBtn(i).BackColor = mPasoCol(i)
+    Else
+      mPasoBtn(i).Caption = mPasoCap(i): mPasoBtn(i).BackColor = mPasoCol(i)
+    End If
+  Next
+  Select Case sig
+    Case 1: txt = "SIGUIENTE: revisar la cobertura TMS. Hay " & nFue & " pedido(s) fuera de cobertura: no tendrán destino ni etiqueta hasta corregirlos en PEDIDOS HCE o en COBERTURAS."
+    Case 2: txt = "SIGUIENTE: decidir los destinos. " & nCam & " pedido(s) tienen un destino sugerido distinto (columna SUGER.). Aplica la sugerencia, asigna a mano o déjalos como están."
+    Case 3: txt = "SIGUIENTE: imprimir etiquetas. Pendientes: " & nPen & IIf(nRei > 0, "; por reimprimir (cambió el destino): " & nRei, "") & ". Usa el filtro y 'Imprimir seleccionadas' o 'Imprimir todas'."
+    Case 4: txt = "SIGUIENTE: seguir el empaque. Empacados " & nEmp & " de " & mN & ". Pulsa 'Actualizar datos' cuando bodega avance en el Google Sheets y revisa 'Avance empaque'."
+    Case 5: txt = "SIGUIENTE: exportar TRAMACO, TMS y DESPACHOS (elige hoja y formato). Si luego cambia un destino, reimprime la etiqueta y exporta de nuevo."
+    Case Else: txt = "Despacho completo: destinos decididos, etiquetas impresas, empaque terminado y reportes exportados."
+  End Select
+  lblGuia.Caption = txt
 End Sub
 
 Private Function ColumnasVista() As Variant
@@ -466,6 +520,7 @@ End Sub
 Private Sub bCob_Click()
   If Not Listo() Then Exit Sub
   Dim c As New Collection
+  mCobRevisada = True
   RevisarCoberturaTMS c                     ' deja el detalle en el registro
   mVista = "PEDIDOS": lblVista.Caption = "COBERTURA TMS: pedidos con observación"
   cboFiltro.Text = "FUERA COBERTURA TMS"
@@ -505,6 +560,7 @@ Private Sub AplicarSug(c As Collection)
     If Len(mData(r, 9)) > 0 Then If Not ConfirmarDestino(mData(r, 2), mData(r, 9), mData(r, 15)) Then Exit For
   Next
   Application.Calculate
+  mExportado = False
   LogE "DESTINOS: " & n & " confirmado(s). Si ya tenían etiqueta, aparecen como '@ REIMPRIMIR'; vuelve a exportar los reportes."
   Recargar
 End Sub
@@ -520,6 +576,7 @@ Private Sub bAsig_Click()
     If Not ConfirmarDestino(mData(r, 2), d, "MANUAL OPERARIO") Then Exit For
   Next
   Application.Calculate
+  mExportado = False
   Recargar
 End Sub
 
@@ -584,7 +641,9 @@ Private Sub Exportar(ByVal correo As Boolean)
   Dim h
   If cboHoja.Text = "LAS TRES" Then h = Array("TMS", "TRAMACO", "DESPACHOS") Else h = Array(cboHoja.Text)
   ExportarReportes cboFmt.Text, h, correo
+  mExportado = True
   ContarExport
+  Filtrar
 End Sub
 Private Sub bExp_Click()
   If Not Listo() Then Exit Sub

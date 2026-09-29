@@ -89,6 +89,12 @@ sugerido, el trayecto, la zona, la etiqueta y el empaque.
 | 3 | **Avance empaque**: picking, cajas, peso y volumen % por pedido (datos de las tablas dinámicas), más SKU o cajas sin datos de costo |
 | 4 | **Exportar**: elige la **hoja** (TRAMACO, TMS, DESPACHOS o LAS TRES) y el **formato** (CSV, XLSX, PDF). Debajo se ve cuántas filas con datos tiene cada hoja |
 
+**Guía del flujo (como en PEDIDOS HCE):**
+
+- el panel resalta en naranja el **siguiente paso**, con `>> <<`, y marca como `(hecho)` los terminados;
+- el cuadro amarillo de la izquierda explica qué falta. Por ejemplo: "SIGUIENTE: decidir los destinos. 5 pedidos
+  tienen un destino sugerido distinto…"
+
 **Actualizar datos (items, empaque, tablas)** es un botón de **operación**: se usa en cualquier momento para traer
 ITEMS API, ITEMS DEPOT, EMPAQUETADO y las tablas dinámicas. No es el inicio del proceso.
 
