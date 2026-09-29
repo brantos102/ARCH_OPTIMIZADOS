@@ -1,0 +1,924 @@
+<title>Despacho HYCITE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: riel de navegación fijo a la izquierda + columna de lectura; en móvil el riel pasa a chips horizontales */
+:root {
+  --bg: #f2f4f3;
+  --surface: #ffffff;
+  --surface-2: #e9edec;
+  --ink: #12211f;
+  --ink-soft: #4d5f5c;
+  --line: #ccd6d3;
+  --accent: #b4531a;
+  --accent-soft: #f6e5da;
+  --ok: #1d6b4a;
+  --ok-soft: #dcefe4;
+  --warn: #9a6a05;
+  --warn-soft: #f8edd2;
+  --bad: #a52a21;
+  --bad-soft: #f9e0dd;
+  --info: #1f5d86;
+  --info-soft: #dce9f2;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Courier New", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1716;
+    --surface: #17211f;
+    --surface-2: #1f2b29;
+    --ink: #e6ece9;
+    --ink-soft: #9db0ab;
+    --line: #2d3b38;
+    --accent: #e8874a;
+    --accent-soft: #33241b;
+    --ok: #6cc79a;
+    --ok-soft: #162c23;
+    --warn: #dcaa3f;
+    --warn-soft: #2e2716;
+    --bad: #ef8079;
+    --bad-soft: #321c1a;
+    --info: #79b6e0;
+    --info-soft: #16252f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1716;
+  --surface: #17211f;
+  --surface-2: #1f2b29;
+  --ink: #e6ece9;
+  --ink-soft: #9db0ab;
+  --line: #2d3b38;
+  --accent: #e8874a;
+  --accent-soft: #33241b;
+  --ok: #6cc79a;
+  --ok-soft: #162c23;
+  --warn: #dcaa3f;
+  --warn-soft: #2e2716;
+  --bad: #ef8079;
+  --bad-soft: #321c1a;
+  --info: #79b6e0;
+  --info-soft: #16252f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: .01em; }
+h1 { font-size: clamp(30px, 6vw, 46px); line-height: 1.04; font-weight: 700; }
+h2 { font-size: clamp(24px, 4.4vw, 33px); line-height: 1.1; font-weight: 700; }
+h3 { font-size: 20px; line-height: 1.2; font-weight: 600; }
+h4 { font-size: 16px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-soft); }
+p { margin: 0; }
+a { color: var(--accent); }
+code, .mono { font-family: var(--mono); font-size: .92em; }
+code { background: var(--surface-2); padding: .1em .36em; border-radius: 3px; }
+
+.shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 0; max-width: 1240px; margin: 0 auto; }
+
+/* ---- riel ---- */
+.rail {
+  position: sticky; top: env(safe-area-inset-top, 0px); align-self: start;
+  height: 100dvh; padding: 22px 14px 22px 20px; display: flex; flex-direction: column; gap: 14px;
+  border-right: 1px solid var(--line); background: var(--bg);
+}
+.brand { display: flex; flex-direction: column; gap: 2px; }
+.brand b { font-family: var(--display); font-size: 25px; line-height: 1; letter-spacing: .02em; }
+.brand span { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+.railnav { display: flex; flex-direction: column; gap: 1px; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+.railnav button {
+  all: unset; cursor: pointer; padding: 7px 9px; border-radius: 6px; font-size: 13.5px; color: var(--ink-soft);
+  display: flex; gap: 9px; align-items: baseline; border: 1px solid transparent;
+}
+.railnav button .n { font-family: var(--mono); font-size: 11px; opacity: .7; min-width: 15px; }
+.railnav button:hover { background: var(--surface-2); color: var(--ink); }
+.railnav button[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; border-color: color-mix(in oklab, var(--accent) 28%, transparent); }
+.railnav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.railfoot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--ink-soft); }
+.tbtn { all: unset; cursor: pointer; font-size: 12px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-soft); width: fit-content; }
+.tbtn:hover { border-color: var(--accent); color: var(--accent); }
+.tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---- contenido ---- */
+main { padding-block: 26px 80px; padding-left: 34px; padding-right: 24px; min-width: 0; }
+section[hidden] { display: none !important; }
+.stack { display: flex; flex-direction: column; gap: 20px; max-width: 74ch; }
+.eyebrow { font-size: 11.5px; letter-spacing: .15em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.lede { font-size: 17px; color: var(--ink-soft); }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 17px 19px; display: flex; flex-direction: column; gap: 11px; }
+.card.tight { padding: 13px 15px; gap: 8px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); gap: 13px; }
+
+.note { border-left: 3px solid var(--info); background: var(--info-soft); padding: 11px 14px; border-radius: 0 7px 7px 0; font-size: 14px; }
+.note.warn { border-color: var(--warn); background: var(--warn-soft); }
+.note.bad { border-color: var(--bad); background: var(--bad-soft); }
+.note.ok { border-color: var(--ok); background: var(--ok-soft); }
+.note b { font-weight: 600; }
+
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+tbody tr:last-child td { border-bottom: 0; }
+.scroller { overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.scroller table { min-width: 460px; }
+
+.chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 4px; background: var(--surface-2); color: var(--ink-soft); white-space: nowrap; }
+.chip.pro { background: var(--accent-soft); color: var(--accent); }
+.chip.gye { background: var(--info-soft); color: var(--info); }
+.chip.uio { background: var(--ok-soft); color: var(--ok); }
+.chip.gps { background: var(--warn-soft); color: var(--warn); }
+
+/* pasos */
+.steps { display: flex; flex-direction: column; gap: 9px; counter-reset: paso; }
+.step { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 13px 15px; }
+.step .num { font-family: var(--display); font-size: 25px; font-weight: 700; line-height: 1; color: var(--accent); }
+.step h3 { font-size: 17px; }
+.step .why { font-size: 13.5px; color: var(--ink-soft); }
+
+/* flujo */
+.flow { display: grid; gap: 9px; }
+.flowrow { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: start; }
+.flowrow .side { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); padding-top: 12px; }
+.flowbox { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 7px; padding: 10px 13px; }
+.flowbox.b2 { border-left-color: var(--info); }
+.flowbox.link { border-left-color: var(--ok); background: var(--ok-soft); }
+.flowbox b { font-size: 14.5px; }
+.flowbox p { font-size: 13px; color: var(--ink-soft); }
+
+/* simulador */
+.sim { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 15px; }
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 9px; }
+.field label { font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+.field input, .field select {
+  font: inherit; font-size: 14px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface); color: var(--ink); width: 100%;
+}
+.field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+.result { border: 1px solid var(--line); border-radius: 9px; padding: 15px; background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+.result .big { font-family: var(--display); font-size: 44px; line-height: 1; font-weight: 700; }
+.samples { display: flex; flex-wrap: wrap; gap: 6px; }
+.samples button { all: unset; cursor: pointer; font-size: 12px; padding: 4px 9px; border: 1px dashed var(--line); border-radius: 999px; color: var(--ink-soft); }
+.samples button:hover { border-color: var(--accent); border-style: solid; color: var(--accent); }
+.samples button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* checklist */
+.check { display: flex; flex-direction: column; gap: 3px; }
+.check label { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 14px; }
+.check label:hover { background: var(--surface-2); }
+.check input { margin: 3px 0 0; accent-color: var(--accent); width: 15px; height: 15px; }
+.check input:checked + span { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: color-mix(in oklab, var(--ink-soft) 55%, transparent); }
+.check .sub { display: block; font-size: 12.5px; color: var(--ink-soft); text-decoration: none; }
+.bar { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); width: 0%; transition: width .25s ease; }
+
+/* acordeón */
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 0; overflow: hidden; }
+details + details { margin-top: 7px; }
+summary { cursor: pointer; padding: 11px 15px; font-weight: 600; font-size: 14.5px; list-style: none; display: flex; gap: 10px; align-items: baseline; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "+"; font-family: var(--mono); color: var(--accent); font-weight: 700; }
+details[open] summary::before { content: "−"; }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.dbody { padding: 0 15px 14px 38px; display: flex; flex-direction: column; gap: 9px; font-size: 14px; }
+
+.search { width: 100%; font: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+/* etiqueta */
+.label-demo { background: #fff; color: #000; border: 1px solid #c9c9c9; border-radius: 4px; aspect-ratio: 2 / 1; max-width: 340px; padding: 5% 6%; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto 1fr; gap: 2% 4%; font-family: var(--mono); }
+.label-demo .bars { display: flex; gap: 1.5px; align-items: stretch; height: 42px; }
+.label-demo .bars i { display: block; background: #000; }
+.label-demo .num { font-size: 12px; letter-spacing: .22em; grid-column: 1; }
+.label-demo .dest { grid-column: 2; grid-row: 1; font-family: var(--display); font-size: 40px; font-weight: 700; line-height: .9; text-align: right; }
+.label-demo .parr { grid-column: 2; grid-row: 2; font-size: 10px; text-align: right; }
+.label-demo .who { grid-column: 1 / -1; grid-row: 3; align-self: end; }
+.label-demo .who b { font-family: var(--body); font-size: 15px; display: block; }
+.label-demo .who span { font-size: 11px; }
+
+.kbd { font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: var(--surface-2); }
+ul, ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--ink-soft); }
+.pager { display: flex; justify-content: space-between; gap: 10px; margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line); max-width: 74ch; }
+.pager button { all: unset; cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--accent); padding: 6px 2px; }
+.pager button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pager button[disabled] { color: var(--ink-soft); opacity: .45; cursor: default; }
+
+@media (max-width: 880px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: sticky; top: env(safe-area-inset-top, 0px); height: auto; flex-direction: column; border-right: 0; border-bottom: 1px solid var(--line); padding: 12px 16px; gap: 10px; z-index: 5; }
+  .railnav { flex-direction: row; overflow-x: auto; gap: 5px; padding-bottom: 3px; }
+  .railnav button { white-space: nowrap; border: 1px solid var(--line); }
+  .railfoot { flex-direction: row; align-items: center; justify-content: space-between; margin-top: 0; }
+  main { padding: 20px 16px 64px; }
+  .sim { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="shell">
+  <nav class="rail">
+    <div class="brand"><b>Despacho HYCITE</b><span>Manual del operador · v1.1</span></div>
+    <div class="railnav" id="nav"></div>
+    <div class="railfoot">
+      <button class="tbtn" id="theme" type="button">Cambiar tema</button>
+      <span id="progresoNav">Guía interactiva</span>
+    </div>
+  </nav>
+
+  <main id="main">
+
+    <!-- 1 -->
+    <section id="s-inicio" class="stack">
+      <div>
+        <p class="eyebrow">Sistema de despacho · dos archivos, un flujo</p>
+        <h1>Cómo se despacha un día completo</h1>
+      </div>
+      <p class="lede">Los pedidos entran por <b>PEDIDOS HCE</b>, donde se valida la dirección del cliente contra la cobertura. Salen por <b>Formato EGR_FL_HYCITE</b>, donde se decide el courier, se imprimen las etiquetas y se generan los archivos que suben al TMS y al portal de TRAMACO.</p>
+
+      <div class="flow">
+        <div class="flowrow">
+          <div class="side">Etapa 1</div>
+          <div class="flowbox">
+            <b>PEDIDOS HCE.xlsm</b>
+            <p>Trae los pedidos del día desde DEPOT, compara provincia / cantón / parroquia contra la hoja COBERTURA, propone correcciones y el operador confirma una por una.</p>
+          </div>
+        </div>
+        <div class="flowrow">
+          <div class="side">Enlace</div>
+          <div class="flowbox link">
+            <b>Paso 7 · Enviar a EGR</b>
+            <p>Con los dos archivos abiertos, copia los pedidos ya validados a la hoja DATOS del EGR, más el gestor, el destino, el trayecto y la zona peligrosa calculados en la etapa 1.</p>
+          </div>
+        </div>
+        <div class="flowrow">
+          <div class="side">Etapa 2</div>
+          <div class="flowbox b2">
+            <b>Formato EGR_FL_HYCITE.xlsm</b>
+            <p>Segunda comprobación contra la cobertura del TMS, decisión del destino (PRO / GYE / UIO / GPS), etiquetas Zebra, seguimiento del empaque y exportación de TMS, TRAMACO y DESPACHOS.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card tight">
+          <h4>Quién opera cada etapa</h4>
+          <p style="font-size:14px">La etapa 1 la ejecuta quien recibe los pedidos. La etapa 2 la ejecuta quien despacha: decide el courier, imprime y envía los archivos.</p>
+        </div>
+        <div class="card tight">
+          <h4>Dos formas de trabajar</h4>
+          <p style="font-size:14px">Cada archivo tiene un <b>panel</b> (una ventana con todo) y los mismos botones en la pestaña <b>Complementos</b>. Si el panel va lento, se puede trabajar solo con los botones.</p>
+        </div>
+      </div>
+
+      <div class="note"><b>Regla de oro:</b> nada se corrige a mano en las hojas de salida (TMS, TRAMACO, DESPACHOS, ETIQUETAS). Esas hojas se calculan solas. Lo que se corrige es la cobertura o el destino, y todo lo demás se recalcula.</div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s-antes" class="stack" hidden>
+      <div><p class="eyebrow">Antes de empezar</p><h2>Lo que tiene que estar listo</h2></div>
+      <p class="lede">Cinco comprobaciones de un minuto que evitan la mayoría de los problemas del día.</p>
+
+      <div class="steps">
+        <div class="step"><div class="num">1</div><div>
+          <h3>Abrir los archivos desde su carpeta de red</h3>
+          <p class="why">Nunca desde Descargas ni desde una copia con "COPIA" en el nombre: el paso 7 busca el archivo EGR abierto por su nombre.</p>
+        </div></div>
+        <div class="step"><div class="num">2</div><div>
+          <h3>Habilitar macros</h3>
+          <p class="why">Al abrir, Excel muestra una barra amarilla. Pulsar <b>Habilitar contenido</b>. Sin eso no aparece la pestaña Complementos.</p>
+        </div></div>
+        <div class="step"><div class="num">3</div><div>
+          <h3>Comprobar la conexión con DEPOT</h3>
+          <p class="why">Los pedidos y el picking llegan por ODBC (<code>DEPOTUIO</code>). Si la red está caída, el sistema lo avisa y conserva los datos anteriores en lugar de cerrarse.</p>
+        </div></div>
+        <div class="step"><div class="num">4</div><div>
+          <h3>Limpiar el día anterior</h3>
+          <p class="why">En EGR: <b>Complementos › 0 Limpiar día</b>. Borra los destinos confirmados y el estado de las etiquetas de ayer, y guarda un respaldo antes.</p>
+        </div></div>
+        <div class="step"><div class="num">5</div><div>
+          <h3>Tener la Zebra encendida</h3>
+          <p class="why">Modelo ZD230 de 203 ppp, etiqueta térmica de 10 × 5 cm. La impresora se elige una sola vez y queda guardada.</p>
+        </div></div>
+      </div>
+
+      <div class="note warn"><b>Si Excel se queda sin responder:</b> usar el botón <b>Desbloquear</b>, que está en el panel y en Complementos. Restaura la pantalla, los eventos y el cálculo sin cerrar nada.</div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s-etapa1" class="stack" hidden>
+      <div><p class="eyebrow">Etapa 1 · PEDIDOS HCE</p><h2>Validar la dirección del cliente</h2></div>
+      <p class="lede">El día empieza en <b>Complementos › Panel HYCITE</b>. El panel resalta en naranja el paso que toca y explica qué falta, así que no hay que recordar el orden.</p>
+
+      <div class="steps">
+        <div class="step"><div class="num">0</div><div><h3>Actualizar datos</h3><p class="why">Trae los pedidos del día desde DEPOT y la lista del TMS.</p></div></div>
+        <div class="step"><div class="num">1</div><div><h3>Limpiar</h3><p class="why">Borra la validación anterior. No toca los datos del cliente.</p></div></div>
+        <div class="step"><div class="num">2</div><div><h3>Validar</h3><p class="why">Compara provincia, cantón y parroquia contra COBERTURA y asigna sigla, gestor, destino, trayecto y zona peligrosa. Al terminar ofrece revisar los pendientes.</p></div></div>
+        <div class="step"><div class="num">3</div><div><h3>Revisar pendientes</h3><p class="why">Abre el validador solo con los pedidos marcados REVISAR, uno por uno. Excel pasa al frente en la hoja DEPOT y salta a la fila del pedido.</p></div></div>
+        <div class="step"><div class="num">4</div><div><h3>Aprobar lote</h3><p class="why">Aprueba en bloque las sugerencias pendientes. Solo después de haber revisado la lista.</p></div></div>
+        <div class="step"><div class="num">5</div><div><h3>Aplicar aprobados</h3><p class="why">Copia la propuesta a los datos del pedido y registra cada cambio en la hoja CAMBIOS.</p></div></div>
+        <div class="step"><div class="num">6</div><div><h3>Actualizar siglas</h3><p class="why">Recalcula sigla, gestor y zona si algo se editó a mano.</p></div></div>
+        <div class="step"><div class="num">7</div><div><h3>Enviar a EGR</h3><p class="why">Pasa los pedidos al archivo EGR. Avisa si todavía quedan pedidos en REVISAR o correcciones sin aplicar.</p></div></div>
+      </div>
+
+      <h3>Qué revisa la validación</h3>
+      <div class="scroller"><table>
+        <thead><tr><th>Situación</th><th>Qué hace el sistema</th></tr></thead>
+        <tbody>
+          <tr><td>La parroquia coincide con COBERTURA</td><td>Queda <b>OK</b>, sin intervención.</td></tr>
+          <tr><td>Está mal escrita o abreviada</td><td>Propone la parroquia correcta. Reconoce abreviaturas como FCO, PTO, STO, GRAL.</td></tr>
+          <tr><td>El mismo nombre existe en dos cantones</td><td>Usa el nombre exacto del cantón escrito, y avisa si el cliente puso el paréntesis de otro cantón. Por ejemplo <code>SAN FRANCISCO (COT)</code> es de Cotacachi y <code>(IBA)</code> de Ibarra.</td></tr>
+          <tr><td>La parroquia no tiene cobertura</td><td>Sugiere la más cercana: la cabecera del cantón, la ciudad principal o secundaria, o la capital provincial.</td></tr>
+          <tr><td>La dirección cae en ZONAS PELIGROSAS</td><td>Cambia el tipo de entrega a <b>C.O.D con retiro en oficina TMC</b> e indica el punto.</td></tr>
+          <tr><td>Quito sin parroquia reconocible</td><td>Asigna la regla DMQ con sigla <code>CALDERON (QUI)</code>.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Las señales de la lista</h3>
+      <p>Cada pedido lleva una marca que dice, de un vistazo, qué le pasa.</p>
+      <div class="scroller"><table>
+        <thead><tr><th>Señal</th><th>Significado</th></tr></thead>
+        <tbody>
+          <tr><td><span class="chip">!! ZONA</span></td><td>Zona peligrosa confirmada</td></tr>
+          <tr><td><span class="chip">! SECTOR</span></td><td>Verificar el sector de la dirección</td></tr>
+          <tr><td><span class="chip">? REVISAR</span></td><td>Necesita decisión del operador</td></tr>
+          <tr><td><span class="chip">~ CERCANA</span></td><td>Se asignó una cobertura cercana</td></tr>
+          <tr><td><span class="chip">+ APROBADO</span></td><td>Confirmado por el operador</td></tr>
+          <tr><td><span class="chip">* CORREGIDO</span></td><td>El sistema corrigió el dato del cliente</td></tr>
+          <tr><td><span class="chip">OK</span></td><td>Sin observaciones</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="note ok"><b>El dato del cliente nunca se pierde.</b> Lo que escribió queda guardado en su propia columna, junto al tipo de corrección aplicada, y cada cambio se registra en la hoja CAMBIOS con fecha y usuario.</div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s-enlace" class="stack" hidden>
+      <div><p class="eyebrow">El enlace</p><h2>Qué viaja de un archivo al otro</h2></div>
+      <p class="lede">El paso 7 escribe dos bloques en la hoja DATOS del EGR. El primero son los datos del pedido; el segundo, el trabajo de validación de la etapa 1, para que el operador de despacho vea por qué cada pedido quedó como quedó.</p>
+
+      <div class="scroller"><table>
+        <thead><tr><th>De PEDIDOS HCE</th><th>A DATOS (EGR)</th><th>Para qué sirve allá</th></tr></thead>
+        <tbody>
+          <tr><td>Cliente, dirección, pedido, destinatario</td><td>C a G</td><td>TMS, TRAMACO, etiquetas y despachos</td></tr>
+          <tr><td>Provincia, cantón, parroquia ya validados</td><td>H, I, J</td><td>Buscar la cobertura del TMS y el código postal</td></tr>
+          <tr><td>Teléfonos y correo</td><td>K, L, M</td><td>Guía del courier</td></tr>
+          <tr><td>Sigla de parroquia</td><td>N</td><td>Localidad del TMS</td></tr>
+          <tr><td>Gestor y destino calculados</td><td>AI, AJ</td><td>Comparar con la decisión de la etapa 2</td></tr>
+          <tr><td>Trayecto TRAMACO y tipo de entrega</td><td>AK, AL</td><td>Ver si es trayecto especial o C.O.D</td></tr>
+          <tr><td>Zona peligrosa</td><td>AM</td><td>Aviso en el panel de despacho</td></tr>
+          <tr><td>Gestor de cobertura y sugerido</td><td>AN, AO</td><td>Sustentar el cambio de destino</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="note warn"><b>Los dos archivos abiertos a la vez.</b> El paso 7 necesita el EGR abierto. Si el panel de EGR también está abierto y el equipo va lento, cerrar ese panel y trabajar con los botones de Complementos.</div>
+
+      <h3>Cómo se presenta el resultado</h3>
+      <p>En el EGR nada de esto queda escondido: el panel muestra una fila por pedido con la cobertura del TMS, el destino actual, el sugerido, el courier, el trayecto, la zona y el estado de la etiqueta y del empaque. El detalle de cada pedido explica, en texto, el motivo de la sugerencia.</p>
+    </section>
+
+    <!-- 5 -->
+    <section id="s-etapa2" class="stack" hidden>
+      <div><p class="eyebrow">Etapa 2 · Formato EGR</p><h2>Decidir el destino y despachar</h2></div>
+      <p class="lede">Se abre desde <b>Complementos › Panel EGR</b>. La primera pantalla muestra todos los pedidos del día; no hay que buscarlos.</p>
+
+      <div class="steps">
+        <div class="step"><div class="num">1</div><div>
+          <h3>Revisar cobertura TMS</h3>
+          <p class="why">Segunda comprobación, no una revalidación. Muestra solo lo que está fuera de la cobertura del TMS, sin código postal o sin teléfono. Esos pedidos no tendrán destino ni etiqueta hasta corregirlos.</p>
+        </div></div>
+        <div class="step"><div class="num">2</div><div>
+          <h3>Ver cambios sugeridos y confirmar</h3>
+          <p class="why">La columna SUGER. aparece solo cuando el sistema propone un destino distinto. El operador elige: aplicar la sugerencia a los seleccionados, aplicarlas todas, asignar a mano, o dejarlo como está.</p>
+        </div></div>
+        <div class="step"><div class="num">3</div><div>
+          <h3>Imprimir etiquetas</h3>
+          <p class="why">Una etiqueta por pedido. Con vista previa antes de imprimir.</p>
+        </div></div>
+        <div class="step"><div class="num">4</div><div>
+          <h3>Seguir el empaque</h3>
+          <p class="why">Mientras bodega empaca y llena el Google Sheets, <b>Actualizar datos</b> trae el avance y recalcula bultos, pesos y volúmenes.</p>
+        </div></div>
+        <div class="step"><div class="num">5</div><div>
+          <h3>Exportar los reportes</h3>
+          <p class="why">TRAMACO, TMS y DESPACHOS, en CSV, XLSX o PDF, con el formato exacto que esperan los sistemas que los reciben.</p>
+        </div></div>
+      </div>
+
+      <h3>Las señales del panel de despacho</h3>
+      <div class="scroller"><table>
+        <thead><tr><th>Señal</th><th>Qué hacer</th></tr></thead>
+        <tbody>
+          <tr><td><span class="chip">X FUERA TMS</span></td><td>Corregir la cobertura: sin esto no hay destino ni etiqueta</td></tr>
+          <tr><td><span class="chip">!! ZONA</span></td><td>Entrega C.O.D o retiro en oficina; avisar al cliente</td></tr>
+          <tr><td><span class="chip">&gt; CAMBIO</span></td><td>Hay un destino sugerido: confirmarlo o dejarlo</td></tr>
+          <tr><td><span class="chip">@ REIMPRIMIR</span></td><td>La etiqueta se imprimió con otro destino: volver a imprimir y volver a exportar</td></tr>
+          <tr><td><span class="chip">* CONFIRMADO</span></td><td>Destino decidido por el operador</td></tr>
+          <tr><td><span class="chip">OK</span></td><td>Sin observaciones</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="note"><b>Si cambia un destino después de imprimir o exportar:</b> el pedido pasa a <span class="chip">@ REIMPRIMIR</span>, se filtra por esa señal, se reimprime la etiqueta y se exportan otra vez los reportes. El panel vuelve a marcar el paso de exportar como pendiente.</div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s-reglas" class="stack" hidden>
+      <div><p class="eyebrow">Reglas de destino</p><h2>Por qué un pedido sale PRO, GYE, UIO o GPS</h2></div>
+      <p class="lede">Las reglas viven en la hoja <b>REGLAS_DESTINO</b> y las edita el supervisor sin tocar el código. Gana la regla activa de menor prioridad que coincide con el pedido. Las reglas solo proponen: el operador confirma.</p>
+
+      <div class="card">
+        <h3>Probar una dirección</h3>
+        <p style="font-size:13.5px;color:var(--ink-soft)">Escribe los datos de un pedido y mira qué regla se aplica. Es el mismo orden que usa el sistema.</p>
+        <div class="samples" id="ejemplos"></div>
+        <div class="sim">
+          <div>
+            <div class="field"><label for="f-prov">Provincia</label>
+              <select id="f-prov">
+                <option>GUAYAS</option><option>PICHINCHA</option><option>AZUAY</option><option>GALAPAGOS</option><option>MANABI</option><option>ZAMORA CHINCHIPE</option>
+              </select></div>
+            <div class="field"><label for="f-cant">Cantón</label><input id="f-cant" value="GUAYAQUIL" autocomplete="off"></div>
+            <div class="field"><label for="f-parr">Parroquia</label><input id="f-parr" value="TARQUI (GUA)" autocomplete="off"></div>
+            <div class="field"><label for="f-dir">Dirección del cliente</label><input id="f-dir" value="AV. FRANCISCO DE ORELLANA Y JUAN TANCA MARENGO" autocomplete="off"></div>
+            <div class="field"><label for="f-gest">Gestor en la cobertura TMS</label>
+              <select id="f-gest">
+                <option value="ITSANET">ITSANET</option>
+                <option value="LAAR COURIER">LAAR COURIER</option>
+                <option value="TRAMACO">TRAMACO</option>
+                <option value="TRAMACO, LAAR COURIER, SERVIENTREGA">TRAMACO, LAAR COURIER, SERVIENTREGA</option>
+                <option value="">(sin cobertura)</option>
+              </select></div>
+          </div>
+          <div class="result" id="resultado" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <h3>Reglas cargadas hoy</h3>
+      <div class="scroller"><table>
+        <thead><tr><th>Prio.</th><th>Regla</th><th>Destino</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">10</td><td>Guayas · Daule · parroquia Daule</td><td><span class="chip pro">PRO</span></td></tr>
+          <tr><td class="mono">20</td><td>Guayas · Daule · el resto de parroquias</td><td><span class="chip gye">GYE</span></td></tr>
+          <tr><td class="mono">30</td><td>Guayaquil con COOP o COOPERATIVA en la dirección</td><td><span class="chip pro">PRO</span></td></tr>
+          <tr><td class="mono">40</td><td>Guayaquil en Guasmo, Bastión Popular, Bautista Aguirre, Salitre, Fortín de la Flor, Palestina, Simón Bolívar, Mapasingue, o del km 15 en adelante</td><td><span class="chip pro">PRO</span></td></tr>
+          <tr><td class="mono">90</td><td>Guayaquil urbano</td><td><span class="chip gye">GYE</span></td></tr>
+          <tr><td class="mono">95</td><td>Guayas, cualquier otro cantón: Durán, Milagro, Playas, Salitre, Naranjal, Yaguachi, Bucay, Balzar, El Empalme, Nobol…</td><td><span class="chip pro">PRO</span></td></tr>
+          <tr><td class="mono">100</td><td>Azuay: Gualaceo, Paute, Chordeleg, Camilo Ponce Enríquez, Pucará, Sígsig</td><td><span class="chip pro">PRO</span></td></tr>
+          <tr><td class="mono">110</td><td>Cuenca rural: Molleturo, Chaucha, Sayausí, Llacao, Paccha, Nulti, Quingeo, Cumbe, Irquis, Santa Ana</td><td><span class="chip pro">PRO</span></td></tr>
+          <tr><td class="mono">900</td><td>Pichincha</td><td><span class="chip uio">UIO</span></td></tr>
+          <tr><td class="mono">910</td><td>Galápagos</td><td><span class="chip gps">GPS</span></td></tr>
+          <tr><td class="mono">999</td><td>Resto del país</td><td><span class="chip pro">PRO</span></td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Además: la cobertura manda</h3>
+      <p>Después de las reglas, el sistema aplica la misma lógica de la etapa 1. Si un pedido queda en UIO o GYE pero su cobertura del TMS no tiene ITSANET ni LAAR, se sugiere <span class="chip pro">PRO</span>, porque ese destino no se puede entregar con la flota propia.</p>
+
+      <h3>Cambiar una regla</h3>
+      <p>Si mañana GYE empieza a cubrir Durán, se agrega una fila en REGLAS_DESTINO con una prioridad menor que 95. No hace falta programar nada:</p>
+      <div class="scroller"><table>
+        <thead><tr><th>Activa</th><th>Prio.</th><th>Provincia</th><th>Cantón</th><th>Destino</th><th>Motivo</th></tr></thead>
+        <tbody><tr><td>SI</td><td class="mono">50</td><td>GUAYAS</td><td>DURAN</td><td>GYE</td><td>Durán lo cubre GYE desde marzo</td></tr></tbody>
+      </table></div>
+    </section>
+
+    <!-- 7 -->
+    <section id="s-etiquetas" class="stack" hidden>
+      <div><p class="eyebrow">Etiquetas</p><h2>Zebra ZD230 · 10 × 5 cm</h2></div>
+      <p class="lede">Una etiqueta por pedido, en blanco y negro sobre papel térmico. Se envía directo a la impresora en su propio lenguaje, así que no depende de márgenes de Excel ni de fuentes de código de barras.</p>
+
+      <div class="grid2">
+        <div>
+          <h4 style="margin-bottom:9px">Así sale</h4>
+          <div class="label-demo">
+            <div class="bars" id="barsdemo" aria-hidden="true"></div>
+            <div class="dest">GYE</div>
+            <div class="parr">PASCUALES</div>
+            <div class="num">1 0 1 9 9 3 5 2 3</div>
+            <div class="who"><b>OSCAR IVAN</b><span>PALMA ZUNIGA</span></div>
+          </div>
+        </div>
+        <div class="card tight">
+          <h4>Qué lleva</h4>
+          <ul style="font-size:14px">
+            <li>Código de barras con el número de pedido, y el número legible debajo</li>
+            <li>Destino en grande: PRO, GYE, UIO o GPS</li>
+            <li>Parroquia de entrega</li>
+            <li>Nombres y apellidos del destinatario</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Imprimir</h3>
+      <div class="steps">
+        <div class="step"><div class="num">1</div><div><h3>Elegir los pedidos</h3><p class="why">En la lista, con el filtro <b>ETIQUETA PENDIENTE</b> o <b>REIMPRIMIR ETIQUETA</b>. Para varios, <span class="kbd">Ctrl</span> o <span class="kbd">Shift</span> + clic.</p></div></div>
+        <div class="step"><div class="num">2</div><div><h3>Vista previa</h3><p class="why">Se abre una ventana con la lista de etiquetas marcadas y el dibujo de la que está seleccionada. Ahí se desmarca lo que no se quiera imprimir.</p></div></div>
+        <div class="step"><div class="num">3</div><div><h3>Confirmar la impresora</h3><p class="why">Solo la primera vez: se elige la Zebra y queda guardada.</p></div></div>
+      </div>
+
+      <div class="note"><b>Control de reimpresión:</b> al imprimir se registra el destino con el que salió cada etiqueta. Si después ese pedido cambia de destino, aparece como <span class="chip">@ REIMPRIMIR</span> y no se olvida.</div>
+      <div class="note warn"><b>Antes de imprimir 150 etiquetas:</b> imprimir una sola y revisar que el código de barras se lea con la pistola. Si sale corrida, se ajusta el corrimiento en la configuración, sin tocar el código.</div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s-empaque" class="stack" hidden>
+      <div><p class="eyebrow">Empaque y costos</p><h2>Seguir el avance del día</h2></div>
+      <p class="lede">Tres fuentes alimentan el avance: lo solicitado (ITEMS API), lo confirmado en picking (ITEMS DEPOT) y lo empacado (el Google Sheets de empaquetado).</p>
+
+      <div class="scroller"><table>
+        <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+        <tbody>
+          <tr><td><span class="chip">SIN PICKING</span></td><td>El pedido todavía no se ha comenzado en bodega</td></tr>
+          <tr><td><span class="chip">PICKING 3/8</span></td><td>Se confirmaron 3 de 8 unidades solicitadas</td></tr>
+          <tr><td><span class="chip">PICKEADO</span></td><td>Completo, falta empacar</td></tr>
+          <tr><td><span class="chip">EMPACADO 2 cajas</span></td><td>Listo, con sus bultos, peso y volumen</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Productos y cajas</h3>
+      <p>Los pesos, volúmenes y costos salen del maestro <b>DATA CODIGO Y CAJAS</b>. Cuando entra un producto nuevo a bodega hay que darlo de alta ahí, o su peso saldrá vacío y el costo dirá "Verificar".</p>
+      <p>Desde el panel, los botones <b>Productos</b> y <b>Cajas</b> abren un formulario donde se agregan y editan registros sin desplazarse por la hoja. Lo nuevo se usa de inmediato.</p>
+
+      <div class="note ok"><b>El sistema avisa:</b> al ver el avance, el registro lista los productos sin peso o sin precio y los tipos de caja sin medidas. Esa lista es lo que hay que cargar en el maestro.</div>
+
+      <h3>El Google Sheets de empaquetado</h3>
+      <p>Bodega registra ahí cada caja. La consulta trae únicamente las filas del día que tienen número de orden, así que las filas donde solo se arrastró la fecha no entran al archivo.</p>
+    </section>
+
+    <!-- 9 -->
+    <section id="s-reportes" class="stack" hidden>
+      <div><p class="eyebrow">Reportes</p><h2>Lo que se envía al final del día</h2></div>
+      <p class="lede">Se elige la hoja y el formato en dos listas desplegables. Se exportan solo las filas con datos, con las mismas columnas y en el mismo orden, porque son plantillas de carga masiva.</p>
+
+      <div class="scroller"><table>
+        <thead><tr><th>Hoja</th><th>Qué lleva</th><th>A dónde va</th></tr></thead>
+        <tbody>
+          <tr><td><b>TRAMACO</b></td><td>Solo los pedidos con destino PRO</td><td>Portal del courier</td></tr>
+          <tr><td><b>TMS</b></td><td>Todos los pedidos del día</td><td>Carga masiva del TMS</td></tr>
+          <tr><td><b>DESPACHOS</b></td><td>Todos los pedidos, con unidades, ítems, valor y densidad de caja</td><td>Reporte para distribución</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="grid2">
+        <div class="card tight"><h4>CSV</h4><p style="font-size:14px">Para cargar en los sistemas. UTF-8, con los teléfonos y códigos como texto, para que no se pierda el cero inicial.</p></div>
+        <div class="card tight"><h4>XLSX y PDF</h4><p style="font-size:14px">Para revisar o adjuntar por correo. El PDF sale horizontal y repite los encabezados en cada página.</p></div>
+      </div>
+
+      <h3>Antes de exportar, el sistema revisa</h3>
+      <ul>
+        <li>Celdas con error o que digan VALIDAR o Verificar</li>
+        <li>Campos obligatorios vacíos, como el teléfono o la localidad</li>
+      </ul>
+      <p>Si encuentra algo, lo dice y pregunta si se exporta igual. El detalle queda en el registro.</p>
+
+      <div class="note"><b>Dónde quedan:</b> en la carpeta <code>EXPORTES</code>, junto al archivo, en una subcarpeta por fecha. La opción <b>Exportar + correo</b> deja un borrador de Outlook con los archivos adjuntos; nunca lo envía solo.</div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s-checklist" class="stack" hidden>
+      <div><p class="eyebrow">Rutina diaria</p><h2>Lista de control del día</h2></div>
+      <p class="lede">La secuencia completa, de principio a fin. Las marcas se guardan en este navegador mientras avanzas.</p>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+          <h4 style="margin:0">Avance</h4>
+          <span class="mono" id="ctxt" style="font-size:13px;color:var(--ink-soft)">0 de 0</span>
+        </div>
+        <div class="bar"><i id="cbar"></i></div>
+        <div class="check" id="checklist"></div>
+        <button class="tbtn" id="reset" type="button">Empezar un día nuevo</button>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section id="s-problemas" class="stack" hidden>
+      <div><p class="eyebrow">Solución de problemas</p><h2>Qué hacer cuando algo falla</h2></div>
+      <p class="lede">Busca por lo que ves en pantalla. Ninguno de estos casos requiere entrar al código.</p>
+      <input class="search" id="buscar" type="search" placeholder="Buscar: etiqueta, cobertura, Excel, CSV…" autocomplete="off">
+      <div id="faq"></div>
+      <p id="sinres" hidden style="color:var(--ink-soft);font-size:14px">No hay resultados. Prueba con otra palabra.</p>
+
+      <div class="note bad"><b>Si Excel se cierra solo:</b> hay respaldos automáticos en la carpeta <code>RESPALDOS_EGR</code>, junto al archivo. Se guarda uno antes de cada proceso delicado y se conservan los últimos 15.</div>
+    </section>
+
+    <!-- 12 -->
+    <section id="s-glosario" class="stack" hidden>
+      <div><p class="eyebrow">Referencia</p><h2>Glosario</h2></div>
+      <div class="scroller"><table>
+        <thead><tr><th>Término</th><th>Qué es</th></tr></thead>
+        <tbody>
+          <tr><td><b>PRO</b></td><td>Provincia. Se entrega por courier externo, normalmente TRAMACO.</td></tr>
+          <tr><td><b>GYE / UIO</b></td><td>Guayaquil y Quito. Entrega con la flota propia, vía ITSANET o LAAR.</td></tr>
+          <tr><td><b>GPS</b></td><td>Galápagos.</td></tr>
+          <tr><td><b>Sigla</b></td><td>Nombre corto de la parroquia con el código del cantón, como <code>CALDERON (QUI)</code>. Es lo que reconoce el TMS.</td></tr>
+          <tr><td><b>Trayecto</b></td><td>Clasificación de TRAMACO: ciudad principal, secundaria, trayecto especial o diferenciado. Define los días de entrega.</td></tr>
+          <tr><td><b>C.O.D</b></td><td>Cobro contra entrega. En zonas peligrosas se cambia por retiro en la oficina del courier.</td></tr>
+          <tr><td><b>Zona peligrosa</b></td><td>Sector donde el courier no ingresa. Está en la hoja ZONAS PELIGROSAS con su punto de retiro.</td></tr>
+          <tr><td><b>Cobertura</b></td><td>Lista maestra de provincia, cantón y parroquia con su gestor, trayecto y código postal.</td></tr>
+          <tr><td><b>Bulto</b></td><td>Cada caja física de un pedido. Un pedido puede tener varios.</td></tr>
+          <tr><td><b>Densidad de caja</b></td><td>Porcentaje del volumen de la caja ocupado por el producto.</td></tr>
+          <tr><td><b>Picking</b></td><td>Recolección del producto en bodega, antes de empacar.</td></tr>
+          <tr><td><b>ZPL</b></td><td>Lenguaje que entiende la Zebra. El sistema le envía la etiqueta ya escrita en ese formato.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Dónde queda el rastro de todo</h3>
+      <div class="scroller"><table>
+        <thead><tr><th>Registro</th><th>Qué guarda</th></tr></thead>
+        <tbody>
+          <tr><td><b>CAMBIOS</b> (PEDIDOS HCE)</td><td>Cada corrección de cobertura: antes, después, motivo, usuario y fecha. Es acumulativo y se puede exportar.</td></tr>
+          <tr><td><b>LOG_PROCESO</b> (PEDIDOS HCE)</td><td>Avance de cada paso y los errores encontrados.</td></tr>
+          <tr><td><b>LOG_EGR</b> (Formato EGR)</td><td>Acciones del despacho: destinos confirmados, etiquetas impresas, exportaciones y fallos.</td></tr>
+          <tr><td><b>RESPALDOS_EGR</b> (carpeta)</td><td>Copia del archivo antes de cada proceso delicado.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <div class="pager">
+      <button id="prev" type="button">← Anterior</button>
+      <button id="next" type="button">Siguiente →</button>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- navegación ---------- */
+  var secciones = [
+    ["s-inicio", "El sistema en una página"],
+    ["s-antes", "Antes de empezar"],
+    ["s-etapa1", "Etapa 1 · Validar"],
+    ["s-enlace", "El enlace entre archivos"],
+    ["s-etapa2", "Etapa 2 · Despachar"],
+    ["s-reglas", "Reglas de destino"],
+    ["s-etiquetas", "Etiquetas Zebra"],
+    ["s-empaque", "Empaque y costos"],
+    ["s-reportes", "Reportes y envíos"],
+    ["s-checklist", "Lista del día"],
+    ["s-problemas", "Si algo falla"],
+    ["s-glosario", "Glosario"]
+  ];
+  var nav = document.getElementById("nav");
+  var actual = 0;
+  secciones.forEach(function (s, i) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.innerHTML = '<span class="n">' + (i + 1) + '</span><span>' + s[1] + '</span>';
+    b.addEventListener("click", function () { ir(i); });
+    nav.appendChild(b);
+  });
+
+  function ir(i) {
+    actual = Math.max(0, Math.min(secciones.length - 1, i));
+    secciones.forEach(function (s, k) {
+      document.getElementById(s[0]).hidden = (k !== actual);
+      nav.children[k].setAttribute("aria-current", k === actual ? "true" : "false");
+    });
+    document.getElementById("prev").disabled = actual === 0;
+    document.getElementById("next").disabled = actual === secciones.length - 1;
+    document.getElementById("next").textContent = actual === secciones.length - 1 ? "Fin" : "Siguiente: " + secciones[actual + 1][1] + " →";
+    try { location.hash = secciones[actual][0]; } catch (e) {}
+    if (nav.children[actual].scrollIntoView) nav.children[actual].scrollIntoView({ block: "nearest", inline: "nearest" });
+    window.scrollTo(0, 0);
+  }
+  document.getElementById("prev").addEventListener("click", function () { ir(actual - 1); });
+  document.getElementById("next").addEventListener("click", function () { ir(actual + 1); });
+
+  var inicial = 0;
+  try {
+    var h = (location.hash || "").replace("#", "");
+    secciones.forEach(function (s, i) { if (s[0] === h) inicial = i; });
+  } catch (e) {}
+  ir(inicial);
+
+  /* ---------- tema ---------- */
+  document.getElementById("theme").addEventListener("click", function () {
+    var r = document.documentElement;
+    var oscuro = r.getAttribute("data-theme") === "dark" ||
+      (!r.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    r.setAttribute("data-theme", oscuro ? "light" : "dark");
+  });
+
+  /* ---------- simulador de reglas ---------- */
+  function norm(s) {
+    s = (s || "").toUpperCase().replace(/-/g, " ");
+    s = s.normalize ? s.normalize("NFD").replace(/[̀-ͯ]/g, "") : s;
+    s = s.replace(/\([^)]*\)/g, " ").replace(/[^A-Z0-9]/g, " ").replace(/\s+/g, " ").trim();
+    return s;
+  }
+  var reglas = [
+    { p: 10, prov: "GUAYAS", cant: ["DAULE"], parr: ["DAULE"], dest: "PRO", motivo: "Daule cabecera se entrega por PRO (otro delivery)" },
+    { p: 20, prov: "GUAYAS", cant: ["DAULE"], dest: "GYE", motivo: "El resto del cantón Daule lo cubre GYE" },
+    { p: 30, prov: "GUAYAS", cant: ["GUAYAQUIL"], texto: ["COOP", "COOPERATIVA"], dest: "PRO", motivo: "Guayaquil: cooperativa en la dirección" },
+    { p: 40, prov: "GUAYAS", cant: ["GUAYAQUIL"], texto: ["GUASMO", "BAUTISTA AGUIRRE", "BASTION POPULAR", "SALITRE", "FORTIN DE LA FLOR", "PALESTINA", "SIMON BOLIVAR", "MAPASINGUE", "KM>=15"], dest: "PRO", motivo: "Guayaquil: sector atendido por otro delivery" },
+    { p: 90, prov: "GUAYAS", cant: ["GUAYAQUIL"], dest: "GYE", motivo: "Guayaquil urbano" },
+    { p: 95, prov: "GUAYAS", dest: "PRO", motivo: "Guayas fuera de Guayaquil" },
+    { p: 100, prov: "AZUAY", cant: ["GUALACEO", "PAUTE", "CHORDELEG", "CAMILO PONCE ENRIQUEZ", "PUCARA", "SIGSIG"], dest: "PRO", motivo: "Azuay: cantón atendido por PRO" },
+    { p: 110, prov: "AZUAY", cant: ["CUENCA"], parr: ["MOLLETURO", "CHAUCHA", "SAYAUSI", "LLACAO", "PACCHA", "NULTI", "QUINGEO", "CUMBE", "IRQUIS", "SANTA ANA"], dest: "PRO", motivo: "Azuay: parroquia rural de Cuenca" },
+    { p: 900, prov: "PICHINCHA", dest: "UIO", motivo: "Regla base: Pichincha" },
+    { p: 910, prov: "GALAPAGOS", dest: "GPS", motivo: "Regla base: Galápagos" },
+    { p: 999, dest: "PRO", motivo: "Regla base: resto del país" }
+  ];
+
+  function coincideTexto(lista, texto) {
+    if (!lista) return "*";
+    for (var i = 0; i < lista.length; i++) {
+      var w = lista[i];
+      if (w.indexOf("KM>=") === 0) {
+        var min = parseInt(w.slice(4), 10);
+        var re = /\b(?:KM|KILOMETRO)\s?(\d{1,3})\b/g, m;
+        while ((m = re.exec(texto)) !== null) { if (parseInt(m[1], 10) >= min) return "KM " + m[1]; }
+      } else if ((" " + texto + " ").indexOf(" " + norm(w) + " ") >= 0) {
+        return norm(w);
+      }
+    }
+    return "";
+  }
+
+  function evaluar(prov, cant, parr, dir, gestor) {
+    var P = norm(prov), C = norm(cant), Q = norm(parr), T = norm(dir) + " " + Q;
+    for (var i = 0; i < reglas.length; i++) {
+      var r = reglas[i];
+      if (r.prov && norm(r.prov) !== P) continue;
+      if (r.cant && r.cant.map(norm).indexOf(C) < 0) continue;
+      if (r.parr && r.parr.map(norm).indexOf(Q) < 0) continue;
+      var hit = coincideTexto(r.texto, T);
+      if (!hit) continue;
+      var res = { dest: r.dest, p: r.p, motivo: r.motivo + (hit !== "*" ? " [" + hit + "]" : "") };
+      if ((res.dest === "UIO" || res.dest === "GYE") && gestor) {
+        var g = gestor.toUpperCase();
+        if (g.indexOf("ITSANET") < 0 && g.indexOf("LAAR") < 0) {
+          res.dest = "PRO";
+          res.cob = "La cobertura TMS de este destino es " + gestor + ", sin ITSANET ni LAAR";
+        }
+      }
+      return res;
+    }
+    return { dest: "PRO", p: 999, motivo: "Regla base" };
+  }
+
+  var campos = ["f-prov", "f-cant", "f-parr", "f-dir", "f-gest"].map(function (id) { return document.getElementById(id); });
+  var salida = document.getElementById("resultado");
+
+  function pintar() {
+    var r = evaluar(campos[0].value, campos[1].value, campos[2].value, campos[3].value, campos[4].value);
+    var clase = r.dest.toLowerCase();
+    var html = '<div><span class="chip ' + clase + '" style="font-size:11px">DESTINO SUGERIDO</span></div>';
+    html += '<div class="big" style="color:var(--' + (clase === "pro" ? "accent" : clase === "gye" ? "info" : clase === "uio" ? "ok" : "warn") + ')">' + r.dest + "</div>";
+    html += '<div><b style="font-size:13px">Regla ' + r.p + "</b><p style=\"font-size:13.5px;color:var(--ink-soft)\">" + r.motivo + "</p></div>";
+    if (r.cob) html += '<div style="border-top:1px solid var(--line);padding-top:9px"><b style="font-size:13px">Ajuste por cobertura</b><p style="font-size:13.5px;color:var(--ink-soft)">' + r.cob + ", así que se propone PRO.</p></div>";
+    html += '<p style="font-size:12.5px;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:9px">El operador confirma o deja el destino actual. Nada cambia hasta que lo confirme.</p>';
+    salida.innerHTML = html;
+  }
+  campos.forEach(function (c) { c.addEventListener("input", pintar); c.addEventListener("change", pintar); });
+
+  var ejemplos = [
+    ["Guayaquil urbano", "GUAYAS", "GUAYAQUIL", "TARQUI (GUA)", "AV. FRANCISCO DE ORELLANA Y JUAN TANCA MARENGO", "ITSANET"],
+    ["Guasmo", "GUAYAS", "GUAYAQUIL", "XIMENA", "GUASMO SUR COOP. UNION DE BANANEROS MZ 12", "ITSANET"],
+    ["Daule cabecera", "GUAYAS", "DAULE", "DAULE", "CDLA. LOS ALMENDROS SOLAR 4", "TRAMACO, LAAR COURIER, SERVIENTREGA"],
+    ["La Aurora (Daule)", "GUAYAS", "DAULE", "LA AURORA (SATELITE)", "URB. VILLA CLUB ETAPA ELITE", "ITSANET"],
+    ["Durán", "GUAYAS", "DURAN", "EL RECREO", "MZ 15 SOLAR 7 EL RECREO 3RA ETAPA", "TRAMACO"],
+    ["Quito", "PICHINCHA", "QUITO", "CALDERON (QUI)", "CALLE 28 DE JUNIO Y GARCIA MORENO", "ITSANET"],
+    ["Cumbe (Cuenca)", "AZUAY", "CUENCA", "CUMBE", "VIA A LOJA KM 24 CENTRO PARROQUIAL", "TRAMACO"],
+    ["Yantzaza", "ZAMORA CHINCHIPE", "YANTZAZA", "YANTZAZA", "ARMANDO ARIAS Y MANCHINATZA", "TRAMACO"]
+  ];
+  var cajaEj = document.getElementById("ejemplos");
+  ejemplos.forEach(function (e) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = e[0];
+    b.addEventListener("click", function () {
+      campos[0].value = e[1]; campos[1].value = e[2]; campos[2].value = e[3]; campos[3].value = e[4]; campos[4].value = e[5];
+      pintar();
+    });
+    cajaEj.appendChild(b);
+  });
+  pintar();
+
+  /* ---------- barras de la etiqueta de muestra ---------- */
+  var bars = document.getElementById("barsdemo");
+  if (bars) {
+    var anchos = [2, 1, 1, 2, 1, 3, 1, 1, 2, 2, 1, 1, 3, 1, 2, 1, 1, 1, 2, 3, 1, 2, 1, 1, 2, 1, 3, 2, 1, 1, 2, 2, 1, 3, 1, 1, 2, 1, 2, 1, 1, 3, 2, 1, 1, 2];
+    anchos.forEach(function (w, i) {
+      var el = document.createElement("i");
+      el.style.width = w + "px";
+      if (i % 2) { el.style.background = "transparent"; }
+      bars.appendChild(el);
+    });
+  }
+
+  /* ---------- lista del día ---------- */
+  var tareas = [
+    ["PEDIDOS HCE", "Abrir el archivo y habilitar macros"],
+    ["PEDIDOS HCE", "Paso 0: actualizar datos del día"],
+    ["PEDIDOS HCE", "Paso 1: limpiar la validación anterior"],
+    ["PEDIDOS HCE", "Paso 2: validar los pedidos"],
+    ["PEDIDOS HCE", "Paso 3: revisar los pedidos en REVISAR, uno por uno"],
+    ["PEDIDOS HCE", "Paso 5: aplicar los aprobados"],
+    ["PEDIDOS HCE", "Paso 7: enviar a EGR, con el EGR abierto"],
+    ["EGR", "0 Limpiar día, si no se hizo al abrir"],
+    ["EGR", "Revisar cobertura TMS y corregir lo que esté fuera"],
+    ["EGR", "Confirmar o rechazar los destinos sugeridos"],
+    ["EGR", "Imprimir una etiqueta de prueba y revisar el código de barras"],
+    ["EGR", "Imprimir las etiquetas pendientes"],
+    ["BODEGA", "Empacar y registrar las cajas en el Google Sheets"],
+    ["EGR", "Actualizar datos para traer bultos y pesos"],
+    ["EGR", "Revisar el avance de empaque y los productos sin costo"],
+    ["EGR", "Exportar TRAMACO y subirlo al portal del courier"],
+    ["EGR", "Exportar TMS y cargarlo al sistema"],
+    ["EGR", "Exportar DESPACHOS y enviarlo a distribución"],
+    ["EGR", "Guardar el archivo"]
+  ];
+  var cont = document.getElementById("checklist");
+  var LS = "hycite-checklist-v1";
+  var estado = {};
+  try { estado = JSON.parse(localStorage.getItem(LS) || "{}") || {}; } catch (e) { estado = {}; }
+
+  tareas.forEach(function (t, i) {
+    var l = document.createElement("label");
+    l.innerHTML = '<input type="checkbox" id="chk' + i + '"><span>' + t[1] + '<span class="sub">' + t[0] + "</span></span>";
+    cont.appendChild(l);
+    var inp = l.querySelector("input");
+    inp.checked = !!estado["t" + i];
+    inp.addEventListener("change", function () {
+      estado["t" + i] = inp.checked;
+      try { localStorage.setItem(LS, JSON.stringify(estado)); } catch (e) {}
+      avance();
+    });
+  });
+
+  function avance() {
+    var hechas = 0;
+    tareas.forEach(function (t, i) { if (document.getElementById("chk" + i).checked) hechas++; });
+    document.getElementById("cbar").style.width = (hechas / tareas.length * 100) + "%";
+    document.getElementById("ctxt").textContent = hechas + " de " + tareas.length;
+    document.getElementById("progresoNav").textContent = hechas ? "Día: " + hechas + "/" + tareas.length : "Guía interactiva";
+  }
+  document.getElementById("reset").addEventListener("click", function () {
+    tareas.forEach(function (t, i) { document.getElementById("chk" + i).checked = false; });
+    estado = {};
+    try { localStorage.removeItem(LS); } catch (e) {}
+    avance();
+  });
+  avance();
+
+  /* ---------- problemas frecuentes ---------- */
+  var problemas = [
+    ["Excel se cierra al pulsar Actualizar datos",
+     "Pasa cuando el Google Sheets de empaquetado no responde o no tiene órdenes del día. Ahora el sistema lo comprueba antes: si no hay datos, no toca esa consulta, conserva lo anterior y pregunta si sigue con el resto. Si igual se cierra, hay respaldo en RESPALDOS_EGR."],
+    ["El panel abre con la lista vacía",
+     "Casi siempre es que DATOS está vacío porque falta el paso 7 de PEDIDOS HCE. Si hay pedidos y la lista sigue vacía, pulsar Actualizar lista y revisar el registro, que indica la fila donde se detuvo la lectura."],
+    ["La etiqueta no se imprime",
+     "Revisar tres cosas: que la Zebra esté encendida y con papel; que sea la impresora elegida en el panel; y el registro, que anota cada intento con el código de error de Windows. Si la Zebra está compartida desde otro equipo, el sistema prueba también su ruta de red."],
+    ["El código de barras no se lee con la pistola",
+     "Imprimir una etiqueta de prueba. Si sale muy clara, subir el contraste en la Zebra; si sale corrida, ajustar el corrimiento en la configuración. El código es Code 128 con el número de pedido, sin ceros ni espacios extra."],
+    ["Un pedido dice que no está en cobertura y sí está",
+     "Comparar cómo lo escribió el cliente contra la cobertura: suele ser una abreviatura o un paréntesis de otro cantón. En el buscador de cobertura se ve el nombre exacto y desde ahí se asigna al pedido."],
+    ["El CSV de TRAMACO trae más filas de las esperadas",
+     "TRAMACO solo lleva pedidos PRO; TMS y DESPACHOS llevan todos. Antes de exportar, el panel muestra cuántas filas tiene cada hoja, para compararlas."],
+    ["Los teléfonos salen sin el cero inicial",
+     "En la exportación las columnas de texto se conservan tal cual, con su cero. Si se abre el CSV con doble clic, Excel lo interpreta como número: hay que abrirlo con Datos › Desde texto/CSV, o revisarlo en el bloc de notas."],
+    ["Un producto sale con peso o costo vacío",
+     "No está en el maestro DATA CODIGO Y CAJAS. El avance de empaque lista exactamente qué códigos faltan; se agregan con el botón Productos y se vuelve a actualizar."],
+    ["El destino de un pedido no es el que corresponde",
+     "Se puede asignar a mano desde el panel, con el motivo registrado. Si el caso se repite todos los días, conviene agregar la regla en REGLAS_DESTINO para que salga solo."],
+    ["Se imprimió la etiqueta y después cambió el destino",
+     "El pedido queda marcado como REIMPRIMIR. Filtrar por esa señal, reimprimir y exportar de nuevo los reportes: el archivo anterior ya no coincide."],
+    ["Excel queda bloqueado o sin responder",
+     "Pulsar Desbloquear, en el panel o en Complementos. Restaura la pantalla, los eventos y el cálculo. Si hay un formulario abierto, cerrarlo primero."],
+    ["Los dos paneles abiertos ponen lento el equipo",
+     "Cerrar el panel que no se esté usando y trabajar con los botones de Complementos, que hacen lo mismo sin abrir ventanas."]
+  ];
+  var faq = document.getElementById("faq");
+  problemas.forEach(function (p) {
+    var d = document.createElement("details");
+    d.innerHTML = "<summary>" + p[0] + '</summary><div class="dbody"><p>' + p[1] + "</p></div>";
+    faq.appendChild(d);
+  });
+  document.getElementById("buscar").addEventListener("input", function (e) {
+    var q = norm(e.target.value);
+    var visibles = 0;
+    Array.prototype.forEach.call(faq.children, function (d) {
+      var hay = !q || norm(d.textContent).indexOf(q) >= 0;
+      d.hidden = !hay;
+      if (hay) visibles++;
+      if (q && hay) d.open = true;
+      if (!q) d.open = false;
+    });
+    document.getElementById("sinres").hidden = visibles > 0;
+  });
+})();
+</script>
