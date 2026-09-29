@@ -778,7 +778,7 @@ End Function
 ' formato: "CSV", "XLSX" o "PDF". Devuelve la ruta del archivo creado ("" si no se creó)
 Public Function ExportarHoja(ByVal hojaN As String, ByVal formato As String, Optional ByVal preguntar As Boolean = True) As String
   Dim ws As Worksheet, colClave As Long, oblig, lr As Long, lc As Long, j As Long, nProb As Long
-  Dim wbN As Workbook, wsN As Worksheet, ruta As String, base As String
+  Dim wbN As Workbook, wsN As Worksheet, ruta As String, rutaBase As String
   On Error GoTo fallo
   Set ws = ThisWorkbook.Worksheets(hojaN)
   Application.Calculate
@@ -821,16 +821,16 @@ Public Function ExportarHoja(ByVal hojaN As String, ByVal formato As String, Opt
   Next
   wsN.Range(wsN.Cells(1, 1), wsN.Cells(lr, lc)).Value = vv
   wsN.Rows(1).Font.Bold = True
-  base = CarpetaExportes() & Application.PathSeparator & Replace(hojaN, " ", "_") & "_" & Format(Now, "yyyymmdd_hhnn")
+  rutaBase = CarpetaExportes() & Application.PathSeparator & Replace(hojaN, " ", "_") & "_" & Format(Now, "yyyymmdd_hhnn")
   Select Case UCase$(formato)
     Case "CSV"
-      ruta = base & ".csv"
+      ruta = rutaBase & ".csv"
       wbN.SaveAs Filename:=ruta, FileFormat:=62, Local:=(UCase$(Cfg("CSV_SEPARADOR_PUNTOYCOMA", "NO")) = "SI")   ' 62 = CSV UTF-8
     Case "XLSX"
-      ruta = base & ".xlsx"
+      ruta = rutaBase & ".xlsx"
       wbN.SaveAs Filename:=ruta, FileFormat:=51
     Case "PDF"
-      ruta = base & ".pdf"
+      ruta = rutaBase & ".pdf"
       With wsN.PageSetup
         .Orientation = xlLandscape: .Zoom = False: .FitToPagesWide = 1: .FitToPagesTall = False
         .PrintTitleRows = "$1:$1": .CenterFooter = "Página &P de &N": .LeftHeader = hojaN & " - " & Format(Now, "dd/mm/yyyy hh:nn")

@@ -120,7 +120,7 @@ End Sub
 ' modo: "PENDIENTES" (STATUS <> OK), "TODAS", "PEDIDOS" (lista de números separados por coma)
 Public Sub ImprimirEtiquetas(ByVal modo As String, Optional ByVal listaPedidos As String = "", Optional ByVal soloArchivo As Boolean = False)
   Dim wsD As Worksheet, wsE As Worksheet, lr As Long, v, i As Long, zpl As String, n As Long, nSin As Long
-  Dim filas As New Collection, imp As String, ped As String, f, lst As String, ruta As String, ff As Integer
+  Dim filas As New Collection, impr As String, ped As String, f, lst As String, ruta As String, ff As Integer
   Set wsD = ThisWorkbook.Worksheets(HDAT)
   Set wsE = ThisWorkbook.Worksheets(HETQ)
   Application.Calculate
@@ -156,15 +156,15 @@ Public Sub ImprimirEtiquetas(ByVal modo As String, Optional ByVal listaPedidos A
     MsgBox n & " etiqueta(s) guardadas en:" & vbCrLf & ruta, vbInformation
     Exit Sub
   End If
-  imp = Cfg("IMPRESORA_ZEBRA")
-  If Len(imp) = 0 Then ElegirImpresora: imp = Cfg("IMPRESORA_ZEBRA")
-  If Len(imp) = 0 Then Exit Sub
-  If MsgBox("Imprimir " & n & " etiqueta(s) en '" & imp & "'?" & IIf(nSin > 0, vbCrLf & nSin & " pedido(s) sin destino se omiten.", ""), vbYesNo + vbQuestion, "Etiquetas") <> vbYes Then Exit Sub
-  If EnviarRaw(imp, zpl) Then
+  impr = Cfg("IMPRESORA_ZEBRA")
+  If Len(impr) = 0 Then ElegirImpresora: impr = Cfg("IMPRESORA_ZEBRA")
+  If Len(impr) = 0 Then Exit Sub
+  If MsgBox("Imprimir " & n & " etiqueta(s) en '" & impr & "'?" & IIf(nSin > 0, vbCrLf & nSin & " pedido(s) sin destino se omiten.", ""), vbYesNo + vbQuestion, "Etiquetas") <> vbYes Then Exit Sub
+  If EnviarRaw(impr, zpl) Then
     For Each f In filas
       If Len(TXE(v(f, D_DEST))) > 0 Then wsE.Cells(f, 6).Value = "OK"
     Next
-    LogE "ETIQUETAS: " & n & " etiqueta(s) enviadas a " & imp & " (" & modo & IIf(Len(listaPedidos) > 0, ": " & listaPedidos, "") & ")"
+    LogE "ETIQUETAS: " & n & " etiqueta(s) enviadas a " & impr & " (" & modo & IIf(Len(listaPedidos) > 0, ": " & listaPedidos, "") & ")"
   Else
     MsgBox "No se pudo imprimir. Revisa que la Zebra esté encendida y elegida (registro del panel).", vbExclamation
   End If
