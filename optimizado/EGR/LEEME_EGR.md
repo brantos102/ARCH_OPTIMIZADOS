@@ -28,16 +28,38 @@ imprime las etiquetas, sigue el empaque y exporta TMS, TRAMACO y DESPACHOS.
     el destino, el trayecto, el tipo de entrega, la zona peligrosa y los gestores Q/R de la etapa 1. El panel de EGR
     los muestra.
 
-### Paso manual recomendado: sacar EMPAQUETADO del modelo de datos
+### Paso manual recomendado: EMPAQUETADO solo a la hoja (sin modelo de datos)
 
 La consulta EMPAQUETADO carga al **modelo de datos** y a la hoja al mismo tiempo. Eso es lo que provoca el "Error de
-automatización" que cierra Excel (sección 5). Para quitar el riesgo del todo:
+automatización" que cierra Excel (sección 5). El **filtro por fecha no cambia**: lo hace Power Query dentro de la
+consulta (paso `Filas filtradas` = `Date.IsInCurrentDay([FECHA])`). Por eso, aunque el Google Sheets tenga todo el año,
+a la hoja solo llegan las órdenes de hoy. Solo cambia **dónde se carga**.
 
-1. Datos › Consultas y conexiones. Clic derecho en **EMPAQUETADO** › **Cargar en...**
-2. Elige **Tabla**, en la hoja EMPAQUETADO (celda B1), y **desmarca "Agregar estos datos al modelo de datos"**.
-3. Revisa que las columnas F:K de la tabla (contenedora, bultos, peso, volumen, %) sigan con sus fórmulas.
+1. Guarda y haz una copia del archivo.
+2. **Datos › Consultas y conexiones**. En el panel de la derecha, clic derecho en **EMPAQUETADO** › **Cargar en...**
+3. Elige **Tabla** y **Hoja de cálculo existente** = `=EMPAQUETADO!$B$1`.
+4. **Desmarca "Agregar estos datos al modelo de datos"** y acepta. Si Excel avisa que se eliminará el modelo de datos
+   o la tabla anterior, acepta: la tabla se vuelve a crear en el mismo lugar.
+5. Excel crea la tabla solo con **B:E** (FECHA, # ORDEN, TIIPO CAJA, # CONTENEDORA). Pulsa **Alt + F8**, elige
+   **RestaurarColumnasEmpaquetado** y **Ejecutar**. La macro le devuelve el nombre `EMPAQUETADO` y vuelve a poner las
+   columnas calculadas F:K (contenedora, bultos, peso caja, vol. caja, vol. ítems, %).
+6. Pulsa **Actualizar datos** en el panel. Con el Google Sheets sin órdenes de hoy, la macro avisa y pregunta si sigue
+   con lo demás, sin cerrar Excel.
 
-Las tablas dinámicas no dependen del modelo: leen la hoja EMPAQUETADO.
+**Comprobar el filtro por fecha:** Datos › Consultas y conexiones › doble clic en EMPAQUETADO. En **PASOS APLICADOS**
+debe estar `Filas filtradas`. Al seleccionarlo, la fórmula dice:
+
+```
+= Table.SelectRows(#"Tipo cambiado1", each Date.IsInCurrentDay([FECHA]))
+```
+
+Para traer otra fecha (por ejemplo, ayer y hoy), cambia esa línea por:
+
+```
+= Table.SelectRows(#"Tipo cambiado1", each [FECHA] >= Date.AddDays(Date.From(DateTime.LocalNow()), -1))
+```
+
+Las tablas dinámicas no dependen del modelo: leen la hoja EMPAQUETADO (C:K).
 
 ## 2. Panel EGR y orden del día
 

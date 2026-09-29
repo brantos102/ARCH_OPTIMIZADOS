@@ -198,7 +198,7 @@ Sub ActualizarTodo()
   ' Botón de operación: se puede pulsar en cualquier momento. Trae ITEMS API, ITEMS DEPOT (ODBC),
   ' EMPAQUETADO (Google Sheets) y actualiza las tablas dinámicas. Si una fuente falla, pregunta si sigue.
   Dim ws As Worksheet, lo As ListObject, pc As PivotCache, t0 As Single, nOk As Long, nErr As Long
-  Dim wb As Workbook, pend As String, motivo As String, nHoy As Long
+  Dim wb As Workbook, pend As String, motivo As String, nHoy As Long, empOk As Boolean
   If gOcupadoE Then MsgBox "Hay un proceso en curso.", vbInformation: Exit Sub
   RuedaDesactivar
   For Each wb In Application.Workbooks
@@ -222,7 +222,8 @@ Sub ActualizarTodo()
   ' 1) EMPAQUETADO: se comprueba ANTES Google Sheets. Refrescar la consulta con la hoja vacía o sin
   '    conexión es lo que cerraba Excel ("Error de automatización"), así que en ese caso NO se refresca.
   Application.StatusBar = "Comprobando Google Sheets (EMPAQUETADO)..."
-  If EmpaquetadoDisponible(motivo, nHoy) Then
+  empOk = EmpaquetadoDisponible(motivo, nHoy)
+  If empOk Then
     LogE "EMPAQUETADO: Google Sheets responde, " & nHoy & " fila(s) de hoy"
     Application.ScreenUpdating = False
     For Each ws In ThisWorkbook.Worksheets
@@ -237,7 +238,7 @@ Sub ActualizarTodo()
     If MsgBox("No se obtuvieron datos de EMPAQUETADO (Google Sheets):" & vbCrLf & "  " & motivo & vbCrLf & vbCrLf & _
               "Se conservan los datos anteriores de empaquetado." & vbCrLf & _
               "¿Sigo con las demás conexiones (ITEMS API, ITEMS DEPOT) y las tablas dinámicas?", vbYesNo + vbQuestion, "Actualizar datos") <> vbYes Then
-      Liberar: gOcupadoE = False
+      Call Liberar: gOcupadoE = False
       LogE "ACTUALIZAR: cancelado por el usuario"
       Exit Sub
     End If
@@ -246,12 +247,12 @@ Sub ActualizarTodo()
   Application.ScreenUpdating = False: Application.EnableEvents = False
   For Each ws In ThisWorkbook.Worksheets
     For Each lo In ws.ListObjects
-      If lo.SourceType = xlSrcQuery Then
+      If lo.SourceType = xlSrcQuery And Not (Not empOk And InStr(1, lo.Name, "EMPAQUETADO", vbTextCompare) > 0) Then
         If Not RefrescarTabla(lo, nOk, nErr) Then
           Application.ScreenUpdating = True
           If MsgBox("No se pudo actualizar " & lo.Name & " (revisa la red / ODBC DEPOTUIO)." & vbCrLf & _
                     "¿Sigo con las demás conexiones y las tablas dinámicas?", vbYesNo + vbQuestion, "Actualizar datos") <> vbYes Then
-            Liberar: gOcupadoE = False
+            Call Liberar: gOcupadoE = False
             LogE "ACTUALIZAR: detenido por el usuario tras el error en " & lo.Name, "AVISO"
             Exit Sub
           End If
@@ -386,6 +387,48 @@ Public Sub RefrescarPanel()
   For i = 0 To VBA.UserForms.Count - 1
     If VBA.UserForms(i).Name = "frmEGR" Then VBA.UserForms(i).Recargar
   Next
+End Sub
+
+' Después de cambiar la carga de EMPAQUETADO a "solo tabla" (sin modelo de datos), Excel crea la tabla de nuevo
+' solo con B:E. Esta macro le devuelve el nombre EMPAQUETADO y las columnas calculadas F:K.
+Sub RestaurarColumnasEmpaquetado()
+  Dim ws As Worksheet, lo As ListObject, x As ListObject, nom, frm, i As Long, lc As ListColumn
+  Set ws = ThisWorkbook.Worksheets("EMPAQUETADO")
+  For Each x In ws.ListObjects
+    On Error Resume Next
+    If Not x.ListColumns("# ORDEN") Is Nothing Then If Err.Number = 0 Then Set lo = x
+    Err.Clear
+    On Error GoTo 0
+    If Not lo Is Nothing Then Exit For
+  Next
+  If lo Is Nothing Then MsgBox "No hay en la hoja EMPAQUETADO una tabla con la columna '# ORDEN'.", vbExclamation: Exit Sub
+  If lo.Range.Column <> 2 Then MsgBox "La tabla debe empezar en la columna B (celda B1). Está en " & lo.Range.Cells(1, 1).Address(False, False) & ".", vbExclamation: Exit Sub
+  On Error Resume Next
+  If lo.Name <> "EMPAQUETADO" Then lo.Name = "EMPAQUETADO"
+  If Err.Number <> 0 Then LogE "EMPAQUETADO: no se pudo renombrar la tabla " & lo.Name & ": " & Err.Description, "AVISO": Err.Clear
+  On Error GoTo 0
+  nom = Array("NRO. DE CONTENEDORA", "BULTOS", "PESO CAJA", "VOL. CAJA", "VOL. ITEMS", "PORCENTAJE")
+  frm = Array( _
+    "=IF($C2="""","""",IF($E2<>"""",$E2,XLOOKUP(TEXT($C2,""@""),Estado[DOC_EXT],Estado[NRO_CONTENEDORA_EMPAQUE],IF(COUNTIF(ITEMS_API[DOC_EXT],TEXT($C2,""@""))>0,""validar"",""sin pedido""),0)))", _
+    "=IF($C2="""","""",1)", _
+    "=IF($C2="""","""",VLOOKUP($D2,DATA_CAJAS,5,FALSE)+0.1)", _
+    "=IF($C2="""","""",VLOOKUP($D2,DATA_CAJAS,6,FALSE))", _
+    "=IF($C2="""","""",IF(SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N)>0,SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N),IF(SUMIF('TABLAS DINAMICAS'!$A:$A,$C2,'TABLAS DINAMICAS'!$E:$E)>0,SUMIF('TABLAS DINAMICAS'!$A:$A,$C2,'TABLAS DINAMICAS'!$E:$E),""Verificar"")))", _
+    "=IF($C2="""","""",IF(OR($D2=""F1"",$D2=""F5"",$D2=""F11"",$D2=""F10"",$D2=""SOBRE 1""),1,IF($J2=""Verificar"",""Verificar"",IF($J2/$I2>1,1,IF($J2/$I2<0.3,0.3,$J2/$I2)))))")
+  For i = 0 To 5
+    Set lc = Nothing
+    On Error Resume Next
+    Set lc = lo.ListColumns(nom(i))
+    On Error GoTo 0
+    If lc Is Nothing Then
+      Set lc = lo.ListColumns.Add(Position:=5 + i)
+      lc.Name = nom(i)
+    End If
+    If lo.ListRows.Count > 0 Then lc.DataBodyRange.Formula2 = frm(i)
+  Next
+  If lo.ListRows.Count > 0 Then lo.ListColumns("PORCENTAJE").DataBodyRange.NumberFormat = "0%"
+  LogE "EMPAQUETADO: tabla lista (nombre EMPAQUETADO, columnas calculadas F:K restauradas)"
+  MsgBox "Tabla EMPAQUETADO lista: nombre y columnas F:K restaurados.", vbInformation
 End Sub
 
 Sub TABLAS()

@@ -317,7 +317,7 @@ End Sub
 Private Sub cboProv_Change()
   If mCarga Then Exit Sub
   mCarga = True
-  LlenarCantones: cboCant.Text = ""
+  Call LlenarCantones: cboCant.Text = ""
   cboParr.Clear: cboParr.Text = ""
   mCarga = False
   mMotivo = ""
