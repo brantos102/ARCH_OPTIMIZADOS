@@ -195,15 +195,17 @@ End Sub
 '  1. ACTUALIZAR TODO (seguro)
 ' =====================================================================================
 Sub ActualizarTodo()
+  ' Botón de operación: se puede pulsar en cualquier momento. Trae ITEMS API, ITEMS DEPOT (ODBC),
+  ' EMPAQUETADO (Google Sheets) y actualiza las tablas dinámicas. Si una fuente falla, pregunta si sigue.
   Dim ws As Worksheet, lo As ListObject, pc As PivotCache, t0 As Single, nOk As Long, nErr As Long
-  Dim wb As Workbook, pend As String
+  Dim wb As Workbook, pend As String, motivo As String, nHoy As Long
   If gOcupadoE Then MsgBox "Hay un proceso en curso.", vbInformation: Exit Sub
-  ' guardar otros libros abiertos: si Excel falla no se pierden
+  RuedaDesactivar
   For Each wb In Application.Workbooks
     If Not wb Is ThisWorkbook And Not wb.Saved And Len(wb.Path) > 0 And Not wb.ReadOnly Then pend = pend & vbCrLf & "  - " & wb.Name
   Next
   If Len(pend) > 0 Then
-    Select Case MsgBox("Hay libros abiertos sin guardar:" & pend & vbCrLf & vbCrLf & "¿Guardarlos antes de actualizar? (recomendado)", vbYesNoCancel + vbQuestion, "Actualizar todo")
+    Select Case MsgBox("Hay libros abiertos sin guardar:" & pend & vbCrLf & vbCrLf & "¿Guardarlos antes de actualizar? (recomendado)", vbYesNoCancel + vbQuestion, "Actualizar datos")
       Case vbCancel: Exit Sub
       Case vbYes
         On Error Resume Next
@@ -216,23 +218,51 @@ Sub ActualizarTodo()
   gOcupadoE = True
   Respaldo "antes_actualizar"
   LogE "ACTUALIZAR: inicio"
-  On Error GoTo fallo
-  Application.ScreenUpdating = False: Application.EnableEvents = False
   t0 = Timer
-  ' 1) consultas ODBC / web cargadas a tabla (Estado, ITEMS API): una por una, sin segundo plano
-  For Each ws In ThisWorkbook.Worksheets
-    For Each lo In ws.ListObjects
-      If lo.SourceType = xlSrcQuery Then RefrescarTabla lo, nOk, nErr
+  ' 1) EMPAQUETADO: se comprueba ANTES Google Sheets. Refrescar la consulta con la hoja vacía o sin
+  '    conexión es lo que cerraba Excel ("Error de automatización"), así que en ese caso NO se refresca.
+  Application.StatusBar = "Comprobando Google Sheets (EMPAQUETADO)..."
+  If EmpaquetadoDisponible(motivo, nHoy) Then
+    LogE "EMPAQUETADO: Google Sheets responde, " & nHoy & " fila(s) de hoy"
+    Application.ScreenUpdating = False
+    For Each ws In ThisWorkbook.Worksheets
+      For Each lo In ws.ListObjects
+        If lo.SourceType = 4 Then RefrescarTablaModelo lo, nOk, nErr        ' 4 = xlSrcModel
+      Next
     Next
-  Next
-  ' 2) tablas que vienen del modelo de datos (EMPAQUETADO): primero su consulta, luego la tabla
+    Application.ScreenUpdating = True
+  Else
+    nErr = nErr + 1
+    LogE "EMPAQUETADO no se actualizó: " & motivo & ". Se conservan los datos anteriores.", "AVISO"
+    If MsgBox("No se obtuvieron datos de EMPAQUETADO (Google Sheets):" & vbCrLf & "  " & motivo & vbCrLf & vbCrLf & _
+              "Se conservan los datos anteriores de empaquetado." & vbCrLf & _
+              "¿Sigo con las demás conexiones (ITEMS API, ITEMS DEPOT) y las tablas dinámicas?", vbYesNo + vbQuestion, "Actualizar datos") <> vbYes Then
+      Liberar: gOcupadoE = False
+      LogE "ACTUALIZAR: cancelado por el usuario"
+      Exit Sub
+    End If
+  End If
+  ' 2) consultas ODBC cargadas a tabla (Estado, ITEMS API), una por una
+  Application.ScreenUpdating = False: Application.EnableEvents = False
   For Each ws In ThisWorkbook.Worksheets
     For Each lo In ws.ListObjects
-      If lo.SourceType = 4 Then RefrescarTablaModelo lo, nOk, nErr        ' 4 = xlSrcModel
+      If lo.SourceType = xlSrcQuery Then
+        If Not RefrescarTabla(lo, nOk, nErr) Then
+          Application.ScreenUpdating = True
+          If MsgBox("No se pudo actualizar " & lo.Name & " (revisa la red / ODBC DEPOTUIO)." & vbCrLf & _
+                    "¿Sigo con las demás conexiones y las tablas dinámicas?", vbYesNo + vbQuestion, "Actualizar datos") <> vbYes Then
+            Liberar: gOcupadoE = False
+            LogE "ACTUALIZAR: detenido por el usuario tras el error en " & lo.Name, "AVISO"
+            Exit Sub
+          End If
+          Application.ScreenUpdating = False
+        End If
+      End If
     Next
   Next
   ' 3) tablas dinámicas: cada caché una vez
   For Each pc In ThisWorkbook.PivotCaches
+    Application.StatusBar = "Actualizando tablas dinámicas..."
     Err.Clear
     On Error Resume Next
     pc.Refresh
@@ -241,28 +271,79 @@ Sub ActualizarTodo()
     Else
       nOk = nOk + 1
     End If
-    On Error GoTo fallo
+    On Error GoTo 0
     DoEvents
   Next
   Application.Calculate
   Liberar
   gOcupadoE = False
-  LogE "ACTUALIZAR: terminado en " & Format(Timer - t0, "0.0") & " s. Correctos " & nOk & ", con error " & nErr, IIf(nErr > 0, "AVISO", "INFO")
+  LogE "ACTUALIZAR: terminado en " & Format(Timer - t0, "0.0") & " s. Correctos " & nOk & ", con aviso/error " & nErr, IIf(nErr > 0, "AVISO", "INFO")
+  RefrescarPanel
   If nErr > 0 Then
-    MsgBox "Actualización terminada con " & nErr & " error(es). Revisa el registro del panel (qué consulta falló y por qué)." & vbCrLf & _
-           "Los datos anteriores se conservan y hay respaldo en la carpeta RESPALDOS_EGR.", vbExclamation, "Actualizar todo"
+    MsgBox "Actualización terminada con " & nErr & " aviso(s). El detalle está en el registro del panel." & vbCrLf & _
+           "Hay respaldo en la carpeta RESPALDOS_EGR.", vbExclamation, "Actualizar datos"
   Else
-    MsgBox "Datos y tablas dinámicas actualizados correctamente.", vbInformation, "Listo"
+    MsgBox "Datos y tablas dinámicas actualizados.", vbInformation, "Listo"
   End If
-  Exit Sub
-fallo:
-  Liberar
-  gOcupadoE = False
-  LogE "ACTUALIZAR: detenido por error: " & Err.Description, "ERROR"
-  MsgBox "Se detuvo la actualización: " & Err.Description & vbCrLf & "Pantalla liberada. Revisa el registro.", vbExclamation
 End Sub
 
-Private Sub RefrescarTabla(lo As ListObject, ByRef nOk As Long, ByRef nErr As Long)
+' Comprueba que el Google Sheets de EMPAQUETADO responde y tiene filas con fecha de HOY
+Private Function EmpaquetadoDisponible(ByRef motivo As String, ByRef nHoy As Long) As Boolean
+  Dim q As Object, url As String, re As Object, m As Object, http As Object, body As String
+  Dim lineas, i As Long, c As String, d As Date
+  motivo = "": nHoy = 0
+  On Error Resume Next
+  Set q = ThisWorkbook.Queries("EMPAQUETADO")
+  On Error GoTo 0
+  If q Is Nothing Then motivo = "no existe la consulta EMPAQUETADO": Exit Function
+  Set re = CreateObject("VBScript.RegExp"): re.Pattern = "Web\.Contents\(""([^""]+)"""
+  If Not re.Test(q.Formula) Then EmpaquetadoDisponible = True: Exit Function     ' otra fuente: se refresca normal
+  url = re.Execute(q.Formula)(0).SubMatches(0)
+  On Error Resume Next
+  Set http = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+  http.setTimeouts 5000, 5000, 15000, 20000
+  http.Open "GET", url, False
+  http.send
+  If Err.Number <> 0 Then                   ' con proxy corporativo: se usa la conexión de Windows/Office
+    Err.Clear
+    Set http = CreateObject("MSXML2.XMLHTTP.6.0")
+    http.Open "GET", url, False
+    http.send
+  End If
+  If Err.Number <> 0 Then GoTo fallo
+  On Error GoTo fallo
+  If http.Status <> 200 Then motivo = "Google Sheets respondió " & http.Status: Exit Function
+  body = http.responseText
+  lineas = Split(Replace(body, vbCr, ""), vbLf)
+  For i = 1 To UBound(lineas)
+    c = Split(lineas(i) & ",", ",")(0)
+    If EsFechaHoy(Replace(c, """", "")) Then
+      If Len(Trim$(Replace(Split(lineas(i) & ",,", ",")(1), """", ""))) > 0 Then nHoy = nHoy + 1
+    End If
+  Next
+  If nHoy = 0 Then motivo = "la hoja de Google Sheets no tiene órdenes con fecha de hoy (" & Format(Date, "dd/mm/yyyy") & ")": Exit Function
+  EmpaquetadoDisponible = True
+  Exit Function
+fallo:
+  motivo = "sin conexión con Google Sheets (" & Err.Description & ")"
+End Function
+
+Private Function EsFechaHoy(ByVal s As String) As Boolean
+  Dim p, a As Long, b As Long, c As Long
+  s = Trim$(s): If Len(s) < 6 Then Exit Function
+  If InStr(s, " ") > 0 Then s = Left$(s, InStr(s, " ") - 1)
+  s = Replace(s, "-", "/"): p = Split(s, "/")
+  If UBound(p) <> 2 Then Exit Function
+  a = Val(p(0)): b = Val(p(1)): c = Val(p(2))
+  If c < 100 And a > 1000 Then            ' aaaa/mm/dd
+    EsFechaHoy = (a = Year(Date) And b = Month(Date) And c = Day(Date)): Exit Function
+  End If
+  If c < 100 Then c = c + 2000
+  If c <> Year(Date) Then Exit Function
+  EsFechaHoy = (a = Day(Date) And b = Month(Date)) Or (a = Month(Date) And b = Day(Date))
+End Function
+
+Private Function RefrescarTabla(lo As ListObject, ByRef nOk As Long, ByRef nErr As Long) As Boolean
   Dim t As Single: t = Timer
   Application.StatusBar = "Actualizando " & lo.Name & "..."
   On Error Resume Next
@@ -273,39 +354,38 @@ Private Sub RefrescarTabla(lo As ListObject, ByRef nOk As Long, ByRef nErr As Lo
     nErr = nErr + 1
     LogE "Consulta " & lo.Name & " (hoja " & lo.Parent.Name & "): " & Err.Description & " -> revisa la conexión ODBC DEPOTUIO / red", "ERROR"
   Else
-    nOk = nOk + 1
+    nOk = nOk + 1: RefrescarTabla = True
     LogE "Consulta " & lo.Name & ": " & lo.ListRows.Count & " filas (" & Format(Timer - t, "0.0") & " s)"
   End If
   On Error GoTo 0
   DoEvents
-End Sub
+End Function
 
 Private Sub RefrescarTablaModelo(lo As ListObject, ByRef nOk As Long, ByRef nErr As Long)
-  Dim cn As WorkbookConnection, t As Single, nombre As String
+  Dim t As Single
   t = Timer
-  Application.StatusBar = "Actualizando " & lo.Name & " (modelo de datos)..."
+  Application.StatusBar = "Actualizando " & lo.Name & " (Google Sheets)..."
   On Error Resume Next
-  ' la consulta de Power Query que alimenta el modelo ("Consulta - EMPAQUETADO"); nunca ThisWorkbookDataModel
-  For Each cn In ThisWorkbook.Connections
-    nombre = UCase$(cn.Name)
-    If InStr(nombre, "CONSULTA") > 0 And InStr(nombre, UCase$(lo.Name)) > 0 Then
-      Err.Clear
-      cn.Refresh
-      If Err.Number <> 0 Then LogE "Consulta " & cn.Name & ": " & Err.Description & " -> revisa internet / Google Sheets", "ERROR"
-      DoEvents
-    End If
-  Next
   Err.Clear
-  lo.TableObject.Refresh
+  lo.TableObject.Refresh          ' refresca su consulta en el modelo y la tabla (una sola vez)
   If Err.Number <> 0 Then
     nErr = nErr + 1
-    LogE "Tabla " & lo.Name & " (modelo): " & Err.Description, "ERROR"
+    LogE "Tabla " & lo.Name & ": " & Err.Description, "ERROR"
   Else
     nOk = nOk + 1
     LogE "Tabla " & lo.Name & ": " & lo.ListRows.Count & " filas (" & Format(Timer - t, "0.0") & " s)"
   End If
   On Error GoTo 0
   DoEvents
+End Sub
+
+' refresca el panel si está abierto
+Public Sub RefrescarPanel()
+  Dim i As Long
+  On Error Resume Next
+  For i = 0 To VBA.UserForms.Count - 1
+    If VBA.UserForms(i).Name = "frmEGR" Then VBA.UserForms(i).Recargar
+  Next
 End Sub
 
 Sub TABLAS()
@@ -453,7 +533,7 @@ Private Sub AddRegla(ws As Worksheet, ByRef r As Long, ByVal pr As Long, ByVal P
 End Sub
 
 ' Reglas activas ordenadas por prioridad -> matriz (n, 8): prov, cant, parr, texto, excepto, destino, motivo, prioridad
-Private Function CargarReglas() As Variant
+Public Function CargarReglas() As Variant
   Dim ws As Worksheet, lr As Long, v, i As Long, j As Long, n As Long, a() As Variant, t As Variant, k As Long
   CrearHojaReglas
   Set ws = ThisWorkbook.Worksheets(HREG)
@@ -596,6 +676,124 @@ Public Sub AplicarDestinos(Optional sel As Collection)
   LogE "DESTINOS: " & n & " cambio(s) aplicados. TMS, TRAMACO, DESPACHOS y etiquetas ya usan el nuevo destino."
 End Sub
 
+' Confirma un destino (sugerido por reglas o elegido por el operador) para una fila de DATOS
+Public Function ConfirmarDestino(ByVal fila As Long, ByVal destino As String, ByVal motivo As String) As Boolean
+  Dim ws As Worksheet, ant As String
+  Set ws = ThisWorkbook.Worksheets(HDAT)
+  If ws.Range("A2").HasFormula Then
+    If InStr(ws.Range("A2").Formula, "$AF2") = 0 Then
+      MsgBox "Primero ejecuta 'Reparar fórmulas' (Operación del panel): DATOS!A todavía no lee los destinos confirmados.", vbExclamation
+      Exit Function
+    End If
+  End If
+  ant = TXE(ws.Cells(fila, D_DEST).Value)
+  ws.Cells(fila, D_RDEST).Value = destino
+  ws.Cells(fila, D_RPED).Value = ws.Cells(fila, D_PED).Value
+  ws.Cells(fila, D_RMOT).Value = motivo & " | " & Application.UserName & " " & Format(Now, "yyyy-mm-dd hh:nn")
+  LogE "DESTINO fila " & fila & " pedido " & TXE(ws.Cells(fila, D_PED).Value) & ": " & IIf(Len(ant) > 0, ant, "(vacío)") & " -> " & destino & " (" & motivo & ")"
+  ConfirmarDestino = True
+End Function
+
+Public Sub QuitarConfirmacion(ByVal fila As Long)
+  Dim ws As Worksheet
+  Set ws = ThisWorkbook.Worksheets(HDAT)
+  ws.Range(ws.Cells(fila, D_RDEST), ws.Cells(fila, D_RMOT)).ClearContents
+  LogE "DESTINO fila " & fila & " pedido " & TXE(ws.Cells(fila, D_PED).Value) & ": se quitó la confirmación (vuelve a la regla base)"
+End Sub
+
+' COBERTURAS Y TARIFAS por clave PROVINCIA_CANTON_PARROQUIA -> Array(gestor F, gestor sugerido U, trayecto V, días T, CP X)
+Public Function DictCobertura() As Object
+  Dim ws As Worksheet, lr As Long, v, i As Long, d As Object, k As String
+  Set d = CreateObject("Scripting.Dictionary")
+  Set ws = ThisWorkbook.Worksheets("COBERTURAS Y TARIFAS")
+  lr = ws.Cells(ws.Rows.Count, 2).End(xlUp).Row
+  If lr >= 2 Then
+    v = ws.Range(ws.Cells(1, 1), ws.Cells(lr, 28)).Value
+    For i = 2 To lr
+      k = UCase$(TXE(v(i, 28)))
+      If Len(k) > 0 And Not d.Exists(k) Then d(k) = Array(TXE(v(i, 6)), TXE(v(i, 21)), TXE(v(i, 22)), TXE(v(i, 20)), TXE(v(i, 24)))
+    Next
+  End If
+  Set DictCobertura = d
+End Function
+
+Public Function ClaveTMS(ByVal h As String, ByVal i As String, ByVal j As String) As String
+  Dim s As String
+  If Len(h) > 0 Then s = h
+  If Len(i) > 0 Then s = s & IIf(Len(s) > 0, "_", "") & i
+  If Len(j) > 0 Then s = s & IIf(Len(s) > 0, "_", "") & j
+  ClaveTMS = UCase$(s)
+End Function
+
+' Empaque y picking por pedido -> Array(estado, cajas, peso cajas, volumen %, unidades conf, unidades sol)
+Public Function DictEmpaque() As Object
+  Dim d As Object, sol As Object, conf As Object, cont1 As Object, cajas As Object, pesoC As Object, dPct As Object
+  Dim lo As ListObject, a, i As Long, doc As String, k
+  Set d = CreateObject("Scripting.Dictionary"): Set sol = CreateObject("Scripting.Dictionary")
+  Set conf = CreateObject("Scripting.Dictionary"): Set cont1 = CreateObject("Scripting.Dictionary")
+  Set cajas = CreateObject("Scripting.Dictionary"): Set pesoC = CreateObject("Scripting.Dictionary"): Set dPct = CreateObject("Scripting.Dictionary")
+  On Error Resume Next
+  Set lo = ThisWorkbook.Worksheets("ITEMS APIS").ListObjects("ITEMS_API")
+  If Not lo Is Nothing Then
+    If lo.ListRows.Count > 0 Then
+      a = lo.DataBodyRange.Value
+      For i = 1 To UBound(a, 1): doc = TXE(a(i, 2)): sol(doc) = sol(doc) + Val(TXE(a(i, 7))): Next
+    End If
+  End If
+  Set lo = Nothing: Set lo = ThisWorkbook.Worksheets("ITEMS DEPOT").ListObjects("Estado")
+  If Not lo Is Nothing Then
+    If lo.ListRows.Count > 0 Then
+      a = lo.DataBodyRange.Value
+      For i = 1 To UBound(a, 1)
+        doc = TXE(a(i, 3))
+        If Not cont1.Exists(doc) Then cont1(doc) = TXE(a(i, 7))
+        If TXE(a(i, 7)) = cont1(doc) Then conf(doc) = conf(doc) + Val(TXE(a(i, 6)))
+      Next
+    End If
+  End If
+  Set lo = Nothing: Set lo = ThisWorkbook.Worksheets("EMPAQUETADO").ListObjects("EMPAQUETADO")
+  If Not lo Is Nothing Then
+    If lo.ListRows.Count > 0 Then
+      a = lo.DataBodyRange.Value
+      For i = 1 To UBound(a, 1)
+        doc = TXE(a(i, 2))
+        If Len(doc) > 0 Then
+          cajas(doc) = cajas(doc) + 1
+          If Not IsError(a(i, 7)) Then pesoC(doc) = pesoC(doc) + Val(TXE(a(i, 7)))
+          If Not IsError(a(i, 10)) Then If IsNumeric(a(i, 10)) Then dPct(doc) = a(i, 10)
+        End If
+      Next
+    End If
+  End If
+  On Error GoTo 0
+  For Each k In sol.Keys
+    d(k) = Array("", 0, 0, "", conf(k), sol(k))
+  Next
+  For Each k In conf.Keys
+    If Not d.Exists(k) Then d(k) = Array("", 0, 0, "", conf(k), sol(k))
+  Next
+  For Each k In cajas.Keys
+    d(k) = Array("EMPACADO", cajas(k), pesoC(k), IIf(dPct.Exists(k), Format(dPct(k), "0%"), ""), conf(k), sol(k))
+  Next
+  Set DictEmpaque = d
+End Function
+
+' Estado de empaque legible para un pedido
+Public Function EstadoEmpaque(dE As Object, ByVal ped As String) As String
+  Dim x
+  If Not dE.Exists(ped) Then EstadoEmpaque = "SIN PICKING": Exit Function
+  x = dE(ped)
+  If x(0) = "EMPACADO" Then
+    EstadoEmpaque = "EMPACADO " & x(1) & " caja" & IIf(x(1) > 1, "s", "")
+  ElseIf Val(x(4)) = 0 Then
+    EstadoEmpaque = "SIN PICKING"
+  ElseIf Val(x(4)) < Val(x(5)) Then
+    EstadoEmpaque = "PICKING " & x(4) & "/" & x(5)
+  Else
+    EstadoEmpaque = "PICKEADO"
+  End If
+End Function
+
 Public Sub QuitarDestinosConfirmados()
   Dim ws As Worksheet
   Set ws = ThisWorkbook.Worksheets(HDAT)
@@ -726,100 +924,117 @@ Public Function CarpetaExportes() As String
   CarpetaExportes = c
 End Function
 
-' columna clave para saber qué filas tienen datos, y columnas obligatorias
-Private Sub DefHoja(ByVal hojaN As String, ByRef colClave As Long, ByRef oblig As Variant)
+' columnas clave (la fila se exporta solo si TODAS tienen dato) y columnas obligatorias
+Private Sub DefHoja(ByVal hojaN As String, ByRef claves As Variant, ByRef oblig As Variant)
   Select Case UCase$(hojaN)
-    Case "TMS":      colClave = 10: oblig = Array(10, 11, 14, 15, 16, 17, 23)     ' J K N O P Q W
-    Case "TRAMACO":  colClave = 3: oblig = Array(3, 6, 7, 8, 9, 14, 18, 23)       ' C F G H I N R W
-    Case Else:       colClave = 2: oblig = Array(2, 3, 7, 8, 12, 13)              ' DESPACHOS B C G H L M
+    Case "TMS":      claves = Array(10, 17): oblig = Array(10, 11, 14, 15, 16, 17, 23)   ' J destinatario + Q referencia
+    Case "TRAMACO":  claves = Array(3, 30): oblig = Array(3, 6, 7, 8, 9, 14, 18, 23)     ' C nombre + AD pedido (solo PRO)
+    Case Else:       claves = Array(2, 3): oblig = Array(2, 3, 7, 8, 12, 13)             ' DESPACHOS B pedido + C nombre
   End Select
 End Sub
 
-Private Function UltimaFilaHoja(ws As Worksheet, ByVal colClave As Long) As Long
-  Dim v, i As Long, lr As Long
-  lr = ws.Cells(ws.Rows.Count, colClave).End(xlUp).Row
-  If lr < 2 Then UltimaFilaHoja = 1: Exit Function
-  v = ws.Range(ws.Cells(1, colClave), ws.Cells(lr, colClave)).Value
-  For i = lr To 2 Step -1
-    If Len(TXE(v(i, 1))) > 0 Then UltimaFilaHoja = i: Exit Function
+' Filas de la hoja que realmente tienen datos (números de fila)
+Public Function FilasExport(ByVal hojaN As String) As Collection
+  Dim ws As Worksheet, claves, oblig, lr As Long, v, i As Long, c, ok As Boolean, col As New Collection, cmax As Long
+  Set ws = ThisWorkbook.Worksheets(hojaN)
+  DefHoja hojaN, claves, oblig
+  For Each c In claves
+    If ws.Cells(ws.Rows.Count, c).End(xlUp).Row > lr Then lr = ws.Cells(ws.Rows.Count, c).End(xlUp).Row
+    If c > cmax Then cmax = c
   Next
-  UltimaFilaHoja = 1
+  If lr >= 2 Then
+    v = ws.Range(ws.Cells(1, 1), ws.Cells(lr, cmax)).Value
+    For i = 2 To lr
+      ok = True
+      For Each c In claves
+        If IsError(v(i, c)) Then
+          ok = False
+        ElseIf Len(TXE(v(i, c))) = 0 Then
+          ok = False
+        End If
+      Next
+      If ok Then col.Add i
+    Next
+  End If
+  Set FilasExport = col
 End Function
 
-' Revisa errores antes de exportar. Devuelve número de problemas (y los anota en el registro)
-Public Function ValidarHojaExport(ByVal hojaN As String) As Long
-  Dim ws As Worksheet, colClave As Long, oblig, lr As Long, lc As Long, v, i As Long, j As Long, n As Long, c
+' Revisa errores antes de exportar. Devuelve número de problemas (-1 si no hay filas)
+Public Function ValidarHojaExport(ByVal hojaN As String, filas As Collection) As Long
+  Dim ws As Worksheet, claves, oblig, lr As Long, lc As Long, v, r, j As Long, n As Long, c
   Set ws = ThisWorkbook.Worksheets(hojaN)
-  DefHoja hojaN, colClave, oblig
-  lr = UltimaFilaHoja(ws, colClave)
-  If lr < 2 Then LogE "EXPORTAR " & hojaN & ": no tiene filas con datos", "AVISO": ValidarHojaExport = -1: Exit Function
+  DefHoja hojaN, claves, oblig
+  If filas.Count = 0 Then LogE "EXPORTAR " & hojaN & ": no tiene filas con datos", "AVISO": ValidarHojaExport = -1: Exit Function
+  lr = filas(filas.Count)
   lc = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
   v = ws.Range(ws.Cells(1, 1), ws.Cells(lr, lc)).Value
-  For i = 2 To lr
+  For Each r In filas
     For j = 1 To lc
-      If IsError(v(i, j)) Then
-        n = n + 1: If n <= 40 Then LogE hojaN & " fila " & i & " col " & ws.Cells(1, j).Address(False, False) & " (" & TXE(v(1, j)) & "): valor con error", "ERROR"
-      ElseIf UCase$(TXE(v(i, j))) = "VALIDAR" Or UCase$(TXE(v(i, j))) = "VERIFICAR" Then
-        n = n + 1: If n <= 40 Then LogE hojaN & " fila " & i & " (" & TXE(v(1, j)) & "): dice " & TXE(v(i, j)), "ERROR"
+      If IsError(v(r, j)) Then
+        n = n + 1: If n <= 40 Then LogE hojaN & " fila " & r & " col " & ws.Cells(1, j).Address(False, False) & " (" & TXE(v(1, j)) & "): valor con error", "ERROR"
+      ElseIf UCase$(TXE(v(r, j))) = "VALIDAR" Or UCase$(TXE(v(r, j))) = "VERIFICAR" Then
+        n = n + 1: If n <= 40 Then LogE hojaN & " fila " & r & " (" & TXE(v(1, j)) & "): dice " & TXE(v(r, j)), "ERROR"
       End If
     Next
     For Each c In oblig
       If c <= lc Then
-        If Not IsError(v(i, c)) Then
-          If Len(TXE(v(i, c))) = 0 Then n = n + 1: If n <= 40 Then LogE hojaN & " fila " & i & ": falta " & TXE(v(1, c)), "ERROR"
+        If Not IsError(v(r, c)) Then
+          If Len(TXE(v(r, c))) = 0 Then n = n + 1: If n <= 40 Then LogE hojaN & " fila " & r & ": falta " & TXE(v(1, c)), "ERROR"
         End If
       End If
     Next
   Next
-  LogE "EXPORTAR " & hojaN & ": " & (lr - 1) & " filas revisadas, " & n & " problema(s)" & IIf(n > 40, " (se muestran 40)", ""), IIf(n > 0, "AVISO", "INFO")
+  LogE "EXPORTAR " & hojaN & ": " & filas.Count & " filas con datos revisadas, " & n & " problema(s)" & IIf(n > 40, " (se muestran 40)", ""), IIf(n > 0, "AVISO", "INFO")
   ValidarHojaExport = n
 End Function
 
 ' formato: "CSV", "XLSX" o "PDF". Devuelve la ruta del archivo creado ("" si no se creó)
 Public Function ExportarHoja(ByVal hojaN As String, ByVal formato As String, Optional ByVal preguntar As Boolean = True) As String
-  Dim ws As Worksheet, colClave As Long, oblig, lr As Long, lc As Long, j As Long, nProb As Long
-  Dim wbN As Workbook, wsN As Worksheet, ruta As String, rutaBase As String
+  Dim ws As Worksheet, lc As Long, j As Long, nProb As Long, filas As Collection, r, k As Long
+  Dim wbN As Workbook, wsN As Worksheet, ruta As String, rutaBase As String, src, vv(), i As Long, esTxt As Boolean
   On Error GoTo fallo
   Set ws = ThisWorkbook.Worksheets(hojaN)
   Application.Calculate
-  nProb = ValidarHojaExport(hojaN)
+  Set filas = FilasExport(hojaN)
+  nProb = ValidarHojaExport(hojaN, filas)
   If nProb = -1 Then
     If preguntar Then MsgBox hojaN & " no tiene filas con datos.", vbExclamation
     Exit Function
   End If
   If nProb > 0 And preguntar Then
-    If MsgBox(hojaN & " tiene " & nProb & " problema(s) (detalle en el registro)." & vbCrLf & "¿Exportar de todas formas?", vbYesNo + vbExclamation, "Exportar " & hojaN) <> vbYes Then Exit Function
+    If MsgBox(hojaN & ": " & filas.Count & " filas, con " & nProb & " problema(s) (detalle en el registro)." & vbCrLf & "¿Exportar de todas formas?", vbYesNo + vbExclamation, "Exportar " & hojaN) <> vbYes Then Exit Function
   End If
-  DefHoja hojaN, colClave, oblig
-  lr = UltimaFilaHoja(ws, colClave)
   lc = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+  src = ws.Range(ws.Cells(1, 1), ws.Cells(filas(filas.Count), lc)).Value
+  ' encabezado + SOLO las filas con datos, mismas columnas y mismo orden
+  ReDim vv(1 To filas.Count + 1, 1 To lc)
+  For j = 1 To lc: vv(1, j) = src(1, j): Next
+  k = 1
+  For Each r In filas
+    k = k + 1
+    For j = 1 To lc
+      If IsError(src(r, j)) Then vv(k, j) = "" Else vv(k, j) = src(r, j)
+    Next
+  Next
   Application.ScreenUpdating = False: Application.DisplayAlerts = False
   Set wbN = Workbooks.Add(xlWBATWorksheet)
   Set wsN = wbN.Worksheets(1)
   wsN.Name = Left$(hojaN, 31)
-  ' mismas columnas, mismo orden, mismos formatos de número; solo valores y solo filas con datos
-  Dim vv, i As Long, esTxt As Boolean
-  vv = ws.Range(ws.Cells(1, 1), ws.Cells(lr, lc)).Value
   For j = 1 To lc
     esTxt = False
-    For i = 2 To lr
+    For i = 2 To k
       If VarType(vv(i, j)) = vbString Then If Len(vv(i, j)) > 0 Then esTxt = True: Exit For
     Next
     ' columnas de texto quedan como texto (conserva el 0 de teléfonos y códigos); el resto con su formato
     If esTxt Then
-      wsN.Range(wsN.Cells(1, j), wsN.Cells(lr, j)).NumberFormat = "@"
+      wsN.Range(wsN.Cells(1, j), wsN.Cells(k, j)).NumberFormat = "@"
     Else
-      wsN.Range(wsN.Cells(2, j), wsN.Cells(lr, j)).NumberFormat = ws.Cells(2, j).NumberFormat
+      If k >= 2 Then wsN.Range(wsN.Cells(2, j), wsN.Cells(k, j)).NumberFormat = ws.Cells(filas(1), j).NumberFormat
       wsN.Cells(1, j).NumberFormat = "@"
     End If
     wsN.Columns(j).ColumnWidth = ws.Columns(j).ColumnWidth
   Next
-  For i = 1 To lr
-    For j = 1 To lc
-      If IsError(vv(i, j)) Then vv(i, j) = ""
-    Next
-  Next
-  wsN.Range(wsN.Cells(1, 1), wsN.Cells(lr, lc)).Value = vv
+  wsN.Range(wsN.Cells(1, 1), wsN.Cells(k, lc)).Value = vv
   wsN.Rows(1).Font.Bold = True
   rutaBase = CarpetaExportes() & Application.PathSeparator & Replace(hojaN, " ", "_") & "_" & Format(Now, "yyyymmdd_hhnn")
   Select Case UCase$(formato)
@@ -839,7 +1054,7 @@ Public Function ExportarHoja(ByVal hojaN As String, ByVal formato As String, Opt
   End Select
   wbN.Close SaveChanges:=False
   Application.DisplayAlerts = True: Application.ScreenUpdating = True
-  LogE "EXPORTAR: " & hojaN & " -> " & ruta & " (" & (lr - 1) & " filas)"
+  LogE "EXPORTAR: " & hojaN & " -> " & ruta & " (" & filas.Count & " filas)"
   ExportarHoja = ruta
   Exit Function
 fallo:

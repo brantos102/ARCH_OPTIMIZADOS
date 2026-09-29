@@ -1,12 +1,12 @@
 # Formato EGR_FL_HYCITE: instalación y guía del operador
 
-Etapa 2 del despacho: recibe los pedidos ya validados por PEDIDOS HCE, confirma el destino con reglas, imprime las
-etiquetas, controla picking y empaque y exporta TMS, TRAMACO y DESPACHOS.
+Etapa 2 del despacho: recibe los pedidos ya validados por PEDIDOS HCE, confirma el destino (PRO / GYE / UIO / GPS),
+imprime las etiquetas, sigue el empaque y exporta TMS, TRAMACO y DESPACHOS.
 
 > **Decisión:** por ahora se mantienen **dos archivos**, cada uno con su panel. EGR tiene un modelo de datos y tablas
-> dinámicas que no se pueden mover a PEDIDOS HCE sin rehacerlos, y en una hora de trabajo eso pondría en riesgo lo
-> que hoy funciona. El paso 7 de PEDIDOS HCE ("Enviar a EGR") sigue siendo la unión entre los dos. La unificación queda
-> planificada en [`docs/ANALISIS_EGR_Y_DECISION.md`](../../docs/ANALISIS_EGR_Y_DECISION.md).
+> dinámicas que no se pueden mover a PEDIDOS HCE sin rehacerlos, y hacerlo ahora pondría en riesgo lo que hoy
+> funciona. El paso 7 de PEDIDOS HCE ("Enviar a EGR") une los dos. La unificación queda planificada en
+> [`docs/ANALISIS_EGR_Y_DECISION.md`](../../docs/ANALISIS_EGR_Y_DECISION.md).
 
 ## 1. Instalación (una sola vez, con una COPIA del archivo)
 
@@ -18,17 +18,20 @@ etiquetas, controla picking y empaque y exporta TMS, TRAMACO y DESPACHOS.
 4. Inserta › Módulo, nómbralo **modZebra** y pega [`modZebra.bas`](modZebra.bas).
 5. Inserta › Módulo, nómbralo **modVentanas** y pega [`modVentanas.bas`](modVentanas.bas) (es el mismo de PEDIDOS HCE).
 6. Inserta › UserForm, nómbralo **frmEGR** y pega [`frmEGR.frm`](frmEGR.frm) en su código.
-7. En **ThisWorkbook** pega [`ThisWorkbook.cls`](ThisWorkbook.cls).
-8. Ejecuta **Depuración › Compilar VBAProject**. Si aparece un error, envía la captura con la línea marcada.
-9. Guarda, cierra y vuelve a abrir. En **Complementos** aparece **Panel EGR (despacho)**.
-10. En el panel, pulsa **Reparar fórmulas (una vez)**. Corrige los `#REF!` y crea la hoja **REGLAS_DESTINO**.
+7. Inserta otro UserForm, nómbralo **frmEtiquetas** y pega [`frmEtiquetas.frm`](frmEtiquetas.frm): es la vista previa
+   de etiquetas.
+8. En **ThisWorkbook** pega [`ThisWorkbook.cls`](ThisWorkbook.cls).
+9. Ejecuta **Depuración › Compilar VBAProject**. Si aparece un error, envía la captura con la línea marcada.
+10. Guarda, cierra y vuelve a abrir. En **Complementos** aparece **Panel EGR (despacho)**.
+11. En el panel, pulsa **Reparar fórmulas (una vez)**. Corrige los `#REF!` y crea la hoja **REGLAS_DESTINO**.
+12. En **PEDIDOS HCE** vuelve a pegar su **Módulo1**. Ahora "7 Enviar a EGR" también escribe en DATOS!AI:AO el gestor,
+    el destino, el trayecto, el tipo de entrega, la zona peligrosa y los gestores Q/R de la etapa 1. El panel de EGR
+    los muestra.
 
 ### Paso manual recomendado: sacar EMPAQUETADO del modelo de datos
 
-La consulta EMPAQUETADO carga al **modelo de datos** y a la hoja al mismo tiempo. Refrescar el modelo con la macro
-anterior fue la causa del mensaje "Error de automatización" y del cierre de Excel (sección 5).
-
-Para quitar el riesgo del todo:
+La consulta EMPAQUETADO carga al **modelo de datos** y a la hoja al mismo tiempo. Eso es lo que provoca el "Error de
+automatización" que cierra Excel (sección 5). Para quitar el riesgo del todo:
 
 1. Datos › Consultas y conexiones. Clic derecho en **EMPAQUETADO** › **Cargar en...**
 2. Elige **Tabla**, en la hoja EMPAQUETADO (celda B1), y **desmarca "Agregar estos datos al modelo de datos"**.
@@ -36,26 +39,49 @@ Para quitar el riesgo del todo:
 
 Las tablas dinámicas no dependen del modelo: leen la hoja EMPAQUETADO.
 
-## 2. Orden del día
+## 2. Panel EGR y orden del día
 
-| Paso | Dónde | Qué hacer |
-|---|---|---|
-| 0 | PEDIDOS HCE | Pasos 0 a 6, y después **7 Enviar a EGR** (con este archivo abierto) |
-| 1 | Panel EGR | **Actualizar todo**: guarda un respaldo y trae ITEMS API, ITEMS DEPOT, EMPAQUETADO y las tablas dinámicas |
-| 2 | Panel EGR | **Revisar cobertura TMS**: segunda comprobación, sin revalidar. Muestra solo lo que está fuera de la cobertura TMS, sin código postal o sin teléfono |
-| 3 | Panel EGR | **Proponer destinos**: lista los pedidos que cambian de destino por reglas. Revisa y pulsa **Aplicar seleccionados** o **Aplicar todos** |
-| 4 | Panel EGR | **Etiquetas › Imprimir pendientes**: una etiqueta por pedido en la Zebra |
-| — | Bodega | Empaquetar y llenar el Google Sheets de empaquetado |
-| 1 | Panel EGR | **Actualizar todo** otra vez, para traer bultos, pesos y contenedoras |
-| 5 | Panel EGR | **Avance picking / empaque**: estado de cada pedido y SKU o cajas sin datos de costo |
-| 6 | Panel EGR | **Exportar**: CSV, XLSX o PDF de TMS, TRAMACO y DESPACHOS. Con **Exportar + correo** se abre un correo de Outlook con los adjuntos |
+Al abrir el panel (Complementos › **Panel EGR (despacho)**) se ven **todos los pedidos** de DATOS, igual que en PEDIDOS HCE:
+
+| Columna | Qué muestra |
+|---|---|
+| SEÑAL | `X FUERA TMS` fuera de cobertura TMS · `!! ZONA` zona peligrosa · `> CAMBIO` cambio de destino sugerido · `@ REIMPRIMIR` etiqueta impresa con otro destino · `! SECTOR` verificar sector · `* CONFIRMADO` destino confirmado · `OK` |
+| PROVINCIA / CANTÓN / PARROQUIA | Cobertura TMS (DATOS O:Q) |
+| DEST. | Destino actual (DATOS!A), el que usan TMS, TRAMACO, DESPACHOS y etiquetas |
+| SUGER. | Destino que proponen las reglas. **Solo aparece cuando es distinto** del actual |
+| COURIER / TRAYECTO / ZONA | Courier (DATOS!Y), trayecto TRAMACO y zona peligrosa de PEDIDOS HCE |
+| ETIQUETA | PENDIENTE / IMPRESA / REIMPRIMIR |
+| EMPAQUE | SIN PICKING / PICKING x/y / PICKEADO / EMPACADO n cajas |
+
+Arriba de la lista están el **filtro rápido** (cambios sugeridos, fuera de cobertura TMS, zonas, etiquetas pendientes o
+por reimprimir, sin empacar, destino PRO/GYE/UIO/GPS…) y el **buscador**. Al hacer clic en un pedido, el detalle
+muestra la dirección, la cobertura TMS, el destino actual, el sugerido **y por qué**, el gestor en cobertura, el gestor
+sugerido, el trayecto, la zona, la etiqueta y el empaque.
+
+| Paso | Qué hacer |
+|---|---|
+| 0 | PEDIDOS HCE: pasos 0 a 6, y después **7 Enviar a EGR** (con este archivo abierto) |
+| 1 | **Revisar cobertura TMS** y **Ver cambios sugeridos**. El operario decide: **Aplicar sugerencia** (seleccionados), **Aplicar todas las sugerencias**, **Asignar a mano** PRO/GYE/UIO/GPS, o dejarlo como está |
+| 2 | **Etiquetas**: elige los pedidos en la lista (el filtro ayuda) y pulsa **Imprimir seleccionadas**, o **Imprimir todas**. Se abre la **vista previa**: allí se marcan o desmarcan etiquetas y se confirma la impresora |
+| — | Bodega empaqueta y llena el Google Sheets |
+| 3 | **Avance empaque**: picking, cajas, peso y volumen % por pedido (datos de las tablas dinámicas), más SKU o cajas sin datos de costo |
+| 4 | **Exportar**: elige la **hoja** (TRAMACO, TMS, DESPACHOS o LAS TRES) y el **formato** (CSV, XLSX, PDF). Debajo se ve cuántas filas con datos tiene cada hoja |
+
+**Actualizar datos (items, empaque, tablas)** es un botón de **operación**: se usa en cualquier momento para traer
+ITEMS API, ITEMS DEPOT, EMPAQUETADO y las tablas dinámicas. No es el inicio del proceso.
+
+**Si se reasigna un destino después de imprimir o exportar:**
+
+1. el pedido aparece como `@ REIMPRIMIR`;
+2. filtra **REIMPRIMIR ETIQUETA** y vuelve a imprimir;
+3. exporta otra vez los reportes.
 
 Todo queda en el **registro** del panel y en la hoja oculta **LOG_EGR**: fecha, usuario, acción y error.
 
 ## 3. Reglas de destino (PRO / GYE / UIO / GPS)
 
-El destino de DATOS!A alimenta TMS, TRAMACO, DESPACHOS y las etiquetas. Por eso las reglas **solo proponen**: el
-operador ve la lista y confirma.
+El destino de DATOS!A alimenta TMS, TRAMACO, DESPACHOS y las etiquetas. Por eso las reglas **solo proponen**, en la
+columna SUGER. del panel, y el operario confirma o deja el destino como está.
 
 Las reglas viven en la hoja **REGLAS_DESTINO**, que el supervisor edita sin tocar código:
 
@@ -67,7 +93,7 @@ Las reglas viven en la hoja **REGLAS_DESTINO**, que el supervisor edita sin toca
 | TEXTO | Palabras buscadas en la dirección y en la parroquia. `KM>=15` = kilómetro 15 en adelante |
 | EXCEPTO PARROQUIA | Parroquias excluidas de la regla |
 | DESTINO | PRO, GYE, UIO o GPS |
-| MOTIVO | Texto que ve el operador |
+| MOTIVO | Texto que ve el operario |
 
 La comparación no distingue tildes ni paréntesis: `ELOY ALFARO (DURAN / ...)` = `ELOY ALFARO`.
 
@@ -88,46 +114,59 @@ Reglas iniciales (las que pediste):
 **Ejemplo de cambio:** si mañana GYE ya cubre Durán, agrega la fila `SI | 50 | GUAYAS | DURAN | | | | GYE | Durán lo
 cubre GYE`. Para UIO pasa lo mismo, por ejemplo `PICHINCHA | RUMIÑAHUI | ... | PRO`.
 
-**Cómo se guarda:** el destino confirmado se escribe en DATOS!AF, junto con el número de pedido (AG) y el motivo (AH).
-La fórmula de A lo usa solo si AG coincide con el pedido de esa fila. Así, al enviar los pedidos del día siguiente, un
-destino viejo nunca se aplica a otro pedido.
+**Cómo se guarda:** el destino confirmado se escribe en DATOS!AF, junto con el número de pedido (AG) y el motivo y el
+usuario (AH). La fórmula de A lo usa solo si AG coincide con el pedido de esa fila. Así, al enviar los pedidos del día
+siguiente, un destino viejo nunca se aplica a otro pedido.
 
 ## 4. Etiquetas Zebra ZD230 (203 dpi, 10 × 5 cm)
 
 - Es **una etiqueta por pedido**, igual al modelo: código de barras Code 128 con el pedido y el número debajo; destino
   grande (GYE / UIO / PRO) arriba a la derecha y la parroquia debajo; nombres y apellidos abajo a la izquierda.
-- Se envía **ZPL directo** a la impresora. No hace falta ninguna fuente de código de barras ni ajustar la página en
-  Excel.
-- La hoja de control es **ETIQUETAS**: al imprimir, la columna F (STATUS) pasa a **OK**, y "Imprimir pendientes" no las
-  repite. **ETIQUETAS ZEBRA** (una fila por bulto) queda sin uso. No se borra, por si se necesitan etiquetas por
-  bulto.
-- **Elegir impresora** guarda el nombre de la Zebra una sola vez.
-- **Guardar ZPL (prueba)** crea un archivo `.zpl`. Se puede ver en labelary.com antes de imprimir.
+- Solo hay dos botones: **Imprimir seleccionadas** e **Imprimir todas**. Los dos abren la **vista previa**
+  (frmEtiquetas):
+  - lista de pedidos, marcados para imprimir, que se pueden desmarcar;
+  - dibujo de la etiqueta del pedido elegido;
+  - impresora.
+- La impresora se elige **una vez** y queda guardada; la próxima vez ya aparece seleccionada.
+- **Cierre de Excel al elegir la impresora:** venía del gancho de la rueda del mouse, que seguía activo mientras se
+  abría el cuadro de diálogo. Ahora el gancho se quita antes de cualquier acción, y la lista de impresoras se lee de
+  Windows de forma liviana.
+- Se envía **ZPL directo** a la impresora, sin fuentes de código de barras.
+- Al imprimir, en la hoja ETIQUETAS se escribe:
+  - F (STATUS) = **OK**;
+  - M = destino impreso;
+  - N = fecha.
+
+  Si después cambia el destino, el pedido pasa a **REIMPRIMIR**. ETIQUETAS ZEBRA queda sin uso.
+- **Guardar ZPL (prueba)** crea un archivo `.zpl`. Se puede ver en labelary.com.
 - Si la etiqueta sale corrida, ajusta `ETIQ_OFFSET_X` / `ETIQ_OFFSET_Y` (8 puntos = 1 mm) en la hoja oculta CONFIG_EGR.
-- Los pedidos sin destino, por estar fuera de la cobertura TMS, no se imprimen y quedan en el registro.
 
 ## 5. "Error de automatización" al pulsar ACTUALIZAR (corregido)
 
-**Causa:** la macro anterior recorría **todas** las conexiones del libro. Entre ellas refrescaba directamente el modelo
-de datos (`ThisWorkbookDataModel` y `ModelConnection_DatosExternos_6`) y la consulta EMPAQUETADO, que también lo carga.
-Todo se hacía seguido y sin control de errores. Si fallaba la red o Google Sheets, Excel lanzaba "Error de automatización" y
-se cerraba, con todos los libros abiertos.
+**Causa:** la consulta EMPAQUETADO carga al **modelo de datos**. Cuando el Google Sheets no tiene órdenes del día (hoja
+vacía para hoy) o no responde, refrescarla deja al modelo con error. Excel lanza "Error de automatización" y se cierra
+con todos los libros abiertos. VBA no puede atrapar ese cierre.
 
 **Ahora `ActualizarTodo`:**
 
-1. ofrece **guardar los otros libros abiertos**;
-2. guarda un **respaldo** en `RESPALDOS_EGR` (se conservan los últimos 15);
-3. refresca **una consulta a la vez**: primero las ODBC y después EMPAQUETADO por su consulta y su tabla, **nunca el
-   modelo directamente**;
-4. refresca cada caché de tablas dinámicas **una vez**;
-5. si algo falla, lo **anota** (qué consulta y por qué), sigue con el resto y **libera la pantalla**.
+1. ofrece **guardar los otros libros abiertos** y guarda un **respaldo** en `RESPALDOS_EGR`;
+2. **antes** de tocar EMPAQUETADO, descarga el Google Sheets y comprueba que responde y que tiene órdenes con fecha de
+   hoy;
+3. si no hay datos de hoy o no hay conexión, **no refresca EMPAQUETADO** y **pregunta**: "¿Sigo con las demás
+   conexiones (ITEMS API, ITEMS DEPOT) y las tablas dinámicas?";
+4. refresca las consultas ODBC **una a la vez**. Si una falla, pregunta si sigue;
+5. refresca cada caché de tablas dinámicas **una vez**, anota todo en el registro, **libera la pantalla** y recarga el
+   panel.
+
+Para quitar el riesgo del todo, haz también el paso manual de la sección 1: EMPAQUETADO solo a tabla, sin modelo de
+datos.
 
 ## 6. Correcciones de fórmulas (botón "Reparar fórmulas")
 
 | Dónde | Antes | Después |
 |---|---|---|
 | DATOS!Y (COURIER), 499 filas | `INDEX(#REF!, ...)` → vacío en los 152 pedidos | PRO = TRAMACO; UIO/GYE = ITSANET o LAAR COURIER según COBERTURA (misma regla que PEDIDOS HCE) |
-| DATOS!A (DESTINO), 499 filas | Solo por provincia | Destino confirmado por reglas (AF) o, si no hay, la misma regla por provincia |
+| DATOS!A (DESTINO), 499 filas | Solo por provincia | Destino confirmado (AF) o, si no hay, la misma regla por provincia |
 | EMPAQUETADO!F, 145 filas | `COUNTIF(#REF!, ...)` | `COUNTIF(ITEMS_API[DOC_EXT], ...)`: "validar" = pedido del día sin contenedora; "sin pedido" = no es del día |
 | DESPACHOS!P, 500 filas | `CHOOSE({2,1}, DATOS!A:A, DATOS!B:B)`, muy lento | `INDEX/MATCH` sobre DATOS!A2:B500 |
 | COD POS I:J, 2 606 celdas | `XLOOKUP` a un libro de otra PC en la red → `#REF!` | Vacías (ninguna hoja las usa) |
@@ -142,11 +181,19 @@ Quedan 3 valores `#N/A` que no son errores de fórmula:
 - EMPAQUETADO H, I, K: un tipo de caja que no está en DATA_CAJAS;
 - TABLAS DINAMICAS J, K, Q: el mismo caso.
 
-El paso 5 los informa ("tipo de caja sin medidas"). Se corrigen agregando la caja en DATA CODIGO Y CAJAS.
+"Avance empaque" los informa en el registro. Se corrigen agregando la caja en DATA CODIGO Y CAJAS.
 
 ## 7. Exportación
 
-- Solo se exportan las filas con datos, con **las mismas columnas y en el mismo orden**. Las hojas no se modifican.
+- Se elige la **hoja** (TRAMACO, TMS, DESPACHOS o LAS TRES) y el **formato** (CSV, XLSX o PDF) en listas desplegables.
+- Se exportan **solo las filas con datos de esa hoja**, con **las mismas columnas y en el mismo orden**, porque son
+  plantillas de carga. Las hojas no se modifican.
+  - **TRAMACO** lleva solo los pedidos PRO: toma las filas con nombre (C) y pedido (AD). En los datos actuales son 70.
+  - **TMS** lleva **todos** los pedidos del día (152), porque así está armada la hoja TMS: una fila por cada pedido de
+    DATOS.
+  - **DESPACHOS** lleva todos los pedidos (152).
+
+  Antes de exportar, el panel muestra cuántas filas tiene cada hoja.
 - Las columnas de texto conservan el 0 inicial (teléfonos, códigos).
 - Antes de exportar se revisan errores (`#N/A`), celdas con VALIDAR o Verificar y campos obligatorios vacíos. Todo
   queda en el registro y se pregunta si se exporta igual.
@@ -157,15 +204,16 @@ El paso 5 los informa ("tipo de caja sin medidas"). Se corrigen agregando la caj
 
 ## 8. Qué verificar en la prueba
 
-1. Compilar sin errores.
-2. **Reparar fórmulas**: DATOS!Y deja de estar vacío y el PANEL deja de marcar "Sin courier asignado".
-3. **Actualizar todo** con la red desconectada: debe mostrar el error en el registro **sin cerrar Excel**.
-4. **Proponer destinos** con los pedidos actuales. Con las reglas iniciales cambian 5 pedidos, de GYE a PRO:
+1. Compilar sin errores: módulos modEGR, modZebra y modVentanas; formularios frmEGR y frmEtiquetas.
+2. **Reparar fórmulas**: DATOS!Y deja de estar vacío.
+3. **Actualizar datos** con el Google Sheets sin órdenes de hoy. Debe preguntar si sigue con las demás conexiones,
+   **sin cerrar Excel**.
+4. Abrir el panel: aparecen los 152 pedidos. Con el filtro **CAMBIO SUGERIDO** aparecen 5, de GYE a PRO:
    - 2 de Samborondón / La Puntilla: confirma si Samborondón debe seguir en GYE. Si es así, agrega una regla
      `GUAYAS | SAMBORONDON | GYE` con prioridad 50;
    - 1 de El Triunfo;
    - 1 de Durán / El Recreo;
-   - 1 de Guayaquil / Ximena porque la dirección dice GUASMO. Confirma que Guasmo va por PRO: en tu lista aparecía
-     pegado a "EL EMPALME".
-5. **Guardar ZPL (prueba)** y revisarlo en labelary.com (10 × 5 cm, 8 dpmm). Después imprimir una etiqueta.
-6. **Exportar** en CSV y abrirlo en el bloc de notas para comprobar el separador y los ceros iniciales.
+   - 1 de Guayaquil / Ximena porque la dirección dice GUASMO. Confirma que Guasmo va por PRO.
+5. **Imprimir seleccionadas** con 1 pedido: se ve la vista previa. Elige la Zebra e imprime. Vuelve a imprimir: la
+   impresora ya aparece elegida.
+6. **Exportar** TRAMACO en CSV: el archivo debe tener las mismas filas que la hoja TRAMACO.

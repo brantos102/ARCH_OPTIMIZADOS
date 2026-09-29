@@ -1309,6 +1309,8 @@ Sub ExportarADatos()
   End If
 
   Dim data(): ReDim data(1 To cnt, 1 To 12)
+  Dim ext(): ReDim ext(1 To cnt, 1 To N_EXTC)     ' V:AB -> DATOS AI:AO (gestor, destino, trayecto, entrega, zona, Q, R)
+  Dim jx As Long
   For i = 2 To lr
     If Not (SOLO_FILTRADO And ws.Rows(i).Hidden) Then
       If Len(Trim$(TX(ws.Cells(i, C_REF)))) > 0 Then
@@ -1325,6 +1327,7 @@ Sub ExportarADatos()
         data(k, 10) = TX(ws.Cells(i, 10))               ' L: fijo
         data(k, 11) = TX(ws.Cells(i, 11))               ' M: email
         data(k, 12) = TX(ws.Cells(i, C_SIG))            ' N: sigla
+        For jx = 1 To N_EXTC: ext(k, jx) = TX(ws.Cells(i, C_EXT + jx - 1)): Next
       End If
     End If
   Next
@@ -1332,6 +1335,10 @@ Sub ExportarADatos()
   If lrT >= 2 Then wsT.Range(wsT.Cells(2, 3), wsT.Cells(lrT, 14)).ClearContents
   LogP "ENVIAR: escribiendo " & cnt & " pedidos en '" & wbT.Name & "' hoja DATOS (C2:N" & (cnt + 1) & ")"
   wsT.Range(wsT.Cells(2, 3), wsT.Cells(cnt + 1, 14)).Value = data
+  ' datos de la etapa 1 para el panel de EGR (zona peligrosa, gestor sugerido, trayecto...)
+  wsT.Range("AI1:AO1").Value = Array("GESTOR_HCE", "DESTINO_HCE", "TRAYECTO_HCE", "TIPO_ENTREGA_HCE", "ZONA_PELIGROSA_HCE", "GESTOR_Q_HCE", "GESTOR_R_HCE")
+  If lrT >= 2 Then wsT.Range(wsT.Cells(2, 35), wsT.Cells(lrT, 41)).ClearContents
+  wsT.Range(wsT.Cells(2, 35), wsT.Cells(cnt + 1, 34 + N_EXTC)).Value = ext
   LogP "ENVIAR: terminado" & IIf(nRev > 0, " (" & nRev & " seguían en REVISAR)", "") & IIf(nSinAplicar > 0, " (" & nSinAplicar & " sin aplicar)", "")
   MsgBox cnt & " filas exportadas a '" & wbT.Name & "' hoja DATOS (C2:N" & (cnt + 1) & ").", vbInformation
 End Sub

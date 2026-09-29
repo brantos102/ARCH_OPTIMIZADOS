@@ -22,6 +22,7 @@ Private Declare PtrSafe Function EndPagePrinter Lib "winspool.drv" (ByVal hPrint
 Private Declare PtrSafe Function WritePrinter Lib "winspool.drv" (ByVal hPrinter As LongPtr, pBuf As Any, ByVal cdBuf As Long, pcWritten As Long) As Long
 
 Private Const HETQ As String = "ETIQUETAS"
+Public gEtiqFilas As Collection      ' filas de DATOS para frmEtiquetas
 
 ' ---------- texto seguro para ZPL (sin tildes, sin ^ ni ~) ----------
 Private Function Limpio(ByVal s As String) As String
@@ -90,82 +91,76 @@ Public Function EnviarRaw(ByVal impresora As String, ByVal datos As String) As B
   If Not EnviarRaw Then LogE "ETIQUETAS: se enviaron " & esc & " de " & (UBound(b) + 1) & " bytes", "ERROR"
 End Function
 
-' Lista de impresoras instaladas
+' Lista de impresoras instaladas (primero WScript.Network, más liviano; WMI solo si hace falta)
 Public Function ListaImpresoras() As Collection
-  Dim c As New Collection, wmi As Object, it As Object
+  Dim c As New Collection, net As Object, cn As Object, i As Long, wmi As Object, it As Object, u As Object
+  Set u = CreateObject("Scripting.Dictionary")
   On Error Resume Next
-  Set wmi = GetObject("winmgmts:\\.\root\cimv2")
-  For Each it In wmi.ExecQuery("SELECT Name FROM Win32_Printer")
-    c.Add CStr(it.Name)
-  Next
+  Set net = CreateObject("WScript.Network")
+  Set cn = net.EnumPrinterConnections
+  If Not cn Is Nothing Then
+    For i = 0 To cn.Count - 1 Step 2
+      If Len(cn.Item(i + 1)) > 0 And Not u.Exists(cn.Item(i + 1)) Then u(cn.Item(i + 1)) = 1: c.Add CStr(cn.Item(i + 1))
+    Next
+  End If
+  If c.Count = 0 Then
+    Err.Clear
+    Set wmi = GetObject("winmgmts:\\.\root\cimv2")
+    If Not wmi Is Nothing Then
+      For Each it In wmi.ExecQuery("SELECT Name FROM Win32_Printer")
+        If Not u.Exists(CStr(it.Name)) Then u(CStr(it.Name)) = 1: c.Add CStr(it.Name)
+      Next
+    End If
+  End If
+  On Error GoTo 0
   Set ListaImpresoras = c
 End Function
 
-Public Sub ElegirImpresora()
-  Dim c As Collection, i As Long, s As String, r As String, sug As Long
-  Set c = ListaImpresoras()
-  If c.Count = 0 Then MsgBox "No se encontraron impresoras instaladas.", vbExclamation: Exit Sub
-  For i = 1 To c.Count
-    s = s & i & ") " & c(i) & vbCrLf
-    If sug = 0 And (InStr(1, c(i), "ZD", vbTextCompare) > 0 Or InStr(1, c(i), "ZEBRA", vbTextCompare) > 0 Or InStr(1, c(i), "ZDESIGNER", vbTextCompare) > 0) Then sug = i
-  Next
-  r = InputBox("Impresora de etiquetas (Zebra ZD230):" & vbCrLf & vbCrLf & s & vbCrLf & "Escribe el número:", "Elegir impresora", IIf(sug > 0, CStr(sug), ""))
-  If Len(r) = 0 Then Exit Sub
-  If Val(r) < 1 Or Val(r) > c.Count Then MsgBox "Número no válido.", vbExclamation: Exit Sub
-  SetCfg "IMPRESORA_ZEBRA", c(Val(r))
-  LogE "ETIQUETAS: impresora elegida = " & c(Val(r))
-End Sub
-
-' ---------- impresión ----------
-' modo: "PENDIENTES" (STATUS <> OK), "TODAS", "PEDIDOS" (lista de números separados por coma)
-Public Sub ImprimirEtiquetas(ByVal modo As String, Optional ByVal listaPedidos As String = "", Optional ByVal soloArchivo As Boolean = False)
-  Dim wsD As Worksheet, wsE As Worksheet, lr As Long, v, i As Long, zpl As String, n As Long, nSin As Long
-  Dim filas As New Collection, impr As String, ped As String, f, lst As String, ruta As String, ff As Integer
+' Imprime (o guarda en archivo) las etiquetas de las filas de DATOS indicadas.
+' Marca en ETIQUETAS: F = OK, M = destino impreso, N = fecha. Devuelve cuántas se enviaron.
+Public Function ImprimirFilas(filas As Collection, ByVal impresora As String, ByVal soloArchivo As Boolean) As Long
+  Dim wsD As Worksheet, wsE As Worksheet, f, zpl As String, n As Long, ruta As String, ff As Integer
+  Dim ped As String, nom As String, dest As String, parr As String
   Set wsD = ThisWorkbook.Worksheets(HDAT)
   Set wsE = ThisWorkbook.Worksheets(HETQ)
-  Application.Calculate
-  lr = UltimaFilaDatos()
-  If lr < 2 Then MsgBox "DATOS está vacío.", vbExclamation: Exit Sub
-  v = wsD.Range(wsD.Cells(1, 1), wsD.Cells(lr, D_PARRSP)).Value
-  lst = "," & Replace(Replace(listaPedidos, " ", ""), ";", ",") & ","
-  For i = 2 To lr
-    ped = TXE(v(i, D_PED))
-    If Len(ped) > 0 Then
-      Select Case UCase$(modo)
-        Case "TODAS": filas.Add i
-        Case "PENDIENTES": If UCase$(TXE(wsE.Cells(i, 6).Value)) <> "OK" Then filas.Add i
-        Case "PEDIDOS": If InStr(lst, "," & ped & ",") > 0 Then filas.Add i
-      End Select
-    End If
-  Next
-  If filas.Count = 0 Then MsgBox "No hay etiquetas para imprimir con esa opción.", vbInformation: Exit Sub
   For Each f In filas
-    If Len(TXE(v(f, D_DEST))) = 0 Then
-      nSin = nSin + 1
-      LogE "ETIQUETAS fila " & f & " pedido " & TXE(v(f, D_PED)) & ": sin DESTINO (fuera de cobertura TMS); no se imprime", "AVISO"
-    Else
-      zpl = zpl & ZplEtiqueta(TXE(v(f, D_PED)), TXE(v(f, D_NOM)), TXE(v(f, D_DEST)), IIf(Len(TXE(v(f, D_PARRSP))) > 0, TXE(v(f, D_PARRSP)), TXE(v(f, D_PARR)))) & vbCrLf
-      n = n + 1
-    End If
+    ped = TXE(wsD.Cells(f, D_PED).Value): dest = TXE(wsD.Cells(f, D_DEST).Value)
+    nom = TXE(wsD.Cells(f, D_NOM).Value): parr = TXE(wsD.Cells(f, D_PARRSP).Value)
+    If Len(parr) = 0 Then parr = TXE(wsD.Cells(f, D_PARR).Value)
+    If Len(ped) > 0 And Len(dest) > 0 Then zpl = zpl & ZplEtiqueta(ped, nom, dest, parr) & vbCrLf: n = n + 1
   Next
-  If n = 0 Then MsgBox "Ninguna etiqueta tiene destino (revisa la cobertura TMS).", vbExclamation: Exit Sub
+  If n = 0 Then Exit Function
   If soloArchivo Then
     ruta = CarpetaExportes() & Application.PathSeparator & "ETIQUETAS_" & Format(Now, "yyyymmdd_hhnnss") & ".zpl"
     ff = FreeFile: Open ruta For Output As #ff: Print #ff, zpl;: Close #ff
     LogE "ETIQUETAS: " & n & " etiqueta(s) guardadas en " & ruta & " (se pueden ver en labelary.com)"
-    MsgBox n & " etiqueta(s) guardadas en:" & vbCrLf & ruta, vbInformation
-    Exit Sub
+    ImprimirFilas = n
+    Exit Function
   End If
-  impr = Cfg("IMPRESORA_ZEBRA")
-  If Len(impr) = 0 Then ElegirImpresora: impr = Cfg("IMPRESORA_ZEBRA")
-  If Len(impr) = 0 Then Exit Sub
-  If MsgBox("Imprimir " & n & " etiqueta(s) en '" & impr & "'?" & IIf(nSin > 0, vbCrLf & nSin & " pedido(s) sin destino se omiten.", ""), vbYesNo + vbQuestion, "Etiquetas") <> vbYes Then Exit Sub
-  If EnviarRaw(impr, zpl) Then
-    For Each f In filas
-      If Len(TXE(v(f, D_DEST))) > 0 Then wsE.Cells(f, 6).Value = "OK"
-    Next
-    LogE "ETIQUETAS: " & n & " etiqueta(s) enviadas a " & impr & " (" & modo & IIf(Len(listaPedidos) > 0, ": " & listaPedidos, "") & ")"
-  Else
-    MsgBox "No se pudo imprimir. Revisa que la Zebra esté encendida y elegida (registro del panel).", vbExclamation
-  End If
-End Sub
+  If Not EnviarRaw(impresora, zpl) Then Exit Function
+  For Each f In filas
+    dest = TXE(wsD.Cells(f, D_DEST).Value)
+    If Len(dest) > 0 Then
+      wsE.Cells(f, 6).Value = "OK"
+      wsE.Cells(f, 13).Value = dest
+      wsE.Cells(f, 14).Value = Now
+    End If
+  Next
+  If Len(TXE(wsE.Cells(1, 13).Value)) = 0 Then wsE.Cells(1, 13).Value = "DESTINO IMPRESO": wsE.Cells(1, 14).Value = "FECHA IMPRESION"
+  LogE "ETIQUETAS: " & n & " etiqueta(s) enviadas a " & impresora
+  ImprimirFilas = n
+End Function
+
+' ---------- vista previa: Code 128 (subconjunto B) solo para dibujar en pantalla ----------
+Public Function Code128Modulos(ByVal s As String) As String
+  Dim pat, i As Long, v As Long, chk As Long, o As String
+  pat = Split("212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 123122 123221 223211 221132 221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 114131 311141 411131 211412 211214 211232 2331112", " ")
+  chk = 104: o = pat(104)
+  For i = 1 To Len(s)
+    v = Asc(Mid$(s, i, 1)) - 32
+    If v < 0 Or v > 94 Then v = 0
+    chk = chk + v * i: o = o & pat(v)
+  Next
+  o = o & pat(chk Mod 103) & pat(106)
+  Code128Modulos = o          ' anchos alternados barra/espacio en módulos
+End Function
