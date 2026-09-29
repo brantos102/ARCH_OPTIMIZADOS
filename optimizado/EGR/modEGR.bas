@@ -719,6 +719,35 @@ Public Sub AplicarDestinos(Optional sel As Collection)
   LogE "DESTINOS: " & n & " cambio(s) aplicados. TMS, TRAMACO, DESPACHOS y etiquetas ya usan el nuevo destino."
 End Sub
 
+'  Alta y edición de productos o cajas en DATA CODIGO Y CAJAS con el formulario de datos de Excel
+'  (Nuevo, Buscar criterios, Anterior/Siguiente, Eliminar). DATA_CODIGOS y DATA_CAJAS son columnas completas,
+'  así que las filas nuevas se usan de inmediato en pesos, volúmenes y costos.
+Public Sub EditarMaestro(ByVal tipo As String)
+  Dim ws As Worksheet, rng As Range, lr As Long
+  On Error GoTo fallo
+  RuedaDesactivar
+  Set ws = ThisWorkbook.Worksheets("DATA CODIGO Y CAJAS")
+  MostrarExcel
+  ws.Visible = xlSheetVisible
+  ws.Activate
+  If UCase$(tipo) = "CAJAS" Then
+    lr = ws.Cells(ws.Rows.Count, 15).End(xlUp).Row
+    Set rng = ws.Range(ws.Cells(1, 15), ws.Cells(IIf(lr < 2, 2, lr), 26))       ' O:Z
+  Else
+    lr = ws.Cells(ws.Rows.Count, 2).End(xlUp).Row
+    Set rng = ws.Range(ws.Cells(1, 1), ws.Cells(IIf(lr < 2, 2, lr), 13))        ' A:M
+  End If
+  ws.Names.Add Name:="Database", RefersTo:="='" & ws.Name & "'!" & rng.Address
+  rng.Cells(1, 1).Select
+  LogE "MAESTRO: edición de " & LCase$(tipo) & " (" & (rng.Rows.Count - 1) & " registros)"
+  ws.ShowDataForm
+  LogE "MAESTRO: edición de " & LCase$(tipo) & " terminada"
+  Exit Sub
+fallo:
+  LogE "MAESTRO: " & Err.Description, "ERROR"
+  MsgBox "No se pudo abrir el formulario de datos: " & Err.Description, vbExclamation
+End Sub
+
 ' Confirma un destino (sugerido por reglas o elegido por el operador) para una fila de DATOS
 Public Function ConfirmarDestino(ByVal fila As Long, ByVal destino As String, ByVal motivo As String) As Boolean
   Dim ws As Worksheet, ant As String

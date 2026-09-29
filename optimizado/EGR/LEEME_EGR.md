@@ -106,6 +106,28 @@ ITEMS API, ITEMS DEPOT, EMPAQUETADO y las tablas dinámicas. No es el inicio del
 
 Todo queda en el **registro** del panel y en la hoja oculta **LOG_EGR**: fecha, usuario, acción y error.
 
+### Novedades del panel
+
+- **Sugerencias:** además de las reglas de REGLAS_DESTINO, el sistema aplica la lógica de PEDIDOS HCE. Un pedido UIO o
+  GYE cuya cobertura TMS no tiene ITSANET ni LAAR se sugiere como **PRO**; el motivo aparece en el detalle. El filtro
+  **DIFIERE DE PEDIDOS HCE** muestra los pedidos cuyo destino no coincide con el que calculó la etapa 1. La opción
+  manual (*Asignar a mano*) se mantiene.
+- **Ir a hoja:** una lista desplegable con las hojas necesarias y el botón **Ir a hoja**, que la muestra aunque esté
+  oculta. Las hojas son DATOS, TMS, TRAMACO, DESPACHOS, ETIQUETAS, EMPAQUETADO, TABLAS DINAMICAS, ITEMS APIS,
+  ITEMS DEPOT, COBERTURAS Y TARIFAS, DATA CODIGO Y CAJAS, REGLAS_DESTINO y PANEL.
+- **Cobertura:** la vista **Cobertura** muestra COBERTURAS Y TARIFAS completa (gestor, gestor sugerido, trayecto, tipo,
+  días y código postal), con buscador, para validarla como en PEDIDOS HCE.
+- **Productos (códigos)** y **Cajas:** abren el formulario de datos de Excel sobre DATA CODIGO Y CAJAS. Con *Nuevo* se
+  agrega un registro, con *Criterios* se busca, y los datos se editan directamente. Los códigos o cajas nuevos se usan
+  de inmediato en pesos, volúmenes y costos.
+- **Estabilidad con los dos archivos abiertos:**
+  - el gancho de la rueda del mouse **se quita solo** cuando el mouse sale del formulario, en PEDIDOS HCE y en EGR
+    (el mismo modVentanas en ambos);
+  - también se quita antes de cualquier botón.
+
+  Así no queda activo durante mensajes, macros largas ni al cambiar de libro. **Pega el modVentanas nuevo en los dos
+  archivos.**
+
 ## 3. Reglas de destino (PRO / GYE / UIO / GPS)
 
 El destino de DATOS!A alimenta TMS, TRAMACO, DESPACHOS y las etiquetas. Por eso las reglas **solo proponen**, en la

@@ -212,6 +212,7 @@ End Sub
 
 ' Ejecuta un paso evitando lanzar dos procesos a la vez
 Private Function Ejecutar(ByVal macro As String) As Boolean
+  RuedaDesactivar                      ' sin gancho de rueda durante procesos y mensajes
   If gOcupado Then MsgBox "Hay un proceso en curso. Espera a que termine.", vbInformation: Exit Function
   gOcupado = True
   On Error GoTo fallo

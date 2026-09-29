@@ -39,7 +39,11 @@ Private WithEvents bExp As MSForms.CommandButton
 Private WithEvents bExpM As MSForms.CommandButton
 Private WithEvents bAct As MSForms.CommandButton
 Private WithEvents bRep As MSForms.CommandButton
-Private WithEvents bReg As MSForms.CommandButton
+Private cboIrHoja As MSForms.ComboBox
+Private WithEvents bIrHoja As MSForms.CommandButton
+Private WithEvents bProd As MSForms.CommandButton
+Private WithEvents bCaja As MSForms.CommandButton
+Private WithEvents bVCob As MSForms.CommandButton
 Private WithEvents bDesb As MSForms.CommandButton
 Private WithEvents bExcel As MSForms.CommandButton
 Private WithEvents bIr As MSForms.CommandButton
@@ -74,8 +78,9 @@ Private Sub UserForm_Initialize()
   Set bEtqTod = NB("Imprimir todas", 105, 202, 93, 28, RGB(0, 150, 110), "Vista previa e impresión de todas las etiquetas del día (pedidos con destino).")
 
   Set t = NL("3  SEGUIMIENTO", 8, 238, 190, True): t.ForeColor = RGB(112, 48, 160)
-  Set bVPed = NB("Ver pedidos", 8, 254, 93, 24, RGB(89, 89, 89), "Vista principal: todos los pedidos con destino, cobertura y señales.")
-  Set bVEmp = NB("Avance empaque", 105, 254, 93, 24, RGB(112, 48, 160), "Por pedido: picking (ITEMS API vs ITEMS DEPOT), cajas, peso, volumen % (datos de las tablas dinámicas).")
+  Set bVPed = NB("Pedidos", 8, 254, 60, 24, RGB(89, 89, 89), "Vista principal: todos los pedidos con destino, cobertura y señales.")
+  Set bVEmp = NB("Empaque", 72, 254, 62, 24, RGB(112, 48, 160), "Por pedido: picking (ITEMS API vs ITEMS DEPOT), cajas, peso, volumen % (datos de las tablas dinámicas).")
+  Set bVCob = NB("Cobertura", 138, 254, 60, 24, RGB(47, 117, 181), "Cobertura TMS de este archivo (COBERTURAS Y TARIFAS): gestor, gestor sugerido, trayecto, días y código postal, con filtro y búsqueda.")
 
   Set t = NL("4  EXPORTAR REPORTES", 8, 286, 190, True): t.ForeColor = RGB(0, 97, 0)
   NL "Hoja:", 8, 305, 30
@@ -94,13 +99,22 @@ Private Sub UserForm_Initialize()
   Set t = NL("OPERACIÓN (en cualquier momento)", 8, 388, 190, True): t.ForeColor = RGB(89, 89, 89)
   Set bAct = NB("Actualizar datos (items, empaque, tablas)", 8, 404, 190, 26, RGB(89, 89, 89), "Trae ITEMS API, ITEMS DEPOT, EMPAQUETADO (Google Sheets) y actualiza las tablas dinámicas. Si una fuente falla, pregunta si sigue.")
   Set bRep = NB("Reparar fórmulas (una vez)", 8, 434, 190, 22, RGB(192, 80, 77), "Corrige los #REF! y prepara DATOS!A para los destinos confirmados. Guarda respaldo antes.")
-  Set bReg = NB("Editar reglas", 8, 459, 93, 22, RGB(120, 120, 120), "Abre la hoja REGLAS_DESTINO (supervisor).")
-  Set bIr = NB("Ir a la fila", 105, 459, 93, 22, RGB(120, 120, 120), "Oculta el panel y selecciona el pedido en DATOS.")
-  Set bDesb = NB("Desbloquear", 8, 484, 93, 22, RGB(120, 120, 120), "Restaura pantalla, eventos y cálculo si Excel quedó bloqueado.")
-  Set bExcel = NB("Ver Excel", 105, 484, 93, 22, RGB(0, 97, 0), "Oculta el panel. Para volver: Complementos > Panel EGR.")
-  Set bCer = NB("Cerrar panel", 8, 514, 190, 24, RGB(192, 80, 77), "Cierra el panel.")
-  Set lblGuia = NL("", 8, 544, 190)
-  lblGuia.Height = 110: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204): lblGuia.BorderStyle = fmBorderStyleSingle: lblGuia.ForeColor = RGB(128, 64, 0)
+  Set cboIrHoja = Me.Controls.Add("Forms.ComboBox.1")
+  cboIrHoja.Left = 8: cboIrHoja.Top = 460: cboIrHoja.Width = 128: cboIrHoja.Height = 18: cboIrHoja.Style = fmStyleDropDownList: cboIrHoja.ListRows = 14
+  For Each f In Array("DATOS", "TMS", "TRAMACO", "DESPACHOS", "ETIQUETAS", "EMPAQUETADO", "TABLAS DINAMICAS", "ITEMS APIS", "ITEMS DEPOT", _
+                      "COBERTURAS Y TARIFAS", "DATA CODIGO Y CAJAS", "REGLAS_DESTINO", "PANEL")
+    cboIrHoja.AddItem f
+  Next
+  cboIrHoja.ListIndex = 0
+  Set bIrHoja = NB("Ir a hoja", 140, 459, 58, 20, RGB(0, 97, 0), "Oculta el panel y abre la hoja elegida (la muestra si estaba oculta).")
+  Set bProd = NB("Productos (códigos)", 8, 484, 93, 22, RGB(112, 48, 160), "Agregar o editar productos en DATA CODIGO Y CAJAS (peso, medidas, precio). Formulario de datos de Excel: Nuevo, Buscar, Eliminar.")
+  Set bCaja = NB("Cajas", 105, 484, 93, 22, RGB(112, 48, 160), "Agregar o editar tipos de caja (medidas, peso, volumen) en DATA CODIGO Y CAJAS.")
+  Set bIr = NB("Ir a la fila", 8, 509, 93, 22, RGB(120, 120, 120), "Oculta el panel y selecciona el pedido en DATOS.")
+  Set bDesb = NB("Desbloquear", 105, 509, 93, 22, RGB(120, 120, 120), "Restaura pantalla, eventos y cálculo si Excel quedó bloqueado.")
+  Set bExcel = NB("Ver Excel", 8, 534, 93, 22, RGB(0, 97, 0), "Oculta el panel. Para volver: Complementos > Panel EGR.")
+  Set bCer = NB("Cerrar panel", 105, 534, 93, 22, RGB(192, 80, 77), "Cierra el panel.")
+  Set lblGuia = NL("", 8, 562, 190)
+  lblGuia.Height = 124: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204): lblGuia.BorderStyle = fmBorderStyleSingle: lblGuia.ForeColor = RGB(128, 64, 0)
   Set mPasoBtn(1) = bCob: Set mPasoBtn(2) = bCamb: Set mPasoBtn(3) = bEtqSel: Set mPasoBtn(4) = bVEmp: Set mPasoBtn(5) = bExp
   For i = 1 To 5: mPasoCap(i) = mPasoBtn(i).Caption: mPasoCol(i) = mPasoBtn(i).BackColor: Next
 
@@ -110,7 +124,7 @@ Private Sub UserForm_Initialize()
   Set cboFiltro = Me.Controls.Add("Forms.ComboBox.1")
   cboFiltro.Left = X0 + 444: cboFiltro.Top = 4: cboFiltro.Width = 180: cboFiltro.Height = 18: cboFiltro.Style = fmStyleDropDownList: cboFiltro.ListRows = 16
   For Each f In Array("TODOS", "CON SEÑAL (no OK)", "CAMBIO SUGERIDO", "FUERA COBERTURA TMS", "ZONA PELIGROSA", "CONFIRMADOS", _
-                      "ETIQUETA PENDIENTE", "REIMPRIMIR ETIQUETA", "SIN EMPACAR", "EMPACADOS", "DESTINO PRO", "DESTINO GYE", "DESTINO UIO", "DESTINO GPS")
+                      "ETIQUETA PENDIENTE", "REIMPRIMIR ETIQUETA", "SIN EMPACAR", "EMPACADOS", "DESTINO PRO", "DESTINO GYE", "DESTINO UIO", "DESTINO GPS", "DIFIERE DE PEDIDOS HCE")
     cboFiltro.AddItem f
   Next
   NL "Buscar:", X0 + 634, 8, 38
@@ -219,6 +233,7 @@ End Function
 '  Datos
 ' =====================================================================================
 Public Sub Recargar()
+  If mVista = "COBERTURA" Then CargarCobertura: Exit Sub
   Dim ws As Worksheet, wsE As Worksheet, lr As Long, v, e, i As Long, n As Long, reglas, dC As Object, dE As Object
   Dim sug As String, mot As String, dest As String, zona As String, k As String, cob, fuera As Boolean, conf As Boolean
   Dim etq As String, emp As String, x
@@ -245,6 +260,12 @@ Public Sub Recargar()
       conf = (Len(TXE(v(i, D_RDEST))) > 0 And TXE(v(i, D_RPED)) = TXE(v(i, D_PED)))
       k = ClaveTMS(TXE(v(i, D_H)), TXE(v(i, D_I)), TXE(v(i, D_J)))
       cob = Empty: If dC.Exists(k) Then cob = dC(k)
+      ' lógica de PEDIDOS HCE: UIO/GYE solo si la cobertura tiene ITSANET o LAAR; si no, el pedido va por PRO
+      If Not fuera And (sug = "" Or sug = dest) And (dest = "UIO" Or dest = "GYE") Then
+        If Len(CobVal(cob, 0)) > 0 And InStr(1, CobVal(cob, 0), "ITSANET", vbTextCompare) = 0 And InStr(1, CobVal(cob, 0), "LAAR", vbTextCompare) = 0 Then
+          sug = "PRO": mot = "Cobertura TMS: " & CobVal(cob, 0) & " (sin ITSANET/LAAR para " & dest & ")"
+        End If
+      End If
       zona = TXE(v(i, 39))                                          ' AM zona (desde PEDIDOS HCE)
       ' etiqueta
       If UCase$(TXE(e(i, 6))) = "OK" Then
@@ -295,6 +316,31 @@ fallo:
   MsgBox "No se pudieron leer los pedidos (fila " & i & " de DATOS): " & Err.Description & vbCrLf & "Detalle en el registro.", vbExclamation
 End Sub
 
+' Vista COBERTURA: hoja COBERTURAS Y TARIFAS completa, para validar
+Private Sub CargarCobertura()
+  Dim ws As Worksheet, lr As Long, v, i As Long, n As Long
+  On Error GoTo fallo
+  Set ws = ThisWorkbook.Worksheets("COBERTURAS Y TARIFAS")
+  lr = ws.Cells(ws.Rows.Count, 2).End(xlUp).Row
+  mN = 0
+  If lr < 2 Then ReDim mData(1 To 1, 1 To NF): Filtrar: Exit Sub
+  v = ws.Range(ws.Cells(1, 1), ws.Cells(lr, 28)).Value
+  ReDim mData(1 To lr, 1 To NF)
+  For i = 2 To lr
+    If Len(TXE(v(i, 2))) > 0 Then
+      n = n + 1
+      mData(n, 1) = TXE(v(i, 2)): mData(n, 2) = TXE(v(i, 3)): mData(n, 3) = TXE(v(i, 4))
+      mData(n, 4) = TXE(v(i, 6)): mData(n, 5) = TXE(v(i, 21)): mData(n, 6) = TXE(v(i, 22))
+      mData(n, 7) = TXE(v(i, 20)): mData(n, 8) = TXE(v(i, 24)): mData(n, 9) = i: mData(n, 10) = TXE(v(i, 7))
+    End If
+  Next
+  mN = n
+  Filtrar
+  Exit Sub
+fallo:
+  LogE "PANEL: error al leer COBERTURAS Y TARIFAS: " & Err.Description, "ERROR"
+End Sub
+
 Private Function CobVal(cob As Variant, ByVal k As Long) As String
   If IsArray(cob) Then CobVal = CStr(cob(k))
 End Function
@@ -311,6 +357,7 @@ End Sub
 Private Function Pasa(ByVal r As Long) As Boolean
   Dim f As String
   f = cboFiltro.Text
+  If mVista = "COBERTURA" Then Pasa = True: Exit Function
   Select Case f
     Case "", "TODOS": Pasa = True
     Case "CON SEÑAL (no OK)": Pasa = (mData(r, 1) <> "OK")
@@ -322,6 +369,7 @@ Private Function Pasa(ByVal r As Long) As Boolean
     Case "REIMPRIMIR ETIQUETA": Pasa = (mData(r, 13) = "REIMPRIMIR")
     Case "SIN EMPACAR": Pasa = (Left$(mData(r, 14), 8) <> "EMPACADO")
     Case "EMPACADOS": Pasa = (Left$(mData(r, 14), 8) = "EMPACADO")
+    Case "DIFIERE DE PEDIDOS HCE": Pasa = (Len(mData(r, 25)) > 0 And mData(r, 25) <> mData(r, 8))
     Case Else
       If Left$(f, 8) = "DESTINO " Then Pasa = (mData(r, 8) = Mid$(f, 9))
   End Select
@@ -367,11 +415,15 @@ sig:
       Case "GPS": nGps = nGps + 1
     End Select
   Next
+  If mVista = "COBERTURA" Then
+    lblKpi.Caption = mN & " destinos en COBERTURAS Y TARIFAS (" & mNIdx & " en lista). Escribe en Buscar (provincia, cantón, parroquia, gestor...) para validar."
+  Else
   lblKpi.Caption = mN & " pedidos (" & mNIdx & " en lista)  |  PRO " & nPro & " · GYE " & nGye & " · UIO " & nUio & " · GPS " & nGps & _
                    "  |  fuera TMS " & nFue & " · zonas " & nZon & " · cambios sugeridos " & nCam & _
                    "  |  etiquetas pendientes " & nPen & " · reimprimir " & nRei & "  |  empacados " & nEmp & "/" & mN & _
                    IIf(mN > 0, " (" & Format(nEmp / mN, "0%") & ")", "")
   GuiaFlujo nFue, nCam, nPen, nRei, nEmp
+  End If
   cols = ColumnasVista()
   nc = UBound(cols) + 1
   PonerColumnas
@@ -420,7 +472,9 @@ Private Sub GuiaFlujo(ByVal nFue As Long, ByVal nCam As Long, ByVal nPen As Long
 End Sub
 
 Private Function ColumnasVista() As Variant
-  If mVista = "EMPAQUE" Then
+  If mVista = "COBERTURA" Then
+    ColumnasVista = Array(9, 1, 2, 3, 4, 5, 6, 10, 7, 8)
+  ElseIf mVista = "EMPAQUE" Then
     ColumnasVista = Array(2, 3, 4, 8, 14, 22, 29, 27, 28, 24, 23, 13, 10)
   Else
     ColumnasVista = Array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
@@ -429,7 +483,10 @@ End Function
 
 Private Sub PonerColumnas()
   Dim nom, anc, i As Long, x As Single, w As String, e As Double
-  If mVista = "EMPAQUE" Then
+  If mVista = "COBERTURA" Then
+    nom = Array("FILA", "PROVINCIA", "CANTÓN", "PARROQUIA", "GESTOR DE ENTREGAS", "GESTOR SUGERIDO", "TRAYECTO TRAMACO", "TIPO DESTINO", "DÍAS", "COD. POSTAL")
+    anc = Array(34, 100, 130, 170, 190, 90, 120, 80, 36, 60)
+  ElseIf mVista = "EMPAQUE" Then
     nom = Array("FILA", "PEDIDO", "DESTINATARIO", "DEST.", "EMPAQUE", "CAJAS", "PESO CAJAS", "VOL. %", "UNID. CONF/SOL", "BULTOS", "PESO KG", "ETIQUETA", "COURIER")
     anc = Array(30, 62, 170, 40, 110, 40, 64, 50, 86, 46, 56, 70, 90)
   Else
@@ -450,6 +507,21 @@ Private Sub PonerColumnas()
   lst.ColumnWidths = w
 End Sub
 
+' Las acciones sobre pedidos necesitan la vista de pedidos (no la de cobertura)
+Private Function EnPedidos() As Boolean
+  If mVista = "COBERTURA" Then
+    mVista = "PEDIDOS": lblVista.Caption = "PEDIDOS DEL DÍA"
+    Recargar
+    MsgBox "Se volvió a la vista de pedidos. Selecciona los pedidos y repite la acción.", vbInformation
+    Exit Function
+  End If
+  EnPedidos = True
+End Function
+
+Private Sub VistaPedidos()
+  If mVista <> "PEDIDOS" Then mVista = "PEDIDOS": Recargar
+End Sub
+
 Private Function Seleccionados() As Collection
   Dim c As New Collection, i As Long
   For i = 0 To lst.ListCount - 1
@@ -460,6 +532,13 @@ End Function
 
 Private Sub MostrarDetalle(ByVal r As Long)
   Dim s As String
+  If mVista = "COBERTURA" Then
+    lblDet.Caption = mData(r, 1) & " / " & mData(r, 2) & " / " & mData(r, 3) & "   (fila " & mData(r, 9) & " de COBERTURAS Y TARIFAS)" & vbCrLf & _
+                     "Gestor de entregas: " & mData(r, 4) & vbCrLf & "Gestor sugerido: " & mData(r, 5) & vbCrLf & _
+                     "Trayecto TRAMACO: " & mData(r, 6) & "   Tipo de destino: " & mData(r, 10) & vbCrLf & _
+                     "Días de entrega: " & mData(r, 7) & "   Código postal: " & mData(r, 8)
+    Exit Sub
+  End If
   s = "Pedido " & mData(r, 3) & "  (fila " & mData(r, 2) & ")   " & mData(r, 4) & "   Tel: " & mData(r, 30) & vbCrLf & _
       "Dirección: " & mData(r, 16) & vbCrLf & _
       "Cobertura TMS: " & mData(r, 5) & " / " & mData(r, 6) & " / " & mData(r, 7) & "   CP TMS: " & mData(r, 26) & "   -> " & mData(r, 20) & vbCrLf & vbCrLf & _
@@ -522,25 +601,27 @@ Private Sub bCob_Click()
   Dim c As New Collection
   mCobRevisada = True
   RevisarCoberturaTMS c                     ' deja el detalle en el registro
-  mVista = "PEDIDOS": lblVista.Caption = "COBERTURA TMS: pedidos con observación"
+  Call VistaPedidos: lblVista.Caption = "COBERTURA TMS: pedidos con observación"
   cboFiltro.Text = "FUERA COBERTURA TMS"
   Filtrar
 End Sub
 
 Private Sub bCamb_Click()
   If Not Listo() Then Exit Sub
-  mVista = "PEDIDOS": lblVista.Caption = "CAMBIOS DE DESTINO SUGERIDOS POR REGLAS (columna SUGER.)"
+  Call VistaPedidos: lblVista.Caption = "CAMBIOS DE DESTINO SUGERIDOS POR REGLAS (columna SUGER.)"
   cboFiltro.Text = "CAMBIO SUGERIDO"
   Filtrar
 End Sub
 
 Private Sub bSugSel_Click()
   If Not Listo() Then Exit Sub
+  If Not EnPedidos() Then Exit Sub
   AplicarSug Seleccionados()
 End Sub
 
 Private Sub bSugTod_Click()
   If Not Listo() Then Exit Sub
+  If Not EnPedidos() Then Exit Sub
   Dim c As New Collection, r As Long
   For r = 1 To mN
     If Len(mData(r, 9)) > 0 Then c.Add r
@@ -567,6 +648,7 @@ End Sub
 
 Private Sub bAsig_Click()
   If Not Listo() Then Exit Sub
+  If Not EnPedidos() Then Exit Sub
   Dim c As Collection, r, d As String
   Set c = Seleccionados()
   If c.Count = 0 Then MsgBox "Selecciona uno o varios pedidos en la lista.", vbInformation: Exit Sub
@@ -582,6 +664,7 @@ End Sub
 
 Private Sub bQuitar_Click()
   If Not Listo() Then Exit Sub
+  If Not EnPedidos() Then Exit Sub
   Dim c As Collection, r
   Set c = Seleccionados()
   If c.Count = 0 Then MsgBox "Selecciona uno o varios pedidos en la lista.", vbInformation: Exit Sub
@@ -596,6 +679,7 @@ End Sub
 ' =====================================================================================
 Private Sub bEtqSel_Click()
   If Not Listo() Then Exit Sub
+  If Not EnPedidos() Then Exit Sub
   Dim c As Collection, f As New Collection, r
   Set c = Seleccionados()
   If c.Count = 0 Then MsgBox "Selecciona en la lista los pedidos a imprimir (Ctrl + clic o Shift + clic para varios). Tip: usa el filtro 'ETIQUETA PENDIENTE' o 'REIMPRIMIR ETIQUETA'.", vbInformation: Exit Sub
@@ -605,6 +689,7 @@ End Sub
 
 Private Sub bEtqTod_Click()
   If Not Listo() Then Exit Sub
+  If Not EnPedidos() Then Exit Sub
   Dim f As New Collection, r As Long
   For r = 1 To mN: f.Add mData(r, 2): Next
   AbrirEtiquetas f
@@ -612,6 +697,13 @@ End Sub
 
 Private Sub AbrirEtiquetas(filas As Collection)
   Set gEtiqFilas = filas
+  Load frmEtiquetas
+  If InStr(1, frmEtiquetas.Caption, "Etiquetas", vbTextCompare) = 0 Then       ' el formulario existe pero sin su código
+    Unload frmEtiquetas
+    MsgBox "El formulario frmEtiquetas no tiene su código." & vbCrLf & _
+           "En el editor de VBA: doble clic en frmEtiquetas > Ver código > pega TODO el contenido de frmEtiquetas.frm y compila.", vbExclamation
+    Exit Sub
+  End If
   frmEtiquetas.Show vbModal
   Recargar
 End Sub
@@ -623,7 +715,44 @@ Private Sub bVPed_Click()
   If Not Listo() Then Exit Sub
   mVista = "PEDIDOS": lblVista.Caption = "PEDIDOS DEL DÍA"
   cboFiltro.Text = "TODOS"
-  Filtrar
+  Recargar
+End Sub
+
+Private Sub bVCob_Click()
+  If Not Listo() Then Exit Sub
+  mVista = "COBERTURA": lblVista.Caption = "COBERTURA TMS DE ESTE ARCHIVO (COBERTURAS Y TARIFAS)"
+  txtBuscar.Text = ""
+  Recargar
+End Sub
+
+Private Sub bIrHoja_Click()
+  If Not Listo() Then Exit Sub
+  Dim ws As Worksheet
+  On Error Resume Next
+  Set ws = ThisWorkbook.Worksheets(cboIrHoja.Text)
+  On Error GoTo 0
+  If ws Is Nothing Then MsgBox "No existe la hoja " & cboIrHoja.Text & ".", vbExclamation: Exit Sub
+  Me.Hide
+  MostrarExcel
+  ws.Visible = xlSheetVisible
+  ws.Activate
+  LogE "PANEL: ir a la hoja " & ws.Name
+End Sub
+
+Private Sub bProd_Click()
+  If Not Listo() Then Exit Sub
+  Me.Hide
+  EditarMaestro "PRODUCTOS"
+  Me.Show vbModeless
+  Recargar
+End Sub
+
+Private Sub bCaja_Click()
+  If Not Listo() Then Exit Sub
+  Me.Hide
+  EditarMaestro "CAJAS"
+  Me.Show vbModeless
+  Recargar
 End Sub
 
 Private Sub bVEmp_Click()
@@ -665,16 +794,6 @@ Private Sub bRep_Click()
   If Not Listo() Then Exit Sub
   RepararFormulasEGR
   Recargar
-End Sub
-Private Sub bReg_Click()
-  If Not Listo() Then Exit Sub
-  CrearHojaReglas
-  Me.Hide
-  MostrarExcel
-  With ThisWorkbook.Worksheets(HREG)
-    .Visible = xlSheetVisible
-    .Activate
-  End With
 End Sub
 Private Sub bDesb_Click()
   RuedaDesactivar

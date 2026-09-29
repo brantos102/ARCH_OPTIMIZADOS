@@ -238,22 +238,31 @@ Public Sub RuedaDesactivar()
 End Sub
 
 Private Function ProcRueda(ByVal nCode As Long, ByVal wParam As LongPtr, ByVal lParam As LongPtr) As LongPtr
+  Dim ms As MSLLHOOKSTRUCT, delta As Long, t As Long, h As LongPtr
   On Error GoTo pasar
-  If nCode = 0 And wParam = WM_MOUSEWHEEL And Not mLista Is Nothing Then
-    Dim ms As MSLLHOOKSTRUCT, delta As Long, t As Long
+  If nCode = 0 And Not mLista Is Nothing Then
     CopyMemory ms, lParam, LenB(ms)
+    ' el gancho vive solo mientras el mouse está sobre el formulario: al salir se quita solo
+    ' (así nunca queda activo durante mensajes, otras ventanas, otro libro o macros largas)
     If mHwndForm <> 0 Then
-      If CursorFuera(ms.pt.X, ms.pt.Y) Then GoTo pasar      ' el mouse ya no está sobre el formulario
+      If CursorFuera(ms.pt.X, ms.pt.Y) Then
+        h = mHook
+        RuedaDesactivar
+        ProcRueda = CallNextHookEx(h, nCode, wParam, lParam)
+        Exit Function
+      End If
     End If
-    delta = ms.mouseData \ &H10000                    ' parte alta con signo: +120 arriba / -120 abajo
-    If mLista.ListCount > 0 Then
-      t = mLista.TopIndex - Sgn(delta) * 3
-      If t < 0 Then t = 0
-      If t > mLista.ListCount - 1 Then t = mLista.ListCount - 1
-      mLista.TopIndex = t
+    If wParam = WM_MOUSEWHEEL Then
+      delta = ms.mouseData \ &H10000                  ' parte alta con signo: +120 arriba / -120 abajo
+      If mLista.ListCount > 0 Then
+        t = mLista.TopIndex - Sgn(delta) * 3
+        If t < 0 Then t = 0
+        If t > mLista.ListCount - 1 Then t = mLista.ListCount - 1
+        mLista.TopIndex = t
+      End If
+      ProcRueda = 1                                   ' la rueda ya se usó en la lista
+      Exit Function
     End If
-    ProcRueda = 1                                     ' la rueda ya se usó en la lista
-    Exit Function
   End If
 pasar:
   ProcRueda = CallNextHookEx(mHook, nCode, wParam, lParam)
