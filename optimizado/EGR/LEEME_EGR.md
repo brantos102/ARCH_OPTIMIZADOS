@@ -298,12 +298,20 @@ que cada producto se multiplica por el número de cajas del pedido. El `SELECT D
 sí son distintas: cambia la contenedora.
 
 **Solución:** reemplaza el SQL de la consulta con [`SQL_ITEMS_DEPOT.sql`](SQL_ITEMS_DEPOT.sql). Agrega las contenedoras
-antes de unirlas y devuelve una fila por pedido y producto, con las mismas 7 columnas, así que la tabla, sus columnas
-calculadas y las tablas dinámicas no cambian.
+antes de unirlas y agrupa el picking por documento y producto, así que devuelve **una fila por pedido y producto**, con
+las mismas 7 columnas y en el mismo orden: la tabla de Excel, sus columnas calculadas y las tablas dinámicas no cambian.
 
 1. Datos › Consultas y conexiones › clic derecho en **Estado** › **Editar**.
 2. En PASOS APLICADOS, pulsa el engranaje del paso **Origen**.
-3. Borra el SQL y pega el del archivo. Aceptar › **Cerrar y cargar**.
+3. Borra el SQL y pega **todo** el archivo, tal cual. Aceptar › **Cerrar y cargar**.
+
+> **Por qué el archivo no lleva comentarios, ni `WITH`, ni `ORDER BY`.** Power Query envuelve la consulta dentro de otra
+> (`select * from ( tu consulta ) …`) para poder filtrar y ordenar desde Excel. Dentro de esa envoltura, SQL Server no
+> admite una expresión `WITH` ni un `ORDER BY`, y responde *"Sintaxis incorrecta cerca de 'd'"* (error 102). Por eso la
+> consulta usa subconsultas en el `FROM` y no lleva nada que la envoltura pueda romper.
+
+**Comprobación:** después de actualizar, el pedido 102344955 debe salir con **4 filas** y 14,85 kg en total
+(0,45 + 7,00 + 4,50 + 2,90), no con 8 filas ni 29,70 kg.
 
 Mientras tanto, el panel cuenta cada pedido y producto **una sola vez**, así que el avance de empaque es correcto aunque
 la consulta siga repitiendo filas. Si detecta repeticiones lo avisa en el registro. Las columnas PESO, VOLUMEN y PRECIO
