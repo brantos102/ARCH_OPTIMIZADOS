@@ -825,10 +825,17 @@ Public Function DictEmpaque() As Object
   If Not lo Is Nothing Then
     If lo.ListRows.Count > 0 Then
       a = lo.DataBodyRange.Value
+      ' una sola vez por pedido + producto: si la consulta SQL todavía repite la fila
+      ' por cada contenedora, aquí no se suma dos veces (pesos y costos correctos)
       For i = 1 To UBound(a, 1)
         doc = TXE(a(i, 3))
-        If Not cont1.Exists(doc) Then cont1(doc) = TXE(a(i, 7))
-        If TXE(a(i, 7)) = cont1(doc) Then conf(doc) = conf(doc) + Val(TXE(a(i, 6)))
+        If Len(doc) > 0 Then
+          k = doc & Chr(1) & TXE(a(i, 4))
+          If Not cont1.Exists(k) Then
+            cont1(k) = 1
+            conf(doc) = conf(doc) + Val(TXE(a(i, 6)))
+          End If
+        End If
       Next
     End If
   End If
@@ -916,7 +923,8 @@ End Function
 Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As Long
   Dim ws As Worksheet, lr As Long, v, i As Long, sol As Object, conf As Object, cont1 As Object, emp As Object
   Dim lo As ListObject, a, k As String, doc As String, ped As String, est As String
-  Dim nSin As Long, nPar As Long, nPick As Long, nEmp As Long, nTot As Long, skuSinPeso As Object, skuSinPrecio As Object, cajaSin As Object
+  Dim nSin As Long, nPar As Long, nPick As Long, nEmp As Long, nTot As Long, nDup As Long
+  Dim skuSinPeso As Object, skuSinPrecio As Object, cajaSin As Object
   Set sol = CreateObject("Scripting.Dictionary"): Set conf = CreateObject("Scripting.Dictionary")
   Set cont1 = CreateObject("Scripting.Dictionary"): Set emp = CreateObject("Scripting.Dictionary")
   Set skuSinPeso = CreateObject("Scripting.Dictionary"): Set skuSinPrecio = CreateObject("Scripting.Dictionary")
@@ -932,15 +940,22 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
       Next
     End If
   End If
-  ' confirmado (Estado): la consulta repite cada línea por contenedora -> se cuenta una sola contenedora por pedido
+  ' confirmado (Estado): una línea por pedido + producto; si la consulta repite por contenedora, se avisa
   Set lo = Nothing: Set lo = ThisWorkbook.Worksheets("ITEMS DEPOT").ListObjects("Estado")
   If Not lo Is Nothing Then
     If lo.ListRows.Count > 0 Then
       a = lo.DataBodyRange.Value
       For i = 1 To UBound(a, 1)
         doc = TXE(a(i, 3))
-        If Not cont1.Exists(doc) Then cont1(doc) = TXE(a(i, 7))
-        If TXE(a(i, 7)) = cont1(doc) Then conf(doc) = conf(doc) + Val(TXE(a(i, 6)))
+        If Len(doc) > 0 Then
+          k = doc & Chr(1) & TXE(a(i, 4))
+          If cont1.Exists(k) Then
+            nDup = nDup + 1
+          Else
+            cont1(k) = 1
+            conf(doc) = conf(doc) + Val(TXE(a(i, 6)))
+          End If
+        End If
         If TXE(a(i, 9)) = "" And Len(TXE(a(i, 4))) > 0 Then skuSinPeso(TXE(a(i, 4))) = 1
         If UCase$(TXE(a(i, 11))) = "VERIFICAR" And Len(TXE(a(i, 4))) > 0 Then skuSinPrecio(TXE(a(i, 4))) = 1
       Next
@@ -985,6 +1000,8 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
   If skuSinPeso.Count > 0 Then LogE "COSTOS: " & skuSinPeso.Count & " SKU sin peso/volumen en DATA CODIGO Y CAJAS: " & Left$(Join(skuSinPeso.Keys, ", "), 300), "AVISO"
   If skuSinPrecio.Count > 0 Then LogE "COSTOS: " & skuSinPrecio.Count & " SKU sin precio (Verificar): " & Left$(Join(skuSinPrecio.Keys, ", "), 300), "AVISO"
   If cajaSin.Count > 0 Then LogE "COSTOS: tipo de caja sin medidas en DATA_CAJAS: " & Join(cajaSin.Keys, ", "), "AVISO"
+  If nDup > 0 Then LogE "ITEMS DEPOT: " & nDup & " fila(s) repetidas (mismo pedido y producto en varias contenedoras). " & _
+       "Las cantidades se contaron una sola vez. Corrige la consulta 'Estado' con SQL_ITEMS_DEPOT.sql para que los pesos y costos de la hoja salgan bien.", "AVISO"
   AvancePedidos = nTot
 End Function
 

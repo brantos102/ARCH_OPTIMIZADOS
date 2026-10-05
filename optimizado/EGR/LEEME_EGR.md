@@ -288,6 +288,27 @@ Quedan 3 valores `#N/A` que no son errores de fórmula:
 
 "Avance empaque" los informa en el registro. Se corrigen agregando la caja en DATA CODIGO Y CAJAS.
 
+### Cantidades, pesos y costos duplicados en ITEMS DEPOT
+
+**Síntoma:** un pedido de 4 productos aparece con 8 filas, repetidas por contenedora, y su peso y su costo salen al
+doble.
+
+**Causa:** la consulta `Estado` une `VIEW_TIEMPO_EMPAQUETADO` fila a fila. Esa vista devuelve una fila por caja, así
+que cada producto se multiplica por el número de cajas del pedido. El `SELECT DISTINCT` no lo evita, porque las filas
+sí son distintas: cambia la contenedora.
+
+**Solución:** reemplaza el SQL de la consulta con [`SQL_ITEMS_DEPOT.sql`](SQL_ITEMS_DEPOT.sql). Agrega las contenedoras
+antes de unirlas y devuelve una fila por pedido y producto, con las mismas 7 columnas, así que la tabla, sus columnas
+calculadas y las tablas dinámicas no cambian.
+
+1. Datos › Consultas y conexiones › clic derecho en **Estado** › **Editar**.
+2. En PASOS APLICADOS, pulsa el engranaje del paso **Origen**.
+3. Borra el SQL y pega el del archivo. Aceptar › **Cerrar y cargar**.
+
+Mientras tanto, el panel cuenta cada pedido y producto **una sola vez**, así que el avance de empaque es correcto aunque
+la consulta siga repitiendo filas. Si detecta repeticiones lo avisa en el registro. Las columnas PESO, VOLUMEN y PRECIO
+de la hoja sí quedan duplicadas hasta aplicar el SQL.
+
 ## 7. Exportación
 
 - Se elige la **hoja** (TRAMACO, TMS, DESPACHOS o LAS TRES) y el **formato** (CSV, XLSX o PDF) en listas desplegables.
