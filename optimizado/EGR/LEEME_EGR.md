@@ -305,10 +305,19 @@ las mismas 7 columnas y en el mismo orden: la tabla de Excel, sus columnas calcu
 2. En PASOS APLICADOS, pulsa el engranaje del paso **Origen**.
 3. Borra el SQL y pega **todo** el archivo, tal cual. Aceptar › **Cerrar y cargar**.
 
-> **Por qué el archivo no lleva comentarios, ni `WITH`, ni `ORDER BY`.** Power Query envuelve la consulta dentro de otra
-> (`select * from ( tu consulta ) …`) para poder filtrar y ordenar desde Excel. Dentro de esa envoltura, SQL Server no
-> admite una expresión `WITH` ni un `ORDER BY`, y responde *"Sintaxis incorrecta cerca de 'd'"* (error 102). Por eso la
-> consulta usa subconsultas en el `FROM` y no lleva nada que la envoltura pueda romper.
+> **Qué cambia respecto de la consulta anterior.** Es la misma consulta de siempre, con dos cambios:
+>
+> 1. `VIEW_TIEMPO_EMPAQUETADO` ya no se une con `LEFT JOIN`. La contenedora se obtiene con una subconsulta en el
+>    `SELECT`, que devuelve un solo valor por pedido y por lo tanto no multiplica filas.
+> 2. La subconsulta `p_aux` se agrupa solo por `DOCUMENTO_ID` y `PRODUCTO_ID`. Antes agrupaba también por `PICKING_ID`,
+>    lote, partida, serie y posición, así que un producto tomado de dos ubicaciones salía en dos filas.
+>
+> También se quitaron las uniones a `CLIENTE` y `SUCURSAL`, que no se usaban en ningún campo.
+>
+> El archivo no lleva comentarios, `WITH`, `ORDER BY` ni punto y coma final: con esos elementos Power Query devolvía
+> *"Sintaxis incorrecta cerca de 'd'"* (error 102).
+
+Para comprobarlo en SSMS, antes de tocar Excel, está [`SQL_VERIFICACION.sql`](SQL_VERIFICACION.sql).
 
 **Comprobación:** después de actualizar, el pedido 102344955 debe salir con **4 filas** y 14,85 kg en total
 (0,45 + 7,00 + 4,50 + 2,90), no con 8 filas ni 29,70 kg.
