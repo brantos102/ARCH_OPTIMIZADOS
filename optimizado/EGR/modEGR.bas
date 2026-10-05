@@ -127,6 +127,7 @@ Private Function HojaCfg() As Worksheet
     ws.Range("A5:C5").Value = Array("CORREO_PARA", "", "Destinatarios del correo de reportes (separados por ;)")
     ws.Range("A6:C6").Value = Array("ETIQ_OFFSET_X", "0", "Corrimiento horizontal de la etiqueta en puntos (8 = 1 mm)")
     ws.Range("A7:C7").Value = Array("ETIQ_OFFSET_Y", "0", "Corrimiento vertical de la etiqueta en puntos (8 = 1 mm)")
+    ws.Range("A8:C8").Value = Array("ETIQ_OSCURIDAD", "12", "Oscuridad de la Zebra, 0 a 30. Súbela si la etiqueta sale clara")
     ws.Columns("A:C").AutoFit
     ws.Visible = xlSheetHidden
   End If
@@ -1215,19 +1216,25 @@ Sub CrearMenuEGR()
   On Error GoTo 0
   Set bar = Application.CommandBars.Add(Name:="Despacho EGR HYCITE", Position:=msoBarTop, Temporary:=True)
   BotonMenu bar, "Panel EGR", "AbrirPanelEGR", 1087, False
+  BotonMenu bar, "¿Qué sigue?", "MenuGuia", 984, False
   BotonMenu bar, "0 Limpiar día", "LimpiarDia", 358, True
   BotonMenu bar, "1 Revisar cobertura TMS", "MenuRevisarCobertura", 1098, True
-  BotonMenu bar, "2 Aplicar destinos sugeridos", "MenuAplicarDestinos", 1099, False
-  BotonMenu bar, "3 Imprimir etiquetas pendientes", "MenuImprimirPendientes", 4, False
-  BotonMenu bar, "Reimprimir pedido(s)", "MenuReimprimir", 4, False
-  BotonMenu bar, "4 Avance empaque", "MenuAvance", 1016, False
+  BotonMenu bar, "2 Ver cambios sugeridos", "MenuVerCambios", 1099, False
+  BotonMenu bar, "2b Aplicar destinos sugeridos", "MenuAplicarDestinos", 1099, False
+  BotonMenu bar, "2c Asignar destino a un pedido", "MenuAsignarDestino", 1099, False
+  BotonMenu bar, "3 Etiquetas: buscar e imprimir", "MenuEtiquetas", 4, True
+  BotonMenu bar, "3b Imprimir pendientes", "MenuImprimirPendientes", 4, False
+  BotonMenu bar, "3c Reimprimir pedido(s)", "MenuReimprimir", 4, False
+  BotonMenu bar, "4 Avance empaque", "MenuAvance", 1016, True
   BotonMenu bar, "5 Exportar reportes", "MenuExportar", 3, False
   BotonMenu bar, "Actualizar datos", "ActualizarTodo", 459, True
+  BotonMenu bar, "Reglas de destino", "MenuReglas", 1017, False
   BotonMenu bar, "Productos", "MenuProductos", 1087, False
   BotonMenu bar, "Cajas", "MenuCajas", 1087, False
   BotonMenu bar, "Impresora", "ElegirImpresoraMenu", 4, False
-  BotonMenu bar, "Reparar fórmulas", "RepararFormulasEGR", 1100, False
-  BotonMenu bar, "Desbloquear", "Desbloquear", 346, True
+  ListaHojasMenu bar
+  BotonMenu bar, "Reparar fórmulas", "RepararFormulasEGR", 1100, True
+  BotonMenu bar, "Desbloquear", "Desbloquear", 346, False
   bar.Visible = True
 End Sub
 
@@ -1303,6 +1310,152 @@ Sub MenuExportar()
     Case Else: Exit Sub
   End Select
   ExportarReportes fmt, hojas, (MsgBox("¿Crear también el correo de Outlook con los archivos?", vbYesNo + vbQuestion) = vbYes)
+End Sub
+
+' Desplegable con las hojas que se usan en el día
+Private Sub ListaHojasMenu(bar As CommandBar)
+  Dim c As CommandBarComboBox, h
+  On Error Resume Next
+  Set c = bar.Controls.Add(Type:=msoControlDropdown)
+  If c Is Nothing Then Exit Sub
+  c.Caption = "Ir a hoja": c.Width = 150: c.BeginGroup = True
+  c.OnAction = "'" & ThisWorkbook.Name & "'!IrAHojaMenu"
+  For Each h In Array("DATOS", "TMS", "TRAMACO", "DESPACHOS", "ETIQUETAS", "EMPAQUETADO", _
+                      "TABLAS DINAMICAS", "ITEMS APIS", "ITEMS DEPOT", "COBERTURAS Y TARIFAS", _
+                      "DATA CODIGO Y CAJAS", "REGLAS_DESTINO", "LOG_EGR", "PANEL")
+    c.AddItem CStr(h)
+  Next
+  c.ListIndex = 1
+End Sub
+
+Sub IrAHojaMenu()
+  Dim c As CommandBarComboBox, ws As Worksheet
+  On Error Resume Next
+  Set c = Application.CommandBars("Despacho EGR HYCITE").Controls("Ir a hoja")
+  If c Is Nothing Then Exit Sub
+  RuedaDesactivar
+  Set ws = ThisWorkbook.Worksheets(c.Text)
+  On Error GoTo 0
+  If ws Is Nothing Then MsgBox "No existe la hoja " & c.Text & ".", vbExclamation: Exit Sub
+  ws.Visible = xlSheetVisible
+  ws.Activate
+  LogE "MENU: ir a la hoja " & ws.Name
+End Sub
+
+' Dice en qué punto del día está el despacho y cuál es el siguiente paso
+Sub MenuGuia()
+  Dim ws As Worksheet, wsE As Worksheet, lr As Long, v, e, i As Long
+  Dim nTot As Long, nFue As Long, nCam As Long, nPen As Long, nRei As Long, nEmp As Long
+  Dim reglas, dC As Object, dE As Object, sug As String, mot As String, dest As String, k As String, g As String
+  Dim txt As String, sig As String
+  If PanelOcupado() Then Exit Sub
+  Set ws = ThisWorkbook.Worksheets(HDAT): Set wsE = ThisWorkbook.Worksheets("ETIQUETAS")
+  Application.Calculate
+  lr = UltimaFilaDatos()
+  If lr < 2 Then
+    MsgBox "La hoja DATOS está vacía." & vbCrLf & vbCrLf & _
+           "SIGUIENTE PASO: en PEDIDOS HCE, paso 7 'Enviar a EGR' con este archivo abierto.", vbInformation, "¿Qué sigue?"
+    Exit Sub
+  End If
+  v = ws.Range(ws.Cells(1, 1), ws.Cells(lr, D_RMOT)).Value
+  e = wsE.Range(wsE.Cells(1, 1), wsE.Cells(lr, 14)).Value
+  reglas = CargarReglas()
+  Set dC = DictCobertura(): Set dE = DictEmpaque()
+  For i = 2 To lr
+    If Len(TXE(v(i, D_PED))) > 0 Then
+      nTot = nTot + 1
+      dest = UCase$(TXE(v(i, D_DEST)))
+      If UCase$(TXE(v(i, D_VAL))) = "REVISAR" Or Len(dest) = 0 Then
+        nFue = nFue + 1
+      Else
+        sug = ""
+        If IsArray(reglas) Then sug = DestinoPorReglas(reglas, TXE(v(i, D_PROV)), TXE(v(i, D_CANT)), TXE(v(i, D_PARR)), TXE(v(i, D_DIR)), mot)
+        If (sug = "" Or sug = dest) And (dest = "UIO" Or dest = "GYE") Then
+          k = ClaveTMS(TXE(v(i, D_H)), TXE(v(i, D_I)), TXE(v(i, D_J))): g = ""
+          If dC.Exists(k) Then g = CStr(dC(k)(0))
+          If Len(g) > 0 Then
+            If InStr(1, g, "ITSANET", vbTextCompare) = 0 And InStr(1, g, "LAAR", vbTextCompare) = 0 Then sug = "PRO"
+          End If
+        End If
+        If Len(sug) > 0 And sug <> dest Then nCam = nCam + 1
+        If UCase$(TXE(e(i, 6))) = "OK" Then
+          If Len(TXE(e(i, 13))) > 0 And UCase$(TXE(e(i, 13))) <> dest Then nRei = nRei + 1
+        Else
+          nPen = nPen + 1
+        End If
+        If Left$(EstadoEmpaque(dE, TXE(v(i, D_PED))), 8) = "EMPACADO" Then nEmp = nEmp + 1
+      End If
+    End If
+  Next
+  txt = "ESTADO DE HOY" & vbCrLf & _
+        "  Pedidos: " & nTot & vbCrLf & _
+        "  Fuera de cobertura TMS: " & nFue & vbCrLf & _
+        "  Con cambio de destino sugerido: " & nCam & vbCrLf & _
+        "  Etiquetas pendientes: " & nPen & "   ·   por reimprimir: " & nRei & vbCrLf & _
+        "  Empacados: " & nEmp & " de " & nTot & vbCrLf & vbCrLf
+  If nFue > 0 Then
+    sig = "1 Revisar cobertura TMS: hay " & nFue & " pedido(s) sin cobertura. No tendrán destino ni etiqueta hasta corregirlos."
+  ElseIf nCam > 0 Then
+    sig = "2 Ver cambios sugeridos: " & nCam & " pedido(s) cambian de destino. Revísalos y confirma."
+  ElseIf nPen + nRei > 0 Then
+    sig = "3 Etiquetas: faltan " & nPen & " por imprimir" & IIf(nRei > 0, " y " & nRei & " por reimprimir", "") & "."
+  ElseIf nEmp < nTot Then
+    sig = "4 Avance empaque: van " & nEmp & " de " & nTot & ". Pulsa 'Actualizar datos' cuando bodega avance."
+  Else
+    sig = "5 Exportar reportes: TRAMACO al portal, TMS al sistema y DESPACHOS a distribución."
+  End If
+  MsgBox txt & "SIGUIENTE PASO:" & vbCrLf & sig, vbInformation, "¿Qué sigue?"
+End Sub
+
+Sub MenuVerCambios()
+  Dim n As Long, i As Long, s As String, p
+  If PanelOcupado() Then Exit Sub
+  n = ProponerDestinos()
+  If n = 0 Then MsgBox "Ningún pedido cambia de destino según las reglas y la cobertura.", vbInformation, "Cambios sugeridos": Exit Sub
+  For i = 1 To gPropuestas.Count
+    p = gPropuestas(i)
+    If i <= 25 Then s = s & vbCrLf & p(1) & "  " & p(3) & " / " & p(5) & vbCrLf & "     " & _
+        IIf(Len(p(6)) > 0, p(6), "(vacío)") & " -> " & p(7) & "   (" & Left$(p(8), 60) & ")"
+  Next
+  MsgBox n & " pedido(s) con cambio sugerido:" & vbCrLf & s & IIf(n > 25, vbCrLf & "..." , "") & vbCrLf & vbCrLf & _
+         "Para confirmarlos todos: '2b Aplicar destinos sugeridos'." & vbCrLf & _
+         "Para elegir uno por uno: abre el Panel EGR.", vbInformation, "Cambios sugeridos"
+End Sub
+
+Sub MenuAsignarDestino()
+  Dim ped As String, d As String, ws As Worksheet, lr As Long, i As Long, fila As Long
+  If PanelOcupado() Then Exit Sub
+  ped = Trim$(InputBox("Número de pedido:", "Asignar destino a mano"))
+  If Len(ped) = 0 Then Exit Sub
+  Set ws = ThisWorkbook.Worksheets(HDAT)
+  lr = UltimaFilaDatos()
+  For i = 2 To lr
+    If TXE(ws.Cells(i, D_PED).Value) = ped Then fila = i: Exit For
+  Next
+  If fila = 0 Then MsgBox "No se encontró el pedido " & ped & " en la hoja DATOS.", vbExclamation: Exit Sub
+  d = UCase$(Trim$(InputBox("Pedido " & ped & "  ·  " & TXE(ws.Cells(fila, D_NOM).Value) & vbCrLf & _
+      "Destino actual: " & TXE(ws.Cells(fila, D_DEST).Value) & vbCrLf & vbCrLf & _
+      "Escribe el destino nuevo: PRO, GYE, UIO o GPS", "Asignar destino a mano")))
+  If Len(d) = 0 Then Exit Sub
+  If d <> "PRO" And d <> "GYE" And d <> "UIO" And d <> "GPS" Then MsgBox "Destino no válido.", vbExclamation: Exit Sub
+  If ConfirmarDestino(fila, d, "MANUAL OPERARIO") Then
+    Application.Calculate
+    RefrescarPanel
+    MsgBox "Pedido " & ped & " asignado a " & d & "." & vbCrLf & _
+           "Si ya tenía etiqueta, reimprímela y vuelve a exportar.", vbInformation
+  End If
+End Sub
+
+Sub MenuEtiquetas()
+  If PanelOcupado() Then Exit Sub
+  Set gEtiqFilas = New Collection
+  frmEtiquetas.Show vbModal
+End Sub
+
+Sub MenuReglas()
+  If PanelOcupado() Then Exit Sub
+  CrearHojaReglas
+  frmReglas.Show vbModal
 End Sub
 
 Sub MenuProductos()

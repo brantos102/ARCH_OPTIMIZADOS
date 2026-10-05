@@ -18,8 +18,9 @@ imprime las etiquetas, sigue el empaque y exporta TMS, TRAMACO y DESPACHOS.
 4. Inserta › Módulo, nómbralo **modZebra** y pega [`modZebra.bas`](modZebra.bas).
 5. Inserta › Módulo, nómbralo **modVentanas** y pega [`modVentanas.bas`](modVentanas.bas) (es el mismo de PEDIDOS HCE).
 6. Inserta › UserForm, nómbralo **frmEGR** y pega [`frmEGR.frm`](frmEGR.frm) en su código.
-7. Inserta otro UserForm, nómbralo **frmEtiquetas** y pega [`frmEtiquetas.frm`](frmEtiquetas.frm): es la vista previa
-   de etiquetas.
+7. Inserta otro UserForm, nómbralo **frmEtiquetas** y pega [`frmEtiquetas.frm`](frmEtiquetas.frm): buscador y vista
+   previa de etiquetas. Inserta un tercero, nómbralo **frmReglas** y pega [`frmReglas.frm`](frmReglas.frm): editor de
+   las reglas de destino.
 8. En **ThisWorkbook** pega [`ThisWorkbook.cls`](ThisWorkbook.cls).
 9. Ejecuta **Depuración › Compilar VBAProject**. Si aparece un error, envía la captura con la línea marcada.
 10. Guarda, cierra y vuelve a abrir. En **Complementos** aparece **Panel EGR (despacho)**.
@@ -99,8 +100,14 @@ Al abrir el panel (Complementos › **Panel EGR (despacho)**) se ven **todos los
 | ETIQUETA | PENDIENTE / IMPRESA / REIMPRIMIR |
 | EMPAQUE | SIN PICKING / PICKING x/y / PICKEADO / EMPACADO n cajas |
 
-Arriba de la lista están el **filtro rápido** (cambios sugeridos, fuera de cobertura TMS, zonas, etiquetas pendientes o
-por reimprimir, sin empacar, destino PRO/GYE/UIO/GPS…) y el **buscador**. Al hacer clic en un pedido, el detalle
+Arriba de la lista hay tres herramientas de búsqueda, que se combinan entre sí:
+
+1. **Filtro rápido**: cambios sugeridos, fuera de cobertura TMS, zonas, etiquetas pendientes o por reimprimir, sin
+   empacar, destino PRO/GYE/UIO/GPS, difiere de PEDIDOS HCE…
+2. **Tres filtros por columna**: se elige la columna (pedido, destinatario, provincia, cantón, parroquia, destino,
+   sugerido, courier, trayecto, zona, etiqueta, empaque o fila) y se escribe el texto. Por ejemplo, GUAYAS + GUAYAQUIL +
+   etiqueta PENDIENTE. **Quitar filtros** los vacía todos.
+3. **Búsqueda libre** sobre todas las columnas. Al hacer clic en un pedido, el detalle
 muestra la dirección, la cobertura TMS, el destino actual, el sugerido **y por qué**, el gestor en cobertura, el gestor
 sugerido, el trayecto, la zona, la etiqueta y el empaque.
 
@@ -154,19 +161,42 @@ Todo queda en el **registro** del panel y en la hoja oculta **LOG_EGR**: fecha, 
 
 ### Operar sin el panel: botones en Complementos
 
-La barra **Despacho EGR HYCITE** (pestaña Complementos) tiene las mismas funciones que el panel, sin abrir formularios:
+La barra **Despacho EGR HYCITE** (pestaña Complementos) tiene **todas** las funciones del panel, sin abrir formularios.
+Están en el orden del día, numeradas:
 
 | Botón | Qué hace |
 |---|---|
 | Panel EGR | Abre el panel (opcional) |
-| **0 Limpiar día** | Borra la validación anterior de DATOS: destinos confirmados (AF:AH), datos de PEDIDOS HCE (AI:AO) y el estado de las etiquetas (ETIQUETAS F, M, N). Pregunta si también borra los pedidos de ayer (C:N). Guarda un respaldo antes |
+| **¿Qué sigue?** | Cuenta el estado de hoy (fuera de cobertura, cambios sugeridos, etiquetas, empaque) y dice cuál es el siguiente paso. Si no sabes por dónde seguir, empieza aquí |
+| **0 Limpiar día** | Borra la validación anterior de DATOS y el estado de las etiquetas. Pregunta si también borra los pedidos de ayer. Guarda un respaldo antes |
 | 1 Revisar cobertura TMS | Lista los pedidos fuera de cobertura, sin código postal o sin teléfono, y va al primero |
-| 2 Aplicar destinos sugeridos | Muestra los cambios (reglas + cobertura) y los confirma todos. Para elegir uno por uno, usa el panel |
-| 3 Imprimir etiquetas pendientes | Imprime las que no se imprimieron o cambiaron de destino, con confirmación. No abre la vista previa |
-| Reimprimir pedido(s) | Pide los números de pedido |
+| 2 Ver cambios sugeridos | Muestra qué pedidos cambian de destino y por qué, sin aplicar nada |
+| 2b Aplicar destinos sugeridos | Confirma todos los cambios de una vez |
+| 2c Asignar destino a un pedido | Pide el número de pedido y el destino nuevo: PRO, GYE, UIO o GPS |
+| 3 Etiquetas: buscar e imprimir | Abre el buscador con filtros por estado, destino y texto |
+| 3b Imprimir pendientes | Imprime directamente las pendientes y las que cambiaron de destino |
+| 3c Reimprimir pedido(s) | Pide los números de pedido |
 | 4 Avance empaque | Resumen de picking y empaque |
 | 5 Exportar reportes | Pide la hoja (1 TRAMACO, 2 TMS, 3 DESPACHOS, 4 las tres) y el formato (1 CSV, 2 XLSX, 3 PDF) |
-| Actualizar datos · Productos · Cajas · Impresora · Reparar fórmulas · Desbloquear | Igual que en el panel |
+| Actualizar datos | Trae ITEMS API, ITEMS DEPOT, EMPAQUETADO y las tablas dinámicas |
+| **Reglas de destino** | Abre el editor de REGLAS_DESTINO |
+| Productos · Cajas | Alta y edición del maestro de productos y de cajas |
+| Impresora | Elige la Zebra |
+| **Ir a hoja** | Lista desplegable con las hojas del día: elige y te lleva, aunque esté oculta |
+| Reparar fórmulas · Desbloquear | Igual que en el panel |
+
+### Editor de reglas de destino
+
+**Reglas de destino**, en el panel o en Complementos, abre una ventana con las reglas en orden de prioridad:
+
+- la lista muestra si está activa, su prioridad, provincia, cantón, destino y motivo;
+- la ficha de la derecha edita cualquier campo, y **Guardar** la escribe en la hoja y la reordena por prioridad;
+- **Nueva regla** y **Eliminar** dan de alta y de baja, con confirmación;
+- la casilla **Activa** desactiva una regla sin borrarla;
+- **Probar con un pedido**: escribes provincia, cantón, parroquia y dirección, y muestra qué regla gana y qué destino
+  propone. Sirve para comprobar una regla antes de dejarla activa.
+
+Cada alta, cambio o baja queda en el registro LOG_EGR.
 
 ### Impresora Zebra compartida ("ZDesigner ZD230-203dpi ZPL en emphycite")
 
@@ -225,13 +255,20 @@ siguiente, un destino viejo nunca se aplica a otro pedido.
 
 ## 4. Etiquetas Zebra ZD230 (203 dpi, 10 × 5 cm)
 
-- Es **una etiqueta por pedido**, igual al modelo: código de barras Code 128 con el pedido y el número debajo; destino
-  grande (GYE / UIO / PRO) arriba a la derecha y la parroquia debajo; nombres y apellidos abajo a la izquierda.
-- Solo hay dos botones: **Imprimir seleccionadas** e **Imprimir todas**. Los dos abren la **vista previa**
-  (frmEtiquetas):
-  - lista de pedidos, marcados para imprimir, que se pueden desmarcar;
-  - dibujo de la etiqueta del pedido elegido;
-  - impresora.
+- Es **una etiqueta por pedido**, con el formato de la muestra impresa:
+  - código de barras Code 128 arriba a la izquierda, con el **número centrado debajo**, sin espacios;
+  - **destino en grande** a la derecha (UIO, GYE, PRO o GPS) y la **parroquia** debajo;
+  - **nombre completo del destinatario** abajo a la izquierda, en una sola línea.
+- El buscador de etiquetas (frmEtiquetas) se abre desde **Imprimir seleccionadas** (con lo que marcaste en el panel),
+  desde **Buscar e imprimir** o desde Complementos. Tiene:
+  - **filtro por estado**: pendientes, por reimprimir, las dos, impresas o todas;
+  - **filtro por destino**: PRO, GYE, UIO, GPS o todos;
+  - **búsqueda** por pedido, destinatario o parroquia;
+  - lista con casilla por etiqueta: **lo que marcas se conserva aunque cambies el filtro**, así puedes juntar, por
+    ejemplo, todas las de GYE más un pedido suelto de PRO;
+  - **Marcar lo filtrado** y **Desmarcar todo**;
+  - vista previa de la etiqueta del pedido seleccionado;
+  - el botón de imprimir dice cuántas van: *Imprimir 23 etiqueta(s)*.
 - La impresora se elige **una vez** y queda guardada; la próxima vez ya aparece seleccionada.
 - **Cierre de Excel al elegir la impresora:** venía del gancho de la rueda del mouse, que seguía activo mientras se
   abría el cuadro de diálogo. Ahora el gancho se quita antes de cualquier acción, y la lista de impresoras se lee de
@@ -245,6 +282,7 @@ siguiente, un destino viejo nunca se aplica a otro pedido.
   Si después cambia el destino, el pedido pasa a **REIMPRIMIR**. ETIQUETAS ZEBRA queda sin uso.
 - **Guardar ZPL (prueba)** crea un archivo `.zpl`. Se puede ver en labelary.com.
 - Si la etiqueta sale corrida, ajusta `ETIQ_OFFSET_X` / `ETIQ_OFFSET_Y` (8 puntos = 1 mm) en la hoja oculta CONFIG_EGR.
+  Si sale clara o muy quemada, sube o baja `ETIQ_OSCURIDAD` (0 a 30; por defecto 12).
 
 ## 5. "Error de automatización" al pulsar ACTUALIZAR (corregido)
 

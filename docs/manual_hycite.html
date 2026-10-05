@@ -252,12 +252,11 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; 
 .label-demo { background: #fff; color: #000; border: 1px solid #c4c4c4; border-radius: 4px; aspect-ratio: 2 / 1; width: 100%; max-width: 330px; padding: 5% 6%; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto 1fr; gap: 2% 4%; font-family: var(--mono); }
 .label-demo .bars { display: flex; gap: 1.5px; align-items: stretch; height: 40px; }
 .label-demo .bars i { display: block; background: #000; }
-.label-demo .num { font-size: 11px; letter-spacing: .2em; grid-column: 1; }
+.label-demo .num { font-size: 13px; letter-spacing: .06em; grid-column: 1; text-align: center; }
 .label-demo .dest { grid-column: 2; grid-row: 1; font-family: var(--display); font-size: 38px; font-weight: 700; line-height: .9; text-align: right; }
 .label-demo .parr { grid-column: 2; grid-row: 2; font-size: 9.5px; text-align: right; }
 .label-demo .who { grid-column: 1 / -1; grid-row: 3; align-self: end; }
-.label-demo .who b { font-family: var(--body); font-size: 14px; display: block; }
-.label-demo .who span { font-size: 10.5px; }
+.label-demo .who b { font-family: var(--body); font-size: 16px; display: block; letter-spacing: .02em; }
 
 .kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: var(--surface-2); }
 .pager { display: flex; justify-content: space-between; gap: 10px; margin-top: 26px; max-width: 1000px; position: sticky; bottom: 10px; background: color-mix(in oklab, var(--surface) 92%, transparent); backdrop-filter: blur(12px); border: 1px solid var(--line); border-radius: 12px; padding: 8px 13px; box-shadow: var(--shadow); }
@@ -518,10 +517,10 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; 
           <h4>Así sale</h4>
           <div class="label-demo">
             <div class="bars" id="barsdemo" aria-hidden="true"></div>
-            <div class="dest">GYE</div>
-            <div class="parr">PASCUALES</div>
-            <div class="num">1 0 1 9 9 3 5 2 3</div>
-            <div class="who"><b>OSCAR IVAN</b><span>PALMA ZUNIGA</span></div>
+            <div class="dest">UIO</div>
+            <div class="parr">CARCELEN</div>
+            <div class="num">102356411</div>
+            <div class="who"><b>INES DONOS</b></div>
           </div>
         </div>
         <div class="card">
@@ -530,7 +529,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; 
             <div><b>Código de barras</b> · el número de pedido, para escanear en bodega</div>
             <div><b>GYE en grande</b> · a qué ruta va la caja</div>
             <div><b>Parroquia</b> · dónde se entrega</div>
-            <div><b>Nombre y apellido</b> · quién recibe</div>
+            <div><b>Nombre del destinatario</b> · quién recibe, en una sola línea</div>
           </div>
           <div class="note" style="margin-top:4px"><b>Control de reimpresión:</b> se guarda con qué destino salió cada etiqueta. Si el destino cambia después, el pedido aparece marcado para reimprimir.</div>
         </div>
@@ -819,8 +818,8 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; 
         '<div style="background:#fff;color:#000;border:1px solid #c4c4c4;border-radius:5px;padding:10px;display:grid;grid-template-columns:1fr auto;gap:4px 8px;font-family:var(--mono);font-size:9px">' +
         '<div style="height:26px;background:repeating-linear-gradient(90deg,#000 0 2px,#fff 2px 4px,#000 4px 5px,#fff 5px 9px)"></div>' +
         '<div style="font-family:var(--display);font-size:26px;font-weight:700;text-align:right;line-height:.9">PRO</div>' +
-        '<div style="letter-spacing:.18em">1 0 2 3 5 4 5 0 2</div><div style="text-align:right">YANTZAZA</div>' +
-        '<div style="grid-column:1/-1"><b style="font-family:var(--body);font-size:12px">OLIVIA</b><br>SUQUILANDA</div></div>' +
+        '<div style="text-align:center">102354502</div><div style="text-align:right">YANTZAZA</div>' +
+        '<div style="grid-column:1/-1"><b style="font-family:var(--body);font-size:12px">OLIVIA SUQUILANDA</b></div></div>' +
         '<div class="sfield"><span>Impresora</span><b>ZDesigner ZD230-203dpi ZPL</b></div>' +
         '<div style="display:flex;gap:6px"><span class="sbtn g">Imprimir 3 etiqueta(s)</span><span class="sbtn ghost">Guardar ZPL</span></div>' +
         "</div></div></div>";

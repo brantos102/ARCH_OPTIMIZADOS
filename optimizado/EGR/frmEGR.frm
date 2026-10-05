@@ -22,6 +22,13 @@ Private hdr(1 To 14) As MSForms.Label, txtLog As MSForms.TextBox
 Private WithEvents lst As MSForms.ListBox
 Private WithEvents cboFiltro As MSForms.ComboBox
 Private WithEvents txtBuscar As MSForms.TextBox
+Private WithEvents cboC1 As MSForms.ComboBox
+Private WithEvents cboC2 As MSForms.ComboBox
+Private WithEvents cboC3 As MSForms.ComboBox
+Private WithEvents txtF1 As MSForms.TextBox
+Private WithEvents txtF2 As MSForms.TextBox
+Private WithEvents txtF3 As MSForms.TextBox
+Private WithEvents bLimpF As MSForms.CommandButton
 Private WithEvents bLista As MSForms.CommandButton
 Private WithEvents bCob As MSForms.CommandButton
 Private WithEvents bCamb As MSForms.CommandButton
@@ -41,6 +48,7 @@ Private WithEvents bAct As MSForms.CommandButton
 Private WithEvents bRep As MSForms.CommandButton
 Private cboIrHoja As MSForms.ComboBox
 Private WithEvents bIrHoja As MSForms.CommandButton
+Private WithEvents bRegl As MSForms.CommandButton
 Private WithEvents bProd As MSForms.CommandButton
 Private WithEvents bCaja As MSForms.CommandButton
 Private WithEvents bVCob As MSForms.CommandButton
@@ -74,8 +82,8 @@ Private Sub UserForm_Initialize()
   Set bQuitar = NB("Quitar confirmación (selecc.)", 8, 155, 190, 22, RGB(120, 120, 120), "Los pedidos seleccionados vuelven a la regla base por provincia.")
 
   Set t = NL("2  ETIQUETAS (Zebra 10 x 5 cm)", 8, 186, 190, True): t.ForeColor = RGB(0, 128, 96)
-  Set bEtqSel = NB("Imprimir seleccionadas", 8, 202, 93, 28, RGB(0, 128, 96), "Vista previa e impresión de las etiquetas de los pedidos seleccionados en la lista (usa el filtro para elegirlos).")
-  Set bEtqTod = NB("Imprimir todas", 105, 202, 93, 28, RGB(0, 150, 110), "Vista previa e impresión de todas las etiquetas del día (pedidos con destino).")
+  Set bEtqSel = NB("Imprimir seleccionadas", 8, 202, 93, 28, RGB(0, 128, 96), "Abre el buscador de etiquetas con los pedidos que marcaste en la lista.")
+  Set bEtqTod = NB("Buscar e imprimir", 105, 202, 93, 28, RGB(0, 150, 110), "Abre el buscador de etiquetas con sus propios filtros: estado, destino y búsqueda.")
 
   Set t = NL("3  SEGUIMIENTO", 8, 238, 190, True): t.ForeColor = RGB(112, 48, 160)
   Set bVPed = NB("Pedidos", 8, 254, 60, 24, RGB(89, 89, 89), "Vista principal: todos los pedidos con destino, cobertura y señales.")
@@ -107,14 +115,15 @@ Private Sub UserForm_Initialize()
   Next
   cboIrHoja.ListIndex = 0
   Set bIrHoja = NB("Ir a hoja", 140, 459, 58, 20, RGB(0, 97, 0), "Oculta el panel y abre la hoja elegida (la muestra si estaba oculta).")
-  Set bProd = NB("Productos (códigos)", 8, 484, 93, 22, RGB(112, 48, 160), "Agregar o editar productos en DATA CODIGO Y CAJAS (peso, medidas, precio). Formulario de datos de Excel: Nuevo, Buscar, Eliminar.")
-  Set bCaja = NB("Cajas", 105, 484, 93, 22, RGB(112, 48, 160), "Agregar o editar tipos de caja (medidas, peso, volumen) en DATA CODIGO Y CAJAS.")
-  Set bIr = NB("Ir a la fila", 8, 509, 93, 22, RGB(120, 120, 120), "Oculta el panel y selecciona el pedido en DATOS.")
-  Set bDesb = NB("Desbloquear", 105, 509, 93, 22, RGB(120, 120, 120), "Restaura pantalla, eventos y cálculo si Excel quedó bloqueado.")
-  Set bExcel = NB("Ver Excel", 8, 534, 93, 22, RGB(0, 97, 0), "Oculta el panel. Para volver: Complementos > Panel EGR.")
-  Set bCer = NB("Cerrar panel", 105, 534, 93, 22, RGB(192, 80, 77), "Cierra el panel.")
-  Set lblGuia = NL("", 8, 562, 190)
-  lblGuia.Height = 124: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204): lblGuia.BorderStyle = fmBorderStyleSingle: lblGuia.ForeColor = RGB(128, 64, 0)
+  Set bRegl = NB("Reglas de destino", 8, 484, 93, 22, RGB(237, 125, 49), "Agrega, cambia o desactiva las reglas que proponen PRO, GYE, UIO o GPS, y pruébalas con un pedido.")
+  Set bProd = NB("Productos (códigos)", 105, 484, 93, 22, RGB(112, 48, 160), "Agregar o editar productos en DATA CODIGO Y CAJAS (peso, medidas, precio). Formulario de datos de Excel: Nuevo, Buscar, Eliminar.")
+  Set bCaja = NB("Cajas", 8, 509, 93, 22, RGB(112, 48, 160), "Agregar o editar tipos de caja (medidas, peso, volumen) en DATA CODIGO Y CAJAS.")
+  Set bIr = NB("Ir a la fila", 105, 509, 93, 22, RGB(120, 120, 120), "Oculta el panel y selecciona el pedido en DATOS.")
+  Set bDesb = NB("Desbloquear", 8, 534, 93, 22, RGB(120, 120, 120), "Restaura pantalla, eventos y cálculo si Excel quedó bloqueado.")
+  Set bExcel = NB("Ver Excel", 105, 534, 93, 22, RGB(0, 97, 0), "Oculta el panel. Para volver: Complementos > Panel EGR.")
+  Set bCer = NB("Cerrar panel", 8, 559, 190, 22, RGB(192, 80, 77), "Cierra el panel.")
+  Set lblGuia = NL("", 8, 586, 190)
+  lblGuia.Height = 100: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204): lblGuia.BorderStyle = fmBorderStyleSingle: lblGuia.ForeColor = RGB(128, 64, 0)
   Set mPasoBtn(1) = bCob: Set mPasoBtn(2) = bCamb: Set mPasoBtn(3) = bEtqSel: Set mPasoBtn(4) = bVEmp: Set mPasoBtn(5) = bExp
   For i = 1 To 5: mPasoCap(i) = mPasoBtn(i).Caption: mPasoCol(i) = mPasoBtn(i).BackColor: Next
 
@@ -132,15 +141,37 @@ Private Sub UserForm_Initialize()
   txtBuscar.Left = X0 + 674: txtBuscar.Top = 4: txtBuscar.Width = 200: txtBuscar.Height = 18
   txtBuscar.ControlTipText = "Busca en todas las columnas (pedido, nombre, parroquia, courier...)."
   Set bLista = NB("Actualizar lista", X0 + 884, 3, 116, 20, RGB(120, 120, 120), "Vuelve a leer DATOS (después de editar en Excel o de actualizar datos).")
-  Set t = NL("SEÑAL:  X fuera cobertura TMS   !! zona peligrosa   > cambio sugerido   @ reimprimir etiqueta   ! verificar sector   * destino confirmado   OK sin observación", X0, 27, ANCHO)
+  ' ----- filtros por columna (se combinan entre sí y con el filtro rápido) -----
+  NL "Columna 1:", X0, 29, 52
+  Set cboC1 = Me.Controls.Add("Forms.ComboBox.1")
+  cboC1.Left = X0 + 54: cboC1.Top = 25: cboC1.Width = 112: cboC1.Height = 18: cboC1.Style = fmStyleDropDownList: cboC1.ListRows = 14
+  Set txtF1 = Me.Controls.Add("Forms.TextBox.1")
+  txtF1.Left = X0 + 168: txtF1.Top = 25: txtF1.Width = 108: txtF1.Height = 18
+  NL "2:", X0 + 284, 29, 12
+  Set cboC2 = Me.Controls.Add("Forms.ComboBox.1")
+  cboC2.Left = X0 + 298: cboC2.Top = 25: cboC2.Width = 112: cboC2.Height = 18: cboC2.Style = fmStyleDropDownList: cboC2.ListRows = 14
+  Set txtF2 = Me.Controls.Add("Forms.TextBox.1")
+  txtF2.Left = X0 + 412: txtF2.Top = 25: txtF2.Width = 108: txtF2.Height = 18
+  NL "3:", X0 + 528, 29, 12
+  Set cboC3 = Me.Controls.Add("Forms.ComboBox.1")
+  cboC3.Left = X0 + 542: cboC3.Top = 25: cboC3.Width = 112: cboC3.Height = 18: cboC3.Style = fmStyleDropDownList: cboC3.ListRows = 14
+  Set txtF3 = Me.Controls.Add("Forms.TextBox.1")
+  txtF3.Left = X0 + 656: txtF3.Top = 25: txtF3.Width = 108: txtF3.Height = 18
+  Set bLimpF = NB("Quitar filtros", X0 + 772, 24, 86, 20, RGB(120, 120, 120), "Deja el filtro rápido en TODOS y vacía los filtros por columna y la búsqueda.")
+  For Each f In Array("(ninguno)", "PEDIDO", "DESTINATARIO", "PROVINCIA", "CANTÓN", "PARROQUIA", "DESTINO", "SUGERIDO", "COURIER", "TRAYECTO", "ZONA", "ETIQUETA", "EMPAQUE", "FILA")
+    cboC1.AddItem f: cboC2.AddItem f: cboC3.AddItem f
+  Next
+  cboC1.ListIndex = 0: cboC2.ListIndex = 0: cboC3.ListIndex = 0
+  cboC1.ControlTipText = "Elige la columna y escribe al lado. Los tres filtros se aplican a la vez."
+  Set t = NL("SEÑAL:  X fuera cobertura TMS   !! zona peligrosa   > cambio sugerido   @ reimprimir etiqueta   ! verificar sector   * destino confirmado   OK sin observación", X0, 49, ANCHO)
   t.ForeColor = RGB(90, 90, 90)
-  Set lblKpi = NL("", X0, 42, ANCHO, True): lblKpi.ForeColor = RGB(48, 84, 150)
+  Set lblKpi = NL("", X0, 64, ANCHO, True): lblKpi.ForeColor = RGB(48, 84, 150)
   For i = 1 To 14
-    Set hdr(i) = NL("", X0, 58, 10, True)
+    Set hdr(i) = NL("", X0, 80, 10, True)
     hdr(i).BackColor = RGB(48, 84, 150): hdr(i).ForeColor = vbWhite: hdr(i).Font.Size = 8: hdr(i).Visible = False
   Next
   Set lst = Me.Controls.Add("Forms.ListBox.1")
-  lst.Left = X0: lst.Top = 72: lst.Width = ANCHO: lst.Height = 380: lst.Font.Size = 8
+  lst.Left = X0: lst.Top = 94: lst.Width = ANCHO: lst.Height = 358: lst.Font.Size = 8
   lst.MultiSelect = fmMultiSelectExtended
   lst.ControlTipText = "Clic = detalle. Ctrl/Shift + clic = varios. Doble clic = ir a la fila en DATOS."
   Set t = NL("DETALLE DEL PEDIDO", X0, 458, 590, True): t.ForeColor = RGB(48, 84, 150)
@@ -377,7 +408,7 @@ End Function
 
 ' Si se detuvo una macro o se editó el código con el panel abierto, VBA borra sus variables: se avisa y se cierra
 Private Function ControlesOK() As Boolean
-  ControlesOK = Not (lblKpi Is Nothing Or lst Is Nothing Or cboFiltro Is Nothing Or txtBuscar Is Nothing)
+  ControlesOK = Not (lblKpi Is Nothing Or lst Is Nothing Or cboFiltro Is Nothing Or txtBuscar Is Nothing Or cboC1 Is Nothing)
   If Not ControlesOK Then
     MsgBox "El panel perdió su estado (se detuvo una macro o se editó el código con el panel abierto)." & vbCrLf & _
            "Se cerrará: vuelve a abrirlo desde Complementos > Panel EGR.", vbExclamation
@@ -385,15 +416,43 @@ Private Function ControlesOK() As Boolean
   End If
 End Function
 
+' Columna de mData que corresponde a cada nombre del desplegable
+Private Function ColFiltro(ByVal nombre As String) As Long
+  Select Case nombre
+    Case "PEDIDO": ColFiltro = 3
+    Case "DESTINATARIO": ColFiltro = 4
+    Case "PROVINCIA": ColFiltro = 5
+    Case "CANTÓN": ColFiltro = 6
+    Case "PARROQUIA": ColFiltro = 7
+    Case "DESTINO": ColFiltro = 8
+    Case "SUGERIDO": ColFiltro = 9
+    Case "COURIER": ColFiltro = 10
+    Case "TRAYECTO": ColFiltro = 11
+    Case "ZONA": ColFiltro = 12
+    Case "ETIQUETA": ColFiltro = 13
+    Case "EMPAQUE": ColFiltro = 14
+    Case "FILA": ColFiltro = 2
+  End Select
+End Function
+
+Private Function PasaCol(ByVal r As Long, ByVal col As Long, ByVal txt As String) As Boolean
+  If col = 0 Or Len(txt) = 0 Then PasaCol = True: Exit Function
+  PasaCol = (InStr(1, CStr(mData(r, col) & ""), txt, vbTextCompare) > 0)
+End Function
+
 Private Sub Filtrar()
   Dim r As Long, j As Long, q As String, s As String, cols, arr(), k As Long, nc As Long
+  Dim c1 As Long, c2 As Long, c3 As Long, t1 As String, t2 As String, t3 As String
   Dim nFue As Long, nZon As Long, nCam As Long, nRei As Long, nEmp As Long, nPen As Long, nPro As Long, nGye As Long, nUio As Long, nGps As Long
   If Not mListo Then Exit Sub
   If Not ControlesOK() Then Exit Sub
   q = UCase$(Trim$(txtBuscar.Text))
+  c1 = ColFiltro(cboC1.Text): t1 = Trim$(txtF1.Text)
+  c2 = ColFiltro(cboC2.Text): t2 = Trim$(txtF2.Text)
+  c3 = ColFiltro(cboC3.Text): t3 = Trim$(txtF3.Text)
   ReDim mIdx(1 To IIf(mN > 0, mN, 1)): mNIdx = 0
   For r = 1 To mN
-    If Pasa(r) Then
+    If Pasa(r) And PasaCol(r, c1, t1) And PasaCol(r, c2, t2) And PasaCol(r, c3, t3) Then
       If Len(q) > 0 Then
         s = ""
         For j = 1 To NF: s = s & " " & UCase$(CStr(mData(r, j) & "")): Next
@@ -566,6 +625,32 @@ End Sub
 Private Sub txtBuscar_Change()
   Filtrar
 End Sub
+Private Sub cboC1_Change()
+  Filtrar
+End Sub
+Private Sub cboC2_Change()
+  Filtrar
+End Sub
+Private Sub cboC3_Change()
+  Filtrar
+End Sub
+Private Sub txtF1_Change()
+  Filtrar
+End Sub
+Private Sub txtF2_Change()
+  Filtrar
+End Sub
+Private Sub txtF3_Change()
+  Filtrar
+End Sub
+Private Sub bLimpF_Click()
+  mListo = False
+  cboFiltro.Text = "TODOS"
+  cboC1.ListIndex = 0: cboC2.ListIndex = 0: cboC3.ListIndex = 0
+  txtF1.Text = "": txtF2.Text = "": txtF3.Text = "": txtBuscar.Text = ""
+  mListo = True
+  Filtrar
+End Sub
 Private Sub bLista_Click()
   If Not Listo() Then Exit Sub
   Recargar
@@ -689,10 +774,8 @@ End Sub
 
 Private Sub bEtqTod_Click()
   If Not Listo() Then Exit Sub
-  If Not EnPedidos() Then Exit Sub
-  Dim f As New Collection, r As Long
-  For r = 1 To mN: f.Add mData(r, 2): Next
-  AbrirEtiquetas f
+  Dim f As New Collection
+  AbrirEtiquetas f          ' sin preselección: el buscador de etiquetas abre con sus propios filtros
 End Sub
 
 Private Sub AbrirEtiquetas(filas As Collection)
@@ -737,6 +820,13 @@ Private Sub bIrHoja_Click()
   ws.Visible = xlSheetVisible
   ws.Activate
   LogE "PANEL: ir a la hoja " & ws.Name
+End Sub
+
+Private Sub bRegl_Click()
+  If Not Listo() Then Exit Sub
+  CrearHojaReglas
+  frmReglas.Show vbModal
+  Recargar
 End Sub
 
 Private Sub bProd_Click()

@@ -53,25 +53,23 @@ End Sub
 
 ' ZPL de una etiqueta 10 x 5 cm a 203 dpi (800 x 400 puntos)
 Public Function ZplEtiqueta(ByVal pedido As String, ByVal destinatario As String, ByVal destino As String, ByVal parroquia As String) As String
-  Dim nom As String, ape As String, ox As Long, oy As Long, z As String
-  PartirNombre destinatario, nom, ape
+  ' Diseño (800 x 400 puntos = 10 x 5 cm a 203 ppp):
+  '   código de barras arriba a la izquierda, con el número centrado debajo
+  '   destino en grande a la derecha y la parroquia debajo
+  '   nombre completo del destinatario abajo a la izquierda, en una sola línea
+  Dim ox As Long, oy As Long, osc As Long, z As String, nom As String
+  nom = Limpio(destinatario)
   pedido = Limpio(pedido): destino = Limpio(destino): parroquia = Limpio(parroquia)
   ox = Val(Cfg("ETIQ_OFFSET_X", "0")): oy = Val(Cfg("ETIQ_OFFSET_Y", "0"))
-  z = "^XA^CI0^PW800^LL400^LH" & ox & "," & oy & "^MD10"
-  z = z & "^FO40,40^BY3,3,100^BCN,100,N,N,N,A^FD" & pedido & "^FS"                 ' código de barras
-  z = z & "^FO40,148^A0N,36,30^FD" & EspaciarDigitos(pedido) & "^FS"              ' número legible
-  z = z & "^FO520,40^A0N,110,80^FB260,1,0,C^FD" & destino & "^FS"                   ' GYE / UIO / PRO
-  z = z & "^FO420,160^A0N,36,30^FB360,2,4,C^FD" & parroquia & "^FS"                 ' parroquia
-  z = z & "^FO40,250^A0N,50,42^FB740,1,0,L^FD" & nom & "^FS"                        ' nombres
-  z = z & "^FO40,315^A0N,34,30^FB740,1,0,L^FD" & ape & "^FS"                        ' apellidos
+  osc = Val(Cfg("ETIQ_OSCURIDAD", "12")): If osc < 0 Or osc > 30 Then osc = 12
+  z = "^XA^CI0^PW800^LL400^LH" & ox & "," & oy & "^MD" & osc & "^PR3"
+  z = z & "^FO140,26^BY4,2.5,112^BCN,112,N,N,N^FD" & pedido & "^FS"            ' barras
+  z = z & "^FO140,150^A0N,46,40^FB400,1,0,C^FD" & pedido & "^FS"               ' número centrado bajo las barras
+  z = z & "^FO380,186^A0N,96,86^FB390,1,0,R^FD" & destino & "^FS"              ' UIO / GYE / PRO / GPS
+  z = z & "^FO330,288^A0N,38,34^FB440,1,0,R^FD" & parroquia & "^FS"            ' parroquia
+  z = z & "^FO34,224^A0N,54,46^FB330,2,6,L^FD" & nom & "^FS"                   ' destinatario
   z = z & "^PQ1^XZ"
   ZplEtiqueta = z
-End Function
-
-Private Function EspaciarDigitos(ByVal s As String) As String
-  Dim i As Long, o As String
-  For i = 1 To Len(s): o = o & Mid$(s, i, 1) & IIf(i < Len(s), " ", ""): Next
-  EspaciarDigitos = o
 End Function
 
 ' ---------- envío RAW a la impresora ----------
