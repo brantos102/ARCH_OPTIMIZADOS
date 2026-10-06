@@ -87,23 +87,33 @@ Al terminar deja la impresora activa como estaba.
 4. Si al imprimir aparecen etiquetas en blanco intercaladas, es paginación: use la vista
    previa del paso 4 y revise con `EtiquetasDiagnostico` la escala medida.
 
-## 5. Cómo se calcula la escala de impresión
+## 5. Cómo se calcula la escala de impresión  (10 x 5 cm en cualquier impresora)
 
 La hoja `ETQ` imprime con "ajustar a 1 página": Excel calcula solo el porcentaje con el que
 las columnas `A:J` y las 17 filas entran en la etiqueta de 100 x 50 mm. Ese ajuste **no se
 puede trasladar tal cual** a una hoja con muchas etiquetas, porque se aplicaría al lote
 completo en vez de a cada etiqueta.
 
-Por eso el módulo **mide** la escala antes de imprimir: prueba porcentajes por búsqueda
-binaria (10 % a 100 %) y, en cada uno, consulta a Excel dónde corta la página con la
-impresora real. Se queda con el mayor porcentaje que cumple las dos condiciones de una
-etiqueta:
+Y además la etiqueta mide siempre 10 x 5 cm, use la Zebra u otra impresora. Por eso la
+escala se **calcula** para que el bloque `A1:J17` ocupe exactamente ese tamaño:
 
-- las columnas `A:J` entran a lo ancho (`VPageBreaks.Count = 0`);
-- las 17 filas entran a lo alto (el primer corte horizontal cae en la fila 18 o más abajo).
+```
+escala = el menor de    ancho etiqueta / ancho del bloque
+                        alto  etiqueta / alto  del bloque
+```
 
-El porcentaje elegido se informa al terminar el lote y en `EtiquetasDiagnostico`. Si la
-medición no fuera posible en el equipo, el módulo avisa y pasa a **modo compatible**:
-imprime etiqueta por etiqueta con el mismo "ajustar a 1 página" de `ETQ`, lo que da el
-resultado correcto aunque más lento. Con `ESCALA_FIJA` se puede forzar un porcentaje
-concreto y saltarse la medición.
+`Range.Width` y `Range.Height` devuelven puntos, así que el cálculo es exacto y no depende
+del driver. Con la plantilla actual:
+
+| | |
+|---|---|
+| Bloque `A1:J17` | 904,5 x 524,2 pt |
+| Etiqueta 10 x 5 cm | 283,5 x 141,7 pt |
+| Escala | **27 %** (limita el alto: 524,2 x 0,27 = 49,9 mm) |
+
+Aparte se **mide el área imprimible real**: al 100 % se mira dónde corta Excel la página y
+se suman los anchos de columna y los altos de fila que entraron. Si el papel configurado en
+el driver es más chico que la etiqueta, el módulo avisa antes de imprimir en vez de sacar
+etiquetas cortadas. El dato aparece en `EtiquetasDiagnostico`.
+
+Con `ESCALA_FIJA` se puede forzar un porcentaje concreto y saltarse el cálculo.

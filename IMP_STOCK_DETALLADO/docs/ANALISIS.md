@@ -70,6 +70,16 @@ Datos medidos en el archivo entregado:
    (una etiqueta por trabajo, con el ajuste de `ETQ`), que es lento pero correcto.
    Además se compara `PageSetup.Pages.Count` con el número de etiquetas del lote y se avisa
    en pantalla si no coinciden, en vez de gastar etiquetas.
-6. **La plantilla `ETQ` no se modifica** durante el proceso (sólo, al final y de forma
+6. **Sin vista previa**: la ventana de vista previa de Excel tiene su propio botón
+   *Imprimir*. Si el operador lo usaba, se imprimía el lote desde ahí y otra vez al
+   responder "Sí" a la macro: el lote salía duplicado. Ahora el asistente pregunta una
+   sola cosa (las copias) e imprime; para verificar se imprime una fila sola.
+7. **Que Excel no se cuelgue**: la hoja temporal se crea con `DisplayPageBreaks = False`.
+   Sin eso Excel vuelve a paginar las 1.700 filas del lote en **cada** escritura de celda
+   (1.200 escrituras por lote de 100), que era la causa del cuelgue. Además los formatos
+   de texto se aplican una vez al primer bloque antes de replicarlo, se replica por
+   duplicación, y hay `DoEvents` durante el armado y entre trabajos. `Esc` cancela limpio
+   (`EnableCancelKey = xlErrorHandler`).
+8. **La plantilla `ETQ` no se modifica** durante el proceso (sólo, al final y de forma
    opcional, se le carga la primera etiqueta del lote para mantener la costumbre anterior).
    La hoja `ETQ_LOTE` se elimina al terminar, incluso si hay un error.

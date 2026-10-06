@@ -2,106 +2,23 @@ Attribute VB_Name = "Módulo1"
 Option Explicit
 
 '==============================================================================================
-' Módulo1  -  Entradas de impresión de etiquetas
+' Módulo1
 '----------------------------------------------------------------------------------------------
-' VistaPreviaEImpresion ........... mismo nombre y mismo atajo de siempre. Ahora llama al
-'                                   motor de lotes (modEtiquetas): respeta el filtro de
-'                                   "Consolidado", permite elegir copias por etiqueta y envía
-'                                   lotes de 100 etiquetas en un solo trabajo de impresión.
-' VistaPreviaEImpresion_Clasica ... lógica original (una etiqueta por trabajo de impresión),
-'                                   conservada como respaldo y ya corregida:
-'                                     - omite las filas ocultas por el autofiltro
-'                                     - imprime también la primera etiqueta (antes se perdía)
-'                                     - contador Long (antes Integer, fallaba sobre 32767)
-' ValidarDato ..................... corregida: ya no falla cuando la celda tiene un error
-'                                   (#N/A, #REF!, ...). VBA evalúa los dos lados de "Or",
-'                                   por lo que la comparación valor = "" rompía la función.
+' La impresión de etiquetas vive ahora en el módulo "modEtiquetas", con UNA sola entrada:
+'
+'       ImprimirEtiquetas        <- asignarle aquí la combinación de teclas
+'                                   (Vista > Macros > Opciones...)
+'       EtiquetasDiagnostico     <- herramienta de verificación, no imprime
+'
+' La antigua VistaPreviaEImpresion se eliminó a propósito: imprimía una etiqueta por trabajo
+' de impresión (saturaba la cola de la Zebra), no respetaba el filtro de "Consolidado" y
+' perdía la primera etiqueta en la vista previa. El código original queda guardado en
+' src/_original/ del repositorio por si hiciera falta consultarlo.
+'
+' Aquí sólo queda ValidarDato, por si alguna fórmula de alguna hoja la usa.
+' Corregida: VBA evalúa los dos lados de "Or", así que el "IsError(valor) Or valor = """""
+' original lanzaba error 13 en cuanto la celda tenía #N/A o #REF!.
 '==============================================================================================
-
-Sub VistaPreviaEImpresion()
-Attribute VistaPreviaEImpresion.VB_ProcData.VB_Invoke_Func = "P\n14"
-    ImprimirEtiquetasZebra
-End Sub
-
-
-Sub VistaPreviaEImpresion_Clasica()
-
-    Dim wsETQ As Worksheet, hojaOrigen As Worksheet
-    Dim celda As Range
-    Dim filaSeleccionada As Long
-    Dim filasProcesadas As Long
-    Dim valorA6 As String, valorA15 As String
-    Dim respuesta As VbMsgBoxResult
-
-    If TypeName(Selection) <> "Range" Then
-        MsgBox "Por favor, seleccione una o más filas en la hoja correspondiente.", vbExclamation
-        Exit Sub
-    End If
-
-    Set wsETQ = ThisWorkbook.Sheets("ETQ")
-
-    Select Case Selection.Worksheet.Name
-        Case "Consolidado"
-            Set hojaOrigen = ThisWorkbook.Sheets("Consolidado")
-        Case "IMPRIMIR"
-            Set hojaOrigen = ThisWorkbook.Sheets("IMPRIMIR")
-        Case Else
-            MsgBox "Debe seleccionar filas en 'Consolidado' o 'IMPRIMIR'.", vbExclamation
-            Exit Sub
-    End Select
-
-    For Each celda In Selection.Rows
-
-        filaSeleccionada = celda.Row
-
-        ' fila de encabezados y filas ocultas por el filtro: no generan etiqueta
-        If filaSeleccionada > 1 Then
-            If Not hojaOrigen.Rows(filaSeleccionada).Hidden Then
-
-                wsETQ.Range("A2").Value = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 2).Value)
-
-                valorA6 = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 3).Value)
-                If valorA6 <> "" Then valorA6 = "*" & UCase$(valorA6) & "*"
-                wsETQ.Range("A6").Value = valorA6
-
-                wsETQ.Range("A9").Value = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 3).Value)
-                wsETQ.Range("A11").Value = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 4).Value)
-                wsETQ.Range("H10").Value = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 13).Value)
-                wsETQ.Range("I10").Value = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 12).Value)
-                wsETQ.Range("H3").Value = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 9).Value)
-                wsETQ.Range("A17").Value = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 5).Value)
-                wsETQ.Range("J10").Value = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 10).Value)
-
-                valorA15 = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 5).Value)
-                If valorA15 <> "" Then valorA15 = "*" & UCase$(valorA15) & "*"
-                wsETQ.Range("A15").Value = valorA15
-
-                wsETQ.Range("H14").Value = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 8).Value)
-                wsETQ.Range("H5").Value = ValidarDato(hojaOrigen.Cells(filaSeleccionada, 7).Value)
-
-                filasProcesadas = filasProcesadas + 1
-
-                If filasProcesadas = 1 Then
-                    wsETQ.PrintPreview
-                    respuesta = MsgBox("¿Desea continuar con la impresión de las etiquetas?", _
-                                       vbYesNo + vbQuestion, "Confirmar impresión")
-                    If respuesta = vbNo Then Exit Sub
-                End If
-
-                wsETQ.PrintOut
-
-            End If
-        End If
-    Next celda
-
-    If filasProcesadas = 0 Then
-        MsgBox "No había filas visibles seleccionadas para imprimir.", vbExclamation, "Impresión"
-    Else
-        MsgBox "Se enviaron " & filasProcesadas & " etiquetas a imprimir.", _
-               vbInformation, "Impresión completada"
-    End If
-End Sub
-
 
 Function ValidarDato(valor)
 

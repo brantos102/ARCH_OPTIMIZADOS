@@ -1,4 +1,12 @@
-Attribute VB_Name = "modEtiquetas"
+' ===========================================================================================
+'  VERSION PARA PEGAR en el editor de VBA (sin lineas Attribute)
+'
+'  Las lineas 'Attribute' solo son validas dentro de un .bas IMPORTADO: pegadas en el
+'  editor producen el error 'Atributo no valido en Sub o Function'.
+'  Al pegar, la combinacion de teclas se asigna a mano en:
+'     Vista > Macros > ImprimirEtiquetas > Opciones...
+' ===========================================================================================
+
 Option Explicit
 
 '==============================================================================================
@@ -98,7 +106,6 @@ Private mNumAvisos       As Long
 ' ENTRADA ÚNICA
 '==============================================================================================
 Public Sub ImprimirEtiquetas()
-Attribute ImprimirEtiquetas.VB_ProcData.VB_Invoke_Func = "P\n14"
 
     Dim wsOrigen As Worksheet, wsPlantilla As Worksheet, wsLote As Worksheet
     Dim campos() As tCampo
