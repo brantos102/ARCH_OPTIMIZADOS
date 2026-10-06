@@ -19,6 +19,7 @@ Public Const HREG As String = "REGLAS_DESTINO"
 Public Const HCFG As String = "CONFIG_EGR"
 Public Const HLOGE As String = "LOG_EGR"
 Public Const HTRZ As String = "TRAZABILIDAD"
+Public Const HHIS As String = "HISTORICO_EMPAQUE"
 Public Const MAXF As Long = 500           ' última fila de fórmulas de DATOS
 
 ' columnas de DATOS
@@ -130,6 +131,7 @@ Private Function HojaCfg() As Worksheet
     ws.Range("A6:C6").Value = Array("ETIQ_OFFSET_X", "0", "Corrimiento horizontal de la etiqueta en puntos (8 = 1 mm)")
     ws.Range("A7:C7").Value = Array("ETIQ_OFFSET_Y", "0", "Corrimiento vertical de la etiqueta en puntos (8 = 1 mm)")
     ws.Range("A8:C8").Value = Array("ETIQ_OSCURIDAD", "12", "Oscuridad de la Zebra, 0 a 30. Súbela si la etiqueta sale clara")
+    ws.Range("A9:C9").Value = Array("RESPALDO_DIARIO", "SI", "SI = al exportar reportes guarda EGR_DIA_aaaa-mm-dd.xlsb en RESPALDOS_EGR")
     ws.Columns("A:C").AutoFit
     ws.Visible = xlSheetHidden
   End If
@@ -220,6 +222,9 @@ Sub ActualizarTodo()
   End If
   gOcupadoE = True
   Respaldo "antes_actualizar"
+  ' Antes de refrescar, lo que está en EMPAQUETADO es todavía el día anterior: se guarda
+  ' en el histórico, porque el refresco lo reemplaza por el de hoy y se perdería.
+  HistoricoAuto
   LogE "ACTUALIZAR: inicio"
   t0 = Timer
   ' 1) EMPAQUETADO: se comprueba ANTES Google Sheets. Refrescar la consulta con la hoja vacía o sin
@@ -285,6 +290,7 @@ Sub ActualizarTodo()
   Err.Clear
   On Error GoTo 0
   Application.Calculate
+  HistoricoAuto                       ' y ahora se guarda el día de hoy, ya con sus fórmulas
   Liberar
   gOcupadoE = False
   LogE "ACTUALIZAR: terminado en " & Format(Timer - t0, "0.0") & " s. Correctos " & nOk & ", con aviso/error " & nErr, IIf(nErr > 0, "AVISO", "INFO")
@@ -405,6 +411,11 @@ End Sub
 '  CAJA y VOL. CAJA salían vacías y PORCENTAJE daba #¡DIV/0!.
 '  Estas fórmulas se vuelven a escribir después de cada actualización.
 ' =====================================================================================
+' OJO con BULTOS (columna G): va 1 POR CONTENEDORA, nunca el total del pedido.
+' La tabla dinámica "Suma de BULTOS" suma esta columna; si cada fila trajera el total
+' del pedido, un pedido de 2 cajas saldría con 4 bultos (2 filas x 2). El total del
+' pedido se obtiene sumando: lo hace la dinámica, y DATOS!R lo cuenta aparte con
+' COUNTIF sobre las contenedoras, sin depender de esta columna.
 Public Function NombresEmpaquetado() As Variant
   NombresEmpaquetado = Array("NRO. DE CONTENEDORA", "BULTOS", "PESO CAJA", "VOL. CAJA", "VOL. ITEMS", "PORCENTAJE")
 End Function
@@ -412,7 +423,7 @@ End Function
 Public Function FormulasEmpaquetado() As Variant
   FormulasEmpaquetado = Array( _
     "=IF($C2="""","""",IF($E2<>"""",$E2,XLOOKUP(TEXT($C2,""@""),Estado[DOC_EXT],Estado[NRO_CONTENEDORA_EMPAQUE],IF(COUNTIF(ITEMS_API[DOC_EXT],TEXT($C2,""@""))>0,""validar"",""sin pedido""),0)))", _
-    "=IF($C2="""","""",COUNTIF(EMPAQUETADO!$C:$C,$C2))", _
+    "=IF($C2="""","""",1)", _
     "=IF($C2="""","""",IFERROR(VLOOKUP($D2,DATA_CAJAS,5,FALSE)+0.1,""Verificar""))", _
     "=IF($C2="""","""",IFERROR(VLOOKUP($D2,DATA_CAJAS,6,FALSE),""Verificar""))", _
     "=IF($C2="""","""",IF($F2="""",""Verificar"",IF(SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N)>0,SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N),""Verificar"")))", _
@@ -1355,6 +1366,9 @@ Public Sub ExportarReportes(ByVal formato As String, ByVal hojas As Variant, ByV
     If Len(f) > 0 Then rutas.Add f
   Next
   If rutas.Count = 0 Then Exit Sub
+  ' terminado el proceso de archivos: histórico al día y respaldo del día en binario
+  HistoricoAuto
+  RespaldoDiarioAuto
   If correo Then
     CrearCorreo rutas
   Else
@@ -1409,6 +1423,8 @@ Sub CrearMenuEGR()
   BotonMenu bar, "4 Avance empaque", "MenuAvance", 1016, True
   BotonMenu bar, "5 Exportar reportes", "MenuExportar", 3, False
   BotonMenu bar, "Trazabilidad", "MenuTrazabilidad", 1016, False
+  BotonMenu bar, "Datos anteriores", "MenuHistorico", 1016, False
+  BotonMenu bar, "Respaldo del día (.xlsb)", "MenuRespaldoDia", 3, False
   BotonMenu bar, "Actualizar datos", "ActualizarTodo", 459, True
   BotonMenu bar, "Reglas de destino", "MenuReglas", 1017, False
   BotonMenu bar, "Productos", "MenuProductos", 1087, False
@@ -1506,7 +1522,7 @@ Private Sub ListaHojasMenu(bar As CommandBar)
   c.OnAction = "'" & ThisWorkbook.Name & "'!IrAHojaMenu"
   For Each h In Array("DATOS", "TMS", "TRAMACO", "DESPACHOS", "ETIQUETAS", "EMPAQUETADO", _
                       "TABLAS DINAMICAS", "ITEMS APIS", "ITEMS DEPOT", "COBERTURAS Y TARIFAS", _
-                      "DATA CODIGO Y CAJAS", "REGLAS_DESTINO", "TRAZABILIDAD", "LOG_EGR", "PANEL")
+                      "DATA CODIGO Y CAJAS", "REGLAS_DESTINO", "TRAZABILIDAD", "HISTORICO_EMPAQUE", "LOG_EGR", "PANEL")
     c.AddItem CStr(h)
   Next
   c.ListIndex = 1
@@ -1963,4 +1979,194 @@ Sub MenuTrazabilidad()
   If MsgBox(TextoTraza(n), vbYesNo + vbQuestion, "Trazabilidad") <> vbYes Then Exit Sub
   ruta = GuardarCopiaTraza()
   If Len(ruta) > 0 Then MsgBox "Copia guardada en:" & vbCrLf & ruta, vbInformation, "Trazabilidad"
+End Sub
+
+' =====================================================================================
+'  HISTÓRICO DE EMPAQUE  +  RESPALDO DIARIO EN BINARIO
+'  Las consultas traen SOLO el día de hoy, así que lo de ayer se pierde al actualizar.
+'  Aquí se guarda, antes de que eso pase, para poder revisar y corregir después.
+'  Todo es adicional: no cambia ninguna hoja de trabajo ni ninguna fórmula.
+' =====================================================================================
+
+Private Function HojaHist() As Worksheet
+  Dim ws As Worksheet
+  Set ws = Hoja(HHIS)
+  If ws Is Nothing Then
+    Set ws = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Worksheets(ThisWorkbook.Worksheets.Count))
+    ws.Name = HHIS
+    ws.Range("A1:J1").Value = Array("FECHA", "# ORDEN", "TIPO CAJA", "CONTENEDORA", "BULTOS", _
+                                    "PESO CAJA", "VOL. CAJA", "VOL. ITEMS", "PORCENTAJE", "GUARDADO")
+    With ws.Range("A1:J1")
+      .Font.Bold = True: .Font.Color = vbWhite: .Interior.Color = RGB(48, 84, 150)
+    End With
+    ws.Columns("A").NumberFormat = "dd/mm/yyyy"
+    ws.Columns("J").NumberFormat = "dd/mm/yyyy hh:mm"
+  End If
+  Set HojaHist = ws
+End Function
+
+' Copia las cajas de hoy de EMPAQUETADO al histórico. Una contenedora se guarda una sola
+' vez por día: si ya estaba, se actualiza con los datos nuevos. Devuelve cuántas guardó.
+Public Function GuardarHistoricoEmpaque(Optional ByVal avisar As Boolean = False) As Long
+  Dim lo As ListObject, ws As Worksheet, a, h, i As Long, lr As Long, d As Object
+  Dim k As String, fil As Long, n As Long, nNue As Long, fec As Variant
+  On Error GoTo fallo
+  Set lo = Nothing
+  On Error Resume Next
+  Set lo = ThisWorkbook.Worksheets("EMPAQUETADO").ListObjects("EMPAQUETADO")
+  On Error GoTo fallo
+  If lo Is Nothing Then
+    LogE "HISTÓRICO: no existe la tabla EMPAQUETADO; no hay nada que guardar.", "AVISO"
+    Exit Function
+  End If
+  If lo.ListRows.Count = 0 Then
+    LogE "HISTÓRICO: EMPAQUETADO está vacío; no hay nada que guardar.", "AVISO"
+    If avisar Then MsgBox "La hoja EMPAQUETADO no tiene cajas que guardar.", vbInformation, "Datos anteriores"
+    Exit Function
+  End If
+  a = lo.DataBodyRange.Value                       ' B..K  ->  1..10
+  Set ws = HojaHist()
+  lr = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+  ' índice de lo ya guardado: fecha + contenedora
+  Set d = CreateObject("Scripting.Dictionary")
+  If lr >= 2 Then
+    h = ws.Range("A2:D" & lr).Value
+    For i = 1 To UBound(h, 1)
+      k = ClaveHist(h(i, 1), h(i, 4))
+      If Len(k) > 0 Then d(k) = i + 1
+    Next
+  End If
+  Congelar
+  For i = 1 To UBound(a, 1)
+    If Len(TXE(a(i, 2))) > 0 Then                  ' C = # ORDEN
+      fec = a(i, 1)
+      k = ClaveHist(fec, a(i, 5))                  ' F = NRO. DE CONTENEDORA
+      If Len(k) > 0 Then
+        If d.Exists(k) Then
+          fil = d(k)
+        Else
+          lr = lr + 1: fil = lr: d(k) = fil: nNue = nNue + 1
+        End If
+        ws.Cells(fil, 1).Value = fec
+        ws.Cells(fil, 2).Value = TXE(a(i, 2))
+        ws.Cells(fil, 3).Value = TXE(a(i, 3))
+        ws.Cells(fil, 4).Value = TXE(a(i, 5))
+        ws.Cells(fil, 5).Value = Val(TXE(a(i, 6)))
+        ws.Cells(fil, 6).Value = TXE(a(i, 7))
+        ws.Cells(fil, 7).Value = TXE(a(i, 8))
+        ws.Cells(fil, 8).Value = TXE(a(i, 9))
+        ws.Cells(fil, 9).Value = TXE(a(i, 10))
+        ws.Cells(fil, 10).Value = Now
+        n = n + 1
+      End If
+    End If
+  Next
+  Liberar
+  LogE "HISTÓRICO: " & n & " caja(s) guardadas en " & HHIS & " (" & nNue & " nueva/s, " & (n - nNue) & " actualizada/s)"
+  If avisar Then MsgBox n & " caja(s) guardadas en la hoja " & HHIS & "." & vbCrLf & _
+                        nNue & " nueva(s) y " & (n - nNue) & " actualizada(s).", vbInformation, "Datos anteriores"
+  GuardarHistoricoEmpaque = n
+  Exit Function
+fallo:
+  Liberar
+  LogE "HISTÓRICO: " & Err.Description, "ERROR"
+  If avisar Then MsgBox "No se pudo guardar el histórico: " & Err.Description, vbExclamation
+End Function
+
+Private Function ClaveHist(ByVal fec As Variant, ByVal cont As Variant) As String
+  Dim f As String, c As String
+  c = TXE(cont)
+  If Len(c) = 0 Then Exit Function
+  If IsDate(fec) Then f = Format(CDate(fec), "yyyy-mm-dd") Else f = TXE(fec)
+  ClaveHist = f & Chr(1) & c
+End Function
+
+' Guarda el histórico sin interrumpir nunca lo que se estaba haciendo.
+Public Sub HistoricoAuto()
+  On Error Resume Next
+  GuardarHistoricoEmpaque False
+End Sub
+
+Sub MenuHistorico()
+  Dim ws As Worksheet, lr As Long, n As Long, v, i As Long, dias As Object, k
+  If PanelOcupado() Then Exit Sub
+  RuedaDesactivar
+  GuardarHistoricoEmpaque False
+  Set ws = HojaHist()
+  ws.Visible = xlSheetVisible
+  lr = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+  Set dias = CreateObject("Scripting.Dictionary")
+  If lr >= 2 Then
+    v = ws.Range("A2:A" & lr).Value
+    For i = 1 To UBound(v, 1)
+      If IsDate(v(i, 1)) Then dias(Format(CDate(v(i, 1)), "yyyy-mm-dd")) = dias(Format(CDate(v(i, 1)), "yyyy-mm-dd")) + 1
+    Next
+  End If
+  On Error Resume Next
+  If ws.AutoFilterMode Then ws.AutoFilterMode = False
+  ws.Range("A1:J" & IIf(lr < 2, 2, lr)).AutoFilter
+  ws.Columns("A:J").AutoFit
+  ws.Activate
+  Err.Clear
+  On Error GoTo 0
+  n = 0
+  For Each k In dias.Keys: n = n + 1: Next
+  MsgBox "Histórico de empaque: " & (lr - 1) & " caja(s) de " & n & " día(s)." & vbCrLf & vbCrLf & _
+         "Filtra por FECHA para revisar un día anterior. Cada contenedora se guarda una sola vez" & vbCrLf & _
+         "por día; si se vuelve a actualizar, se refresca con los datos nuevos." & vbCrLf & vbCrLf & _
+         "Para el detalle completo de un día anterior (pedidos, destinos, etiquetas) usa el" & vbCrLf & _
+         "respaldo diario .xlsb de la carpeta RESPALDOS_EGR.", vbInformation, "Datos anteriores"
+End Sub
+
+' ---------- respaldo del día en binario (.xlsb) ----------
+' Un archivo por día, con el estado final. El .xlsb pesa bastante menos que el .xlsm
+' y abre más rápido, que es lo que se quiere para consultar un día pasado.
+Public Function RespaldoDiarioBinario(Optional ByVal avisar As Boolean = False) As String
+  Dim carp As String, tmp As String, dest As String, wb As Workbook, ev As Boolean
+  On Error GoTo fallo
+  If Len(ThisWorkbook.Path) = 0 Then
+    LogE "RESPALDO DIARIO: el archivo todavía no se ha guardado en disco.", "AVISO"
+    If avisar Then MsgBox "Guarda primero el archivo en una carpeta.", vbExclamation
+    Exit Function
+  End If
+  carp = ThisWorkbook.Path & Application.PathSeparator & "RESPALDOS_EGR"
+  If Len(Dir(carp, vbDirectory)) = 0 Then MkDir carp
+  dest = carp & Application.PathSeparator & "EGR_DIA_" & Format(Date, "yyyy-mm-dd") & ".xlsb"
+  tmp = carp & Application.PathSeparator & "~tmp_respaldo_dia.xlsm"
+  ev = Application.EnableEvents
+  Application.ScreenUpdating = False: Application.DisplayAlerts = False: Application.EnableEvents = False
+  If Len(Dir(tmp)) > 0 Then Kill tmp
+  ThisWorkbook.SaveCopyAs tmp
+  Set wb = Workbooks.Open(Filename:=tmp, UpdateLinks:=0, ReadOnly:=False)
+  wb.SaveAs Filename:=dest, FileFormat:=50          ' 50 = xlExcel12 (.xlsb, conserva macros)
+  wb.Close SaveChanges:=False
+  Set wb = Nothing
+  If Len(Dir(tmp)) > 0 Then Kill tmp
+  Application.EnableEvents = ev: Application.DisplayAlerts = True: Application.ScreenUpdating = True
+  LogE "RESPALDO DIARIO: " & dest
+  If avisar Then MsgBox "Respaldo del día guardado en:" & vbCrLf & dest, vbInformation, "Respaldo del día"
+  RespaldoDiarioBinario = dest
+  Exit Function
+fallo:
+  On Error Resume Next
+  If Not wb Is Nothing Then wb.Close SaveChanges:=False
+  If Len(tmp) > 0 Then If Len(Dir(tmp)) > 0 Then Kill tmp
+  Application.EnableEvents = ev: Application.DisplayAlerts = True: Application.ScreenUpdating = True
+  LogE "RESPALDO DIARIO: no se pudo crear (" & Err.Description & ")", "AVISO"
+  If avisar Then MsgBox "No se pudo crear el respaldo del día: " & Err.Description, vbExclamation
+End Function
+
+' Se llama al final de los procesos. Si falla, solo queda en el registro.
+Public Sub RespaldoDiarioAuto()
+  On Error Resume Next
+  If UCase$(Cfg("RESPALDO_DIARIO", "SI")) <> "SI" Then Exit Sub
+  RespaldoDiarioBinario False
+End Sub
+
+Sub MenuRespaldoDia()
+  Dim r As String
+  If PanelOcupado() Then Exit Sub
+  RuedaDesactivar
+  HistoricoAuto
+  r = RespaldoDiarioBinario(True)
 End Sub

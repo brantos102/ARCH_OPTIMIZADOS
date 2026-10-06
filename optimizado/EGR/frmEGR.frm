@@ -49,6 +49,8 @@ Private WithEvents bExpM As MSForms.CommandButton
 Private WithEvents bAct As MSForms.CommandButton
 Private WithEvents bRep As MSForms.CommandButton
 Private WithEvents bTraza As MSForms.CommandButton
+Private WithEvents bHist As MSForms.CommandButton
+Private WithEvents bResp As MSForms.CommandButton
 Private cboIrHoja As MSForms.ComboBox
 Private WithEvents bIrHoja As MSForms.CommandButton
 Private WithEvents bRegl As MSForms.CommandButton
@@ -112,7 +114,7 @@ Private Sub UserForm_Initialize()
   Set cboIrHoja = Me.Controls.Add("Forms.ComboBox.1")
   cboIrHoja.Left = 8: cboIrHoja.Top = 460: cboIrHoja.Width = 128: cboIrHoja.Height = 18: cboIrHoja.Style = fmStyleDropDownList: cboIrHoja.ListRows = 14
   For Each f In Array("DATOS", "TMS", "TRAMACO", "DESPACHOS", "ETIQUETAS", "EMPAQUETADO", "TABLAS DINAMICAS", "ITEMS APIS", "ITEMS DEPOT", _
-                      "COBERTURAS Y TARIFAS", "DATA CODIGO Y CAJAS", "REGLAS_DESTINO", "TRAZABILIDAD", "PANEL")
+                      "COBERTURAS Y TARIFAS", "DATA CODIGO Y CAJAS", "REGLAS_DESTINO", "TRAZABILIDAD", "HISTORICO_EMPAQUE", "PANEL")
     cboIrHoja.AddItem f
   Next
   cboIrHoja.ListIndex = 0
@@ -125,8 +127,10 @@ Private Sub UserForm_Initialize()
   Set bExcel = NB("Ver Excel", 105, 534, 93, 22, RGB(0, 97, 0), "Oculta el panel. Para volver: Complementos > Panel EGR.")
   Set bCer = NB("Cerrar panel", 8, 559, 190, 22, RGB(192, 80, 77), "Cierra el panel.")
   Set bTraza = NB("Trazabilidad de pedidos", 8, 586, 190, 22, RGB(47, 117, 181), "Arma la hoja TRAZABILIDAD: estado final de cada pedido, los cambios de destino confirmados (quién, cuándo y por qué) y el registro de acciones de hoy. No modifica ninguna hoja de trabajo.")
-  Set lblGuia = NL("", 8, 612, 190)
-  lblGuia.Height = 74: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204): lblGuia.BorderStyle = fmBorderStyleSingle: lblGuia.ForeColor = RGB(128, 64, 0)
+  Set bHist = NB("Datos anteriores", 8, 610, 93, 22, RGB(47, 117, 181), "Hoja HISTORICO_EMPAQUE: las cajas de los días anteriores, para revisar y corregir. Se guarda sola en cada actualización.")
+  Set bResp = NB("Respaldo del día", 105, 610, 93, 22, RGB(89, 89, 89), "Guarda EGR_DIA_aaaa-mm-dd.xlsb en RESPALDOS_EGR: el archivo completo del día en binario, para consultarlo después.")
+  Set lblGuia = NL("", 8, 636, 190)
+  lblGuia.Height = 50: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204): lblGuia.BorderStyle = fmBorderStyleSingle: lblGuia.ForeColor = RGB(128, 64, 0)
   Set mPasoBtn(1) = bCob: Set mPasoBtn(2) = bCamb: Set mPasoBtn(3) = bEtq: Set mPasoBtn(4) = bVEmp: Set mPasoBtn(5) = bExp
   For i = 1 To 5: mPasoCap(i) = mPasoBtn(i).Caption: mPasoCol(i) = mPasoBtn(i).BackColor: Next
 
@@ -974,6 +978,17 @@ Private Sub bTraza_Click()
   If MsgBox(TextoTraza(n), vbYesNo + vbQuestion, "Trazabilidad") <> vbYes Then Exit Sub
   ruta = GuardarCopiaTraza()
   If Len(ruta) > 0 Then MsgBox "Copia guardada en:" & vbCrLf & ruta, vbInformation, "Trazabilidad"
+End Sub
+
+Private Sub bHist_Click()
+  If Not Listo() Then Exit Sub
+  MenuHistorico
+End Sub
+
+Private Sub bResp_Click()
+  If Not Listo() Then Exit Sub
+  HistoricoAuto
+  RespaldoDiarioBinario True
 End Sub
 
 Private Sub bRep_Click()

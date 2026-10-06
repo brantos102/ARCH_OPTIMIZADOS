@@ -185,6 +185,8 @@ Están en el orden del día, numeradas:
 | 3c Reimprimir pedido(s) | Pide los números de pedido |
 | 4 Avance empaque | Resumen de picking y empaque |
 | Trazabilidad | Arma la hoja TRAZABILIDAD y ofrece guardar una copia en la carpeta de exportes |
+| Datos anteriores | Abre HISTORICO_EMPAQUE: las cajas de los días anteriores, con filtro por fecha |
+| Respaldo del día (.xlsb) | Guarda EGR_DIA_aaaa-mm-dd.xlsb en RESPALDOS_EGR |
 | 5 Exportar reportes | Pide la hoja (1 TRAMACO, 2 TMS, 3 DESPACHOS, 4 las tres) y el formato (1 CSV, 2 XLSX, 3 PDF) |
 | Actualizar datos | Trae ITEMS API, ITEMS DEPOT, EMPAQUETADO y las tablas dinámicas |
 | **Reglas de destino** | Abre el editor de REGLAS_DESTINO |
@@ -492,19 +494,21 @@ tiene **una fila por contenedora**:
 
 | Columna | Qué hace ahora |
 |---|---|
-| `EMPAQUETADO!G` (BULTOS) | `COUNTIF` de las filas con el mismo **# ORDEN** = **total de contenedoras del pedido**. Antes era `1` fijo, que era el bulto de esa fila, no el del pedido |
+| `EMPAQUETADO!G` (BULTOS) | **1 por contenedora**. El total del pedido sale de **sumar**: lo hace la tabla dinámica *Suma de BULTOS*, y `DATOS!R` lo cuenta aparte |
 | `DATOS!R` (BULTOS) | El mismo `COUNTIF` sobre EMPAQUETADO, con mínimo 1. De ahí pasa solo a **DESPACHOS!L**, **TRAMACO!W** y a la etiqueta |
 | `EMPAQUETADO!J` (VOL. ITEMS) | Solo el volumen de los ítems **de esa contenedora** (dinámica por contenedora). Si esa contenedora no tiene ítems en ITEMS DEPOT, dice **Verificar** |
 | `EMPAQUETADO!K` (PORCENTAJE) | Sin cambios: J ÷ I, con el tope de 100 % y el piso de 30 % de siempre |
 | `EMPAQUETADO!H`, `I` | Sin cambios: peso y volumen del tipo de caja, desde DATA_CAJAS |
 
-**Por qué `DATOS!R` dejó de usar la tabla dinámica.** Antes hacía `VLOOKUP` a la dinámica *Suma de BULTOS*
-(`TABLAS DINAMICAS` H:K). Con `G = 1` esa suma daba el número de cajas, pero ahora que `G` trae el total del pedido
-en cada una de sus filas, la suma daría el total **al cuadrado** (3 cajas → 9). Por eso `DATOS!R` cuenta las
-contenedoras directamente y ya no depende de esa dinámica.
+**BULTOS va 1 por contenedora, nunca el total del pedido.** Se probó poner el total en cada fila y **duplicaba los
+bultos**: la dinámica *Suma de BULTOS* suma esa columna, así que un pedido de 2 cajas salía con **4**. La regla es:
 
-> La dinámica *Suma de BULTOS* queda solo informativa y mostrará ese número al cuadrado. Si molesta, se arregla en
-> dos clics: clic derecho sobre ella › **Configuración de campo de valor** › **Cuenta**. Ninguna fórmula la usa.
+- `EMPAQUETADO!G` = **1**, el bulto de esa contenedora;
+- el **total del pedido** se obtiene sumando: lo hace la dinámica *Suma de BULTOS*, y `DATOS!R` lo cuenta aparte
+  con `COUNTIF` sobre las contenedoras del pedido, sin depender de esa dinámica.
+
+> Si alguna vez hay que mostrar el total del pedido en la hoja EMPAQUETADO, tiene que ir en una **columna nueva**,
+> nunca en BULTOS: cualquier suma de BULTOS por pedido se multiplicaría por el número de cajas.
 
 **Por qué `VOL. ITEMS` ya no se respalda con el volumen del pedido.** El respaldo anterior era
 `SUMIF(por contenedora)` y, si fallaba, `SUMIF(por pedido)`. Cuando ITEMS DEPOT tenía todos los ítems colgados de la
@@ -543,7 +547,39 @@ una conexión. Si la borras, se vuelve a crear sola la próxima vez.
 > Guayas = GYE, Galápagos = GPS, el resto = PRO). Así el **antes → después** de cada cambio queda sin depender de que
 > alguien se acuerde de anotarlo.
 
-## 8. Exportación
+## 8. Datos de días anteriores y respaldo del día
+
+Las consultas traen **solo el día de hoy**, así que al actualizar se pierde lo de ayer. Hay dos mecanismos para
+conservarlo, y los dos funcionan solos:
+
+### Hoja HISTORICO_EMPAQUE
+
+Guarda las cajas de cada día: FECHA, # ORDEN, TIPO CAJA, CONTENEDORA, BULTOS, PESO CAJA, VOL. CAJA, VOL. ITEMS,
+PORCENTAJE y cuándo se guardó.
+
+- Se guarda **sola** en tres momentos: al **empezar** a actualizar (lo que hay todavía es el día anterior, y el
+  refresco lo iba a borrar), al **terminar** de actualizar (ya con el día de hoy y sus fórmulas) y al **exportar**
+  los reportes.
+- Una contenedora se guarda **una sola vez por día**: si se vuelve a actualizar, esa fila se refresca con los datos
+  nuevos en lugar de duplicarse.
+- Se abre con **Datos anteriores** (panel o pestaña Complementos): deja la hoja con filtro puesto y dice cuántas
+  cajas y cuántos días hay. Se filtra por FECHA para revisar o corregir un día pasado.
+
+### Respaldo del día en binario (.xlsb)
+
+- `RESPALDOS_EGR\EGR_DIA_aaaa-mm-dd.xlsb`: el archivo **completo** del día, en formato binario (pesa bastante
+  menos que el .xlsm y abre más rápido). **Un archivo por día**: durante la jornada se va reescribiendo, así que
+  siempre refleja el estado final.
+- Se genera **solo** al terminar de exportar los reportes, que es el cierre del proceso del día. Se puede forzar
+  con **Respaldo del día** (panel o Complementos).
+- Se apaga poniendo `NO` en `RESPALDO_DIARIO` (hoja oculta CONFIG_EGR).
+- Para consultar un día pasado completo —pedidos, destinos, etiquetas, empaque— se abre ese .xlsb. Para solo el
+  empaque, basta la hoja HISTORICO_EMPAQUE.
+
+> No se confunda con los respaldos `EGR_aaaammdd_hhmmss_motivo.xlsm`, que son instantáneas antes de un proceso
+> delicado (actualizar, reparar, limpiar día) y de las que se conservan las 15 últimas.
+
+## 9. Exportación
 
 - Se elige la **hoja** (TRAMACO, TMS, DESPACHOS o LAS TRES) y el **formato** (CSV, XLSX o PDF) en listas desplegables.
 - Se exportan **solo las filas con datos de esa hoja**, con **las mismas columnas y en el mismo orden**, porque son
@@ -572,7 +608,7 @@ una conexión. Si la borras, se vuelve a crear sola la próxima vez.
 - **Carpeta:** `EXPORTES\aaaa-mm-dd`, junto al archivo. Otra ruta se configura en `CARPETA_EXPORTES`.
 - **Correo:** destinatarios en `CORREO_PARA`. Se crea un **borrador** en Outlook; nunca se envía solo.
 
-## 9. Qué verificar en la prueba
+## 10. Qué verificar en la prueba
 
 1. Compilar sin errores: módulos modEGR, modZebra y modVentanas; formularios frmEGR y frmEtiquetas.
 2. **Reparar fórmulas**: DATOS!Y deja de estar vacío.
