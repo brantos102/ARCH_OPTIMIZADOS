@@ -821,7 +821,7 @@ Public Function ClaveTMS(ByVal h As String, ByVal i As String, ByVal j As String
 End Function
 
 ' Índice de una columna de una tabla buscándola por el nombre del encabezado.
-' Así, si la consulta cambia de columnas (p. ej. ahora trae CAJAS y CONTENEDORAS),
+' Así, si la consulta cambia de columnas (p. ej. ahora trae CAJAS al final),
 ' el código sigue leyendo el dato correcto. Si no está, devuelve 'predet'.
 Public Function ColIdx(lo As ListObject, ByVal nombre As String, Optional ByVal predet As Long = 0) As Long
   Dim lc As ListColumn
@@ -867,7 +867,8 @@ Public Function DictEmpaque() As Object
     cCaj = ColIdx(lo, "CAJAS", 0)
     If lo.ListRows.Count > 0 Then
       a = lo.DataBodyRange.Value
-      ' Una fila por pedido + producto: la cantidad nunca se suma dos veces
+      ' Una fila por pedido + producto + contenedora: un producto repartido en dos
+      ' cajas suma las dos, pero la misma combinación nunca se cuenta dos veces
       ' (pesos y costos correctos para facturar).
       ' Las cajas = contenedoras distintas del pedido, sin importar cuántos items
       ' lleve cada una: las da la columna CAJAS; si la consulta todavía no la trae,
@@ -875,7 +876,7 @@ Public Function DictEmpaque() As Object
       For i = 1 To UBound(a, 1)
         doc = TXE(a(i, cDoc))
         If Len(doc) > 0 Then
-          k = doc & Chr(1) & TXE(a(i, cProd))
+          k = doc & Chr(1) & TXE(a(i, cProd)) & Chr(1) & TXE(a(i, cCont))
           If Not cont1.Exists(k) Then
             cont1(k) = 1
             conf(doc) = conf(doc) + Val(TXE(a(i, cConf)))
@@ -994,7 +995,7 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
   Dim lo As ListObject, a, k As String, doc As String, ped As String, est As String
   Dim nSin As Long, nPar As Long, nPick As Long, nEmp As Long, nTot As Long, nDup As Long
   Dim skuSinPeso As Object, skuSinPrecio As Object, cajaSin As Object
-  Dim cDoc As Long, cProd As Long, cConf As Long, cPeso As Long, cPrec As Long
+  Dim cDoc As Long, cProd As Long, cConf As Long, cCont As Long, cPeso As Long, cPrec As Long
   Set sol = CreateObject("Scripting.Dictionary"): Set conf = CreateObject("Scripting.Dictionary")
   Set cont1 = CreateObject("Scripting.Dictionary"): Set emp = CreateObject("Scripting.Dictionary")
   Set skuSinPeso = CreateObject("Scripting.Dictionary"): Set skuSinPrecio = CreateObject("Scripting.Dictionary")
@@ -1010,18 +1011,18 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
       Next
     End If
   End If
-  ' confirmado (Estado): una línea por pedido + producto; si una se repite, se avisa
+  ' confirmado (Estado): una línea por pedido + producto + contenedora; si una se repite, se avisa
   Set lo = Nothing: Set lo = ThisWorkbook.Worksheets("ITEMS DEPOT").ListObjects("Estado")
   If Not lo Is Nothing Then
     cDoc = ColIdx(lo, "DOC_EXT", 3): cProd = ColIdx(lo, "PRODUCTO_ID", 4)
-    cConf = ColIdx(lo, "Cantidad_Confirmada", 6)
+    cConf = ColIdx(lo, "Cantidad_Confirmada", 6): cCont = ColIdx(lo, "NRO_CONTENEDORA_EMPAQUE", 7)
     cPeso = ColIdx(lo, "PESO", 9): cPrec = ColIdx(lo, "PRECIO", 11)
     If lo.ListRows.Count > 0 Then
       a = lo.DataBodyRange.Value
       For i = 1 To UBound(a, 1)
         doc = TXE(a(i, cDoc))
         If Len(doc) > 0 Then
-          k = doc & Chr(1) & TXE(a(i, cProd))
+          k = doc & Chr(1) & TXE(a(i, cProd)) & Chr(1) & TXE(a(i, cCont))
           If cont1.Exists(k) Then
             nDup = nDup + 1
           Else
@@ -1077,7 +1078,7 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
   If skuSinPeso.Count > 0 Then LogE "COSTOS: " & skuSinPeso.Count & " SKU sin peso/volumen en DATA CODIGO Y CAJAS: " & Left$(Join(skuSinPeso.Keys, ", "), 300), "AVISO"
   If skuSinPrecio.Count > 0 Then LogE "COSTOS: " & skuSinPrecio.Count & " SKU sin precio (Verificar): " & Left$(Join(skuSinPrecio.Keys, ", "), 300), "AVISO"
   If cajaSin.Count > 0 Then LogE "COSTOS: tipo de caja sin medidas en DATA_CAJAS: " & Join(cajaSin.Keys, ", "), "AVISO"
-  If nDup > 0 Then LogE "ITEMS DEPOT: " & nDup & " fila(s) repetidas (mismo pedido y producto). " & _
+  If nDup > 0 Then LogE "ITEMS DEPOT: " & nDup & " fila(s) repetidas (mismo pedido, producto y contenedora). " & _
        "Las cantidades se contaron una sola vez. Corrige la consulta 'Estado' con SQL_ITEMS_DEPOT.sql para que los pesos y costos de la hoja salgan bien.", "AVISO"
   AvancePedidos = nTot
 End Function

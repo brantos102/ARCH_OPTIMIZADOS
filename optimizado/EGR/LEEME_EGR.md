@@ -334,31 +334,45 @@ Quedan 3 valores `#N/A` que no son errores de fórmula:
 **Síntoma:** un pedido de 4 productos en 2 cajas aparecía con 8 filas y su peso y su costo salían al doble.
 
 **Causa:** la consulta `Estado` unía `VIEW_TIEMPO_EMPAQUETADO` fila a fila. Esa vista devuelve una fila por
-contenedora, así que cada producto se repetía **con la cantidad completa** en cada caja. El `SELECT DISTINCT` no lo
-evitaba, porque las filas sí eran distintas: cambiaba la contenedora.
+contenedora y **no sabe qué producto va en cuál**, así que cada producto se repetía **con la cantidad completa** en
+cada caja. El `SELECT DISTINCT` no lo evitaba, porque las filas sí eran distintas: cambiaba la contenedora.
 
-**Regla del negocio:** cada `NRO_CONTENEDORA_EMPAQUE` es **una caja**, sin importar cuántos ítems lleve dentro. Un
-pedido puede tener varias y **todas deben quedar registradas**.
+**Las dos reglas que hay que cumplir a la vez:**
 
-**Solución:** reemplaza el SQL con [`SQL_ITEMS_DEPOT.sql`](SQL_ITEMS_DEPOT.sql). La contenedora sigue saliendo de
-`VIEW_TIEMPO_EMPAQUETADO`, pero ya no por unión fila a fila, sino en **subconsultas por pedido**. Así:
+1. cada ítem sale con **la contenedora en la que realmente se empacó** — de ahí salen el peso y el volumen por caja,
+   y el **box density** (volumen de los ítems de la caja ÷ volumen de la caja = % de ocupación);
+2. el **número de cajas** del pedido es el **total de contenedoras**, sin importar cuántos ítems lleve cada una.
 
-- la fila vuelve a ser **pedido + producto**, una sola vez: el total de unidades, el peso y el costo del pedido son
-  los reales;
-- se agregan dos columnas nuevas al final, que **no mueven ninguna de las anteriores**:
-  - **CAJAS**: cuántas contenedoras distintas tiene el pedido (`COUNT(DISTINCT NRO_CONTENEDORA_EMPAQUE)`);
-  - **CONTENEDORAS**: la lista de todas, separadas por ` | `, para poder auditar cuál es cuál;
-- `NRO_CONTENEDORA_EMPAQUE` se conserva con la primera contenedora, así que EMPAQUETADO!F y las tablas dinámicas
-  siguen funcionando igual.
+**Solución:** reemplaza el SQL con [`SQL_ITEMS_DEPOT.sql`](SQL_ITEMS_DEPOT.sql).
+
+- La contenedora de cada ítem sale de **`PICKING.NRO_UCEMPAQUETADO`**, que es la caja en la que se empacó esa línea
+  de picking. El picking se agrupa por **documento + producto + contenedora**, así que:
+  - un producto que fue en una sola caja da **una fila**;
+  - un producto repartido en dos cajas da **dos filas**, cada una con la cantidad que fue en esa caja. Sumadas dan la
+    cantidad real: el peso, el volumen y el costo del pedido no se duplican.
+- Si una línea todavía no está empacada, la contenedora queda **vacía**; y si el pedido tiene **una sola**
+  contenedora, se le asigna esa (no hay ambigüedad posible). Con dos o más, no se adivina: queda vacía hasta que se
+  empaque.
+- Se agrega **una sola** columna nueva al final, `CAJAS`: el total de contenedoras distintas del pedido
+  (`COUNT(DISTINCT NRO_CONTENEDORA_EMPAQUE)` de `VIEW_TIEMPO_EMPAQUETADO`). Ese valor sí es del pedido entero, por eso
+  se repite en sus filas.
+- **No se usa una columna con la lista de contenedoras.** Se probó y estaba mal: ponía las 3 contenedoras en las 15
+  filas del pedido, y con eso el box density no se puede calcular. Se quitó.
 
 Ejemplo con el pedido 102344955 (4 productos, 2 cajas):
 
 | | Antes | Ahora |
 |---|---|---|
-| Filas | 8 | 4 (una por producto) |
-| Cantidad por fila | repetida en las 2 cajas | la del producto, una sola vez |
+| Filas | 8 | 4, 5 o 6 según cómo se repartieron los productos entre las 2 cajas |
+| Contenedora de la fila | las 2, repetidas en cada producto | la caja en la que fue ese producto |
+| Cantidad por fila | repetida en las 2 cajas | la que fue en esa caja |
 | Peso del pedido | 29,70 kg | 14,85 kg |
-| Cajas registradas | se veían, pero duplicando todo | CAJAS = 2 y CONTENEDORAS con las dos |
+| CAJAS | — | 2 en todas sus filas |
+
+**Antes de aplicarla, ejecuta el bloque 1 de [`SQL_VERIFICACION.sql`](SQL_VERIFICACION.sql)** en SSMS. Compara, por
+pedido, las cajas que ve el picking con las que ve `VIEW_TIEMPO_EMPAQUETADO`: deben coincidir. Si en pedidos ya
+empacados el picking devuelve 0, **no la apliques** y avísame: habría que sacar la contenedora de cada ítem de otra
+columna. Los bloques 2 y 3 revisan el reparto ítem por caja, y el 4 confirma que el total de unidades no cambió.
 
 Para aplicarla:
 
@@ -370,14 +384,22 @@ Para aplicarla:
 > El archivo no lleva comentarios, `WITH`, `ORDER BY` ni punto y coma final, y no anida tablas derivadas: con
 > cualquiera de esas cosas el servidor devolvía *"Sintaxis incorrecta cerca de 'd'"* (error 102).
 
-Para comprobarlo en SSMS está [`SQL_VERIFICACION.sql`](SQL_VERIFICACION.sql): el bloque 1 revisa el pedido del
-ejemplo, el bloque 2 lista las cajas por pedido del día y el bloque 3 confirma que el total de unidades no cambió.
+**Las fórmulas que calculan el box density no se tocan.** Siguen agrupando ITEMS DEPOT por contenedora, que es
+justamente lo que vuelve a funcionar bien al devolver cada ítem con su caja:
+
+| Dónde | Qué calcula | Estado |
+|---|---|---|
+| `EMPAQUETADO` H (PESO CAJA), I (VOL. CAJA) | peso y volumen del tipo de caja, desde DATA_CAJAS | sin cambios |
+| `EMPAQUETADO` J (VOL. ÍTEMS) | volumen de los ítems **de esa contenedora**, desde TABLAS DINAMICAS | vuelve a ser correcto |
+| `EMPAQUETADO` K (PORCENTAJE) | VOL. ÍTEMS ÷ VOL. CAJA = **% de ocupación** | vuelve a ser correcto |
+| `ITEMS DEPOT` PESO, VOLUMEN, PRECIO | unitario × cantidad de la fila | correcto: la cantidad ya no se repite |
 
 ### Número de cajas (BULTOS)
 
 **Regla:** una contenedora = una caja.
 
-- `DATOS!R` (BULTOS) ahora toma el valor de **`Estado[CAJAS]`** por número de pedido. Si el pedido todavía no está en
+- `DATOS!R` (BULTOS) ahora toma el valor de **`Estado[CAJAS]`** por número de pedido (`MAXIFS`, porque el pedido
+  tiene varias filas y todas llevan el mismo total). Si el pedido todavía no está en
   la consulta, usa la tabla dinámica del Google Sheets como antes, y en último caso 1. Nunca queda en 0.
 - La fórmula la aplica **Reparar fórmulas**, y solo si la consulta `Estado` ya trae la columna `CAJAS`. Si no la trae,
   no toca nada y lo avisa en el registro: así no se rompe lo que ya funciona mientras no se actualice el SQL.
