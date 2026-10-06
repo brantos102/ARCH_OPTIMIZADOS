@@ -1313,6 +1313,18 @@ Public Function ExportarHoja(ByVal hojaN As String, ByVal formato As String, Opt
   ' se reemplaza por la ZONA (zona peligrosa que viene de PEDIDOS HCE). La hoja no se toca.
   If UCase$(hojaN) = "TRAMACO" Then FilaPorZona vv, k, lc
   If UCase$(hojaN) = "TMS" Then CabecerasTMS vv, k, lc
+  ' TMS en CSV: se escribe a mano para que el archivo salga SIEMPRE igual (separador ;,
+  ' fecha dd/mm/aaaa, números con punto, teléfonos sin el 0 inicial), sin depender de la
+  ' configuración regional de la PC. TRAMACO y DESPACHOS se exportan como siempre.
+  If UCase$(hojaN) = "TMS" And UCase$(formato) = "CSV" Then
+    ruta = CarpetaExportes() & Application.PathSeparator & "TMS_" & Format(Now, "yyyymmdd_hhnn") & ".csv"
+    NormTMS vv, k, lc
+    If EscribirCsvTMS(ruta, vv, k, lc) Then
+      LogE "EXPORTAR: TMS -> " & ruta & " (" & filas.Count & " filas, formato de la interfaz: ; dd/mm/aaaa, sin comillas)"
+      ExportarHoja = ruta
+    End If
+    Exit Function
+  End If
   Application.ScreenUpdating = False: Application.DisplayAlerts = False
   Set wbN = Workbooks.Add(xlWBATWorksheet)
   Set wsN = wbN.Worksheets(1)
@@ -2544,3 +2556,131 @@ Private Sub OrdenarCol(c As Collection)
   For i = n To 1 Step -1: c.Remove i: Next
   For i = 1 To n: c.Add a(i): Next
 End Sub
+
+' =====================================================================================
+'  CSV DE TMS ESCRITO A MANO (no con SaveAs)
+'
+'  Por qué: SaveAs FileFormat:=62 deja que Excel decida el separador, el formato de
+'  fecha y el de número según la configuración regional de la PC y el formato de cada
+'  celda. Comparado con el archivo que TMS sí aceptó (INTERFAZ_TMS.PRUEBA), el que
+'  exportaba el sistema salía con:
+'     separador  ,   en vez de  ;        -> y además entrecomillaba las direcciones
+'                                           que llevan coma
+'     fecha      10/6/2026  (mm/dd)      -> debía ser 6/10/2026 (dd/mm)
+'     valor      "$4.70 "                -> debía ser 4.7, sin símbolo ni espacios
+'     teléfono   0968032761              -> debía ser 968032761, sin el 0 inicial
+'  Escribiéndolo aquí, el archivo sale siempre igual, en cualquier PC.
+'  Solo afecta a TMS en CSV: TRAMACO y DESPACHOS se exportan como siempre.
+' =====================================================================================
+
+' Deja cada columna de TMS con el formato que espera la interfaz.
+Private Sub NormTMS(ByRef vv As Variant, ByVal k As Long, ByVal lc As Long)
+  Dim i As Long, j As Long, s As String, nTexto As Long
+  For i = 2 To k
+    For j = 1 To lc
+      s = TXE(vv(i, j))
+      ' el separador y los saltos de línea nunca pueden viajar dentro de un campo
+      s = Replace(Replace(Replace(s, ";", " "), vbCrLf, " "), vbLf, " ")
+      s = Replace(Replace(s, vbCr, " "), Chr(34), " ")
+      vv(i, j) = Trim$(s)
+    Next
+    If lc >= 2 Then vv(i, 2) = FechaDMA(vv(i, 2), nTexto)         ' FECHA_INTERFAZ
+    If lc >= 19 Then vv(i, 19) = NumPunto(vv(i, 19))              ' VALOR_TOTAL_FACTURA
+    If lc >= 23 Then vv(i, 23) = SoloDigitos(vv(i, 23))           ' TELEFONO_MOVIL
+    If lc >= 24 Then vv(i, 24) = SoloDigitos(vv(i, 24))           ' TELEFONO_FIJO
+    If lc >= 26 Then vv(i, 26) = FechaDMA(vv(i, 26), nTexto)      ' FECHA_COMPRA
+    If lc >= 29 Then vv(i, 29) = NumPunto(vv(i, 29))              ' CANTIDAD_PRODUCTO
+    If lc >= 30 Then vv(i, 30) = NumPunto(vv(i, 30))              ' PESO_KG_PRODUCTO
+    If lc >= 31 Then vv(i, 31) = NumPunto(vv(i, 31))              ' VOLUMEN_M3_PRODUCTO
+  Next
+  If nTexto > 0 Then LogE "EXPORTAR TMS: " & nTexto & " fecha(s) venían como texto en la hoja y se dejaron tal cual. " & _
+       "Revisa que TMS!B y TMS!Z sean fechas de verdad, no texto, para que salgan en dd/mm/aaaa.", "AVISO"
+End Sub
+
+' dd/mm/aaaa sin ceros delante, como el archivo que TMS aceptó.
+' Solo convierte fechas DE VERDAD. Si la celda trae texto, no se adivina si "10/6" es
+' 10 de junio o 6 de octubre: se deja tal cual y se avisa en el registro.
+Private Function FechaDMA(ByVal v As Variant, ByRef nTexto As Long) As String
+  Dim d As Date, s As String
+  s = Trim$(TXE(v))
+  If Len(s) = 0 Then Exit Function
+  If VarType(v) = vbDate Then
+    d = CDate(v)
+    FechaDMA = Day(d) & "/" & Month(d) & "/" & Year(d)
+  Else
+    nTexto = nTexto + 1
+    FechaDMA = s
+  End If
+End Function
+
+' Número con punto decimal, sin símbolo de moneda, sin separador de miles ni espacios.
+' Si no es un número (p. ej. "-"), se devuelve el texto tal cual.
+Private Function NumPunto(ByVal v As Variant) As String
+  Dim s As String, i As Long, c As String, lim As String
+  s = Trim$(TXE(v))
+  If Len(s) = 0 Then Exit Function
+  If IsNumeric(v) Then
+    NumPunto = Trim$(Str$(CDbl(v)))          ' Str usa SIEMPRE el punto
+    Exit Function
+  End If
+  For i = 1 To Len(s)                        ' "$4.70 " / "4,70" -> 4.7
+    c = Mid$(s, i, 1)
+    If c Like "#" Or c = "." Or c = "," Or c = "-" Then lim = lim & c
+  Next
+  lim = Replace(lim, ",", ".")
+  If Len(lim) > 0 And IsNumeric(lim) Then
+    NumPunto = Trim$(Str$(CDbl(lim)))
+  Else
+    NumPunto = s
+  End If
+End Function
+
+' Solo dígitos y sin ceros delante (0968032761 -> 968032761; 00 -> 0)
+Private Function SoloDigitos(ByVal v As Variant) As String
+  Dim s As String, i As Long, c As String, r As String
+  s = Trim$(TXE(v))
+  If Len(s) = 0 Then Exit Function
+  For i = 1 To Len(s)
+    c = Mid$(s, i, 1)
+    If c Like "#" Then r = r & c
+  Next
+  Do While Len(r) > 1 And Left$(r, 1) = "0"
+    r = Mid$(r, 2)
+  Loop
+  SoloDigitos = r
+End Function
+
+' Escribe el CSV con punto y coma, sin comillas, UTF-8 con BOM.
+Private Function EscribirCsvTMS(ByVal ruta As String, ByRef vv As Variant, ByVal k As Long, ByVal lc As Long) As Boolean
+  Dim i As Long, j As Long, lin As String, txt As String, st As Object, nf As Integer
+  For i = 1 To k
+    lin = ""
+    For j = 1 To lc
+      If j > 1 Then lin = lin & ";"
+      lin = lin & TXE(vv(i, j))
+    Next
+    txt = txt & lin & vbCrLf
+  Next
+  On Error GoTo sinAdo
+  Set st = CreateObject("ADODB.Stream")
+  st.Type = 2: st.Charset = "UTF-8": st.Open
+  st.WriteText txt
+  st.SaveToFile ruta, 2                      ' 2 = sobrescribe
+  st.Close
+  EscribirCsvTMS = True
+  Exit Function
+sinAdo:
+  ' sin ADODB: se escribe igual, pero sin BOM (los acentos pueden verse distinto)
+  On Error GoTo fallo
+  nf = FreeFile
+  Open ruta For Output As #nf
+  Print #nf, txt;
+  Close #nf
+  LogE "EXPORTAR TMS: ADODB no disponible, el CSV se escribió sin BOM (" & Err.Description & ")", "AVISO"
+  EscribirCsvTMS = True
+  Exit Function
+fallo:
+  On Error Resume Next
+  If nf > 0 Then Close #nf
+  LogE "EXPORTAR TMS: no se pudo escribir el CSV: " & Err.Description, "ERROR"
+End Function

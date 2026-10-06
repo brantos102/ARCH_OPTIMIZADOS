@@ -666,6 +666,27 @@ día. Lo que sí funciona: mirar, filtrar, ordenar, la trazabilidad y los export
     completar las 46. **La hoja TMS no se modifica.**
     Si el archivo oficial cambiara de columnas, la lista está en `CabecerasTMS` (modEGR) y si la hoja llegara a
     tener más columnas que la plantilla, el código no toca nada y lo avisa en el registro.
+
+    **El CSV de TMS se escribe a mano, no con "Guardar como".** `SaveAs` deja que Excel decida el separador, el
+    formato de fecha y el de número según la **configuración regional de la PC** y el formato de cada celda. Por eso
+    el archivo que exportaba el sistema no se podía subir. Comparado con el que TMS sí aceptó:
+
+    | Campo | Salía | Debe ser |
+    |---|---|---|
+    | Separador | `,` — y además entrecomillaba las direcciones que llevan coma | `;` |
+    | FECHA_INTERFAZ / FECHA_COMPRA | `10/6/2026` (mm/dd) | `6/10/2026` (dd/mm) |
+    | VALOR_TOTAL_FACTURA | `$4.70 ` (con símbolo y espacio) | `4.7` |
+    | TELEFONO_MOVIL / FIJO | `0968032761` | `968032761` |
+
+    Ahora el archivo lo escribe el código: `;` como separador, **sin comillas**, fechas `dd/mm/aaaa`, números con
+    punto decimal y sin símbolo, teléfonos solo dígitos y sin el 0 inicial, UTF-8 con BOM. Sale **igual en
+    cualquier PC**, sin depender de la configuración regional ni de `CSV_SEPARADOR_PUNTOYCOMA`.
+    Dentro de un campo nunca viaja un `;`, una comilla ni un salto de línea: se reemplazan por un espacio.
+
+    > Las fechas solo se convierten si la celda tiene una **fecha de verdad**. Si TMS!B o TMS!Z tuvieran texto, no
+    > se adivina si `10/6` es 10 de junio o 6 de octubre: se deja tal cual y queda avisado en el registro.
+
+    **Esto solo afecta a TMS en CSV.** TRAMACO y DESPACHOS se exportan exactamente como antes.
   - **DESPACHOS** lleva todos los pedidos (152).
 
   Antes de exportar, el panel muestra cuántas filas tiene cada hoja.
