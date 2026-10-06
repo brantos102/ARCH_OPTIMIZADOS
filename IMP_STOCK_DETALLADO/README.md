@@ -62,12 +62,15 @@ hoja temporal (`ETQ_LOTE`) que se elimina al terminar.
    etiqueta para confirmar tamaño, posición y lectura del código de barras.
 4. Responder los 4 pasos:
 
-| Paso | Pregunta | Respuestas |
+| Paso | Cuándo aparece | Respuestas |
 |---|---|---|
-| 1 | Alcance | `Sí` = sólo filas seleccionadas · `No` = todas las filas visibles del filtro |
-| 2 | Filas a imprimir | `TODAS` · `200` (las primeras 200) · `101-300` (un rango) |
-| 3 | Copias de cada etiqueta | `1`, `2`, `3`... (fijo para todas) · `C` (usar la columna `CANTIDAD`) |
-| 4 | Confirmación | `Sí` = ver vista previa primero · `No` = imprimir ya · `Cancelar` |
+| 1 · Alcance | sólo si hay filas seleccionadas | `Sí` = imprimir **sólo esas N** (muestra el número) · `No` = todas las filas visibles del filtro |
+| 2 · Filas a imprimir | **sólo** si va a imprimir todo el filtro, o si seleccionó más de 100 filas | `TODAS` · `200` (las primeras 200) · `101-300` (un rango) |
+| 3 · Copias de cada etiqueta | siempre | `1`, `2`, `3`... (fijo para todas) · `C` (usar la columna `CANTIDAD`) |
+| 4 · Confirmación | siempre | `Sí` = ver vista previa primero · `No` = imprimir ya · `Cancelar` |
+
+> Si selecciona 2 filas y responde `Sí` en el paso 1, se imprimen **2 etiquetas**: el paso 2
+> ni siquiera aparece. El filtro se respeta siempre, en los dos caminos.
 
 Al terminar se informa cuántas etiquetas se enviaron, en cuántos trabajos, a qué impresora,
 cuántas filas se omitieron (filas sin código ni serie) y los avisos de código de barras.
@@ -91,7 +94,8 @@ cuántas filas se omitieron (filas sin código ni serie) y los avisos de código
 | `PAGINAS_POR_TRABAJO` | `100` | etiquetas por trabajo de impresión. Si la cola del driver se traba, bajar a `50` |
 | `TOPE_ETIQUETAS` | `10000` | tope de seguridad por corrida |
 | `AVISO_DESDE` | `300` | desde cuántas etiquetas se pide confirmación extra |
-| `ESCALA_FIJA` | `0` | `0` = medir la escala real con la paginación de Excel; `1`-`100` = forzar ese porcentaje |
+| `ANCHO_ETIQUETA_MM` / `ALTO_ETIQUETA_MM` | `100` / `50` | tamaño físico de la etiqueta (10 x 5 cm). La escala se calcula para que el bloque `A1:J17` mida exactamente esto, en cualquier impresora |
+| `ESCALA_FIJA` | `0` | `0` = calcular la escala con el tamaño de etiqueta; `1`-`100` = forzar ese porcentaje |
 | `IMPRESORA_CONTIENE` | `"ZD421"` | texto que identifica a la Zebra |
 | `ACTUALIZAR_ETQ` | `True` | deja cargada en `ETQ` la primera etiqueta del lote |
 | `CONSERVAR_LOTE` | `False` | `True` = no borra `ETQ_LOTE` (para revisar el lote armado) |
@@ -108,7 +112,8 @@ envía en 2 trabajos de impresión (antes: 200 trabajos).
 |---|---|
 | "Debe estar en la hoja Consolidado o IMPRIMIR" | ejecutar la macro con esa hoja activa |
 | "No se encontraron filas visibles" | el filtro no deja ninguna fila, o la selección está toda oculta |
-| Las etiquetas salen **muy pequeñas** o descolocadas | es la escala de impresión. Ejecute `EtiquetasDiagnostico`: muestra la escala medida y si un lote de 2 ocupa 2 páginas. Si la medición falla, fije `ESCALA_FIJA` al porcentaje correcto |
+| Las etiquetas salen **muy pequeñas** o descolocadas | es la escala. Ejecute `EtiquetasDiagnostico`: muestra el área imprimible real, la escala calculada y si un lote de 2 ocupa 2 páginas |
+| Las etiquetas salen **cortadas** | el papel del driver es más chico que 100 x 50 mm: corríjalo en las preferencias de la impresora (tamaño definido por el usuario) |
 | Aviso de paginación | el papel de `ETQ` no es la etiqueta de 100 x 50 mm, o la impresora activa no es la ZD421: revisar la vista previa antes de continuar |
 | Etiquetas en blanco intercaladas | misma causa anterior (una etiqueta ocupa más de una página) |
 | El código de barras no se lee | ver el aviso al final del lote: caracteres no válidos para Code 39 o código demasiado largo (`docs/MAPEO_Y_ZEBRA.md`) |
