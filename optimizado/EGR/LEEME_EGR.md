@@ -73,7 +73,11 @@ fórmulas F:K y las tablas dinámicas procesaban 37 mil filas.
 1. descarta primero las filas **sin "# ORDEN"**;
 2. filtra la fecha de hoy, aceptando dd/mm/aaaa o mm/dd/aaaa;
 3. deja la orden como texto limpio;
-4. pone un tope de seguridad de 2 000 cajas.
+4. descarta un `# ORDEN` que no sea un número de pedido (8 dígitos o más, solo dígitos): un `5465443` tecleado
+   por error entraba a la hoja y salía como *sin pedido* / *Verificar*;
+5. **ordena por FECHA, # ORDEN y # CONTENEDORA**, así la hoja se presenta en orden y el primer pedido deja de
+   quedar al final;
+6. pone un tope de seguridad de 2 000 cajas.
 
 Pasos:
 
@@ -259,10 +263,23 @@ siguiente, un destino viejo nunca se aplica a otro pedido.
 
 ## 4. Etiquetas Zebra ZD230 (203 dpi, 10 × 5 cm)
 
-- Es **una etiqueta por pedido**, con el formato de la muestra impresa:
-  - código de barras Code 128 arriba a la izquierda, con el **número centrado debajo**, sin espacios;
-  - **destino en grande** a la derecha (UIO, GYE, PRO o GPS) y la **parroquia** debajo;
-  - **nombre completo del destinatario** abajo a la izquierda, en una sola línea.
+- Es **una etiqueta por pedido**, con el formato de la muestra impresa, repartido en bandas que **no se pisan**
+  (800 × 400 puntos a 203 ppp):
+
+  | Banda (puntos) | Contenido |
+  |---|---|
+  | 26 – 138 | código de barras Code 128 |
+  | 140 – 196 | número del pedido, centrado bajo las barras |
+  | 186 – 282 | **destino en grande** a la derecha (UIO, GYE, PRO, GPS) |
+  | 216 – 322 | **destinatario** a la izquierda, en uno o dos renglones |
+  | 326 – 362 | **parroquia** a la derecha |
+
+- **Nombres encimados (corregido).** El nombre se repartía con `^FB ancho,2 líneas`. Cuando no entraba en esos
+  dos renglones, la impresora escribía el sobrante **encima del último renglón**, y salían dos textos
+  superpuestos. Ahora el nombre se parte **en el código**, sin cortar palabras, y cada renglón se imprime en su
+  propia posición. Además la letra se achica sola (48 → 42 → 36 → 30 → 26 puntos) hasta que el nombre entra; si
+  ni con la más chica entra, se recorta, pero **nunca se escribe encima**. La parroquia se recorta a 23
+  caracteres por la misma razón.
 - Hay **un solo botón**: **IMPRIMIR ETIQUETAS** (en el panel, en la pestaña Complementos y con Alt + F8 ›
   `MenuEtiquetas`). No hay que seleccionar nada antes: la ventana abre con **todos** los pedidos con destino y se
   imprime **exactamente lo que quede en la lista**.
@@ -415,6 +432,27 @@ justamente lo que vuelve a funcionar bien al devolver cada ítem con su caja:
 | `EMPAQUETADO` K (PORCENTAJE) | VOL. ÍTEMS ÷ VOL. CAJA = **% de ocupación** | vuelve a ser correcto |
 | `ITEMS DEPOT` PESO, VOLUMEN, PRECIO | unitario × cantidad de la fila | correcto: la cantidad ya no se repite |
 
+### "Verificar" en EMPAQUETADO: las dos fuentes tienen que mirar el mismo día
+
+`VOL. ITEMS` se calcula agrupando ITEMS DEPOT **por contenedora**. Si una contenedora está en EMPAQUETADO pero
+sus ítems no están en ITEMS DEPOT, no hay volumen que sumar y sale **Verificar**. Eso pasa cuando las dos
+consultas miran ventanas de fecha distintas: las filas de ayer en EMPAQUETADO contra un ITEMS DEPOT que ya solo
+trae hoy.
+
+Por eso **las dos consultas filtran ahora el día de hoy**:
+
+| Consulta | Dónde está el filtro |
+|---|---|
+| `Estado` (ITEMS DEPOT) | `SQL_ITEMS_DEPOT.sql`: `FECHA_CREACION >= CAST(GETDATE() AS DATE)` y `< GETDATE()+1` |
+| `EMPAQUETADO` | `EMPAQUETADO.m`, paso `Hoy`: `[FECHA] = Date.From(DateTime.LocalNow())` |
+
+> Si algún día hace falta trabajar con dos días, hay que cambiar **las dos**, nunca una sola. Con una sola, las
+> contenedoras del día que sobra se quedan sin ítems y vuelven los *Verificar*.
+
+Las filas de ayer que quedaron en *Verificar* no se pueden recalcular hacia atrás: su volumen por contenedora ya
+no está en ITEMS DEPOT. Lo que sí queda registrado del día de ayer es la hoja **TRAZABILIDAD**, si se generó
+antes de cerrar el día; por eso conviene generarla al terminar cada jornada.
+
 ### Número de cajas (BULTOS) y box density
 
 **Regla:** una contenedora = una caja, sin importar cuántos ítems lleve.
@@ -485,7 +523,14 @@ una conexión. Si la borras, se vuelve a crear sola la próxima vez.
     reemplaza por **ZONA**: la zona peligrosa que viene de PEDIDOS HCE (DATOS!AM). Mismo número de columnas, mismo
     orden, y **la hoja TRAMACO no se modifica**: el cambio es solo en el archivo exportado.
   - **TMS** lleva **todos** los pedidos del día (152), porque así está armada la hoja TMS: una fila por cada pedido de
-    DATOS.
+    DATOS. En el archivo que sale se ponen los **encabezados oficiales de la interfaz de TMS**
+    (`EMPRESA;FECHA_INTERFAZ;…`), porque la hoja los tiene abreviados (`CP_RTTE` en vez de `CODIGO_POSTAL_RTTE`,
+    `DNI(DESTINATARIO)` en vez de `DNI_DEST`, etc.). Las **42 columnas de la hoja están en el mismo orden que la
+    plantilla**: solo cambia el nombre. Se agregan además las 4 columnas finales de la plantilla
+    (`NRO_TRACKING_EXPRESO`, `NRO_TRACKING_REPRESENTANTE`, `DEVOLUCION`, `NRO_DEVOLUCION`), que van vacías, para
+    completar las 46. **La hoja TMS no se modifica.**
+    Si el archivo oficial cambiara de columnas, la lista está en `CabecerasTMS` (modEGR) y si la hoja llegara a
+    tener más columnas que la plantilla, el código no toca nada y lo avisa en el registro.
   - **DESPACHOS** lleva todos los pedidos (152).
 
   Antes de exportar, el panel muestra cuántas filas tiene cada hoja.

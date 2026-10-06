@@ -52,23 +52,78 @@ End Sub
 
 ' ZPL de una etiqueta 10 x 5 cm a 203 dpi (800 x 400 puntos)
 Public Function ZplEtiqueta(ByVal pedido As String, ByVal destinatario As String, ByVal destino As String, ByVal parroquia As String) As String
-  ' Diseño (800 x 400 puntos = 10 x 5 cm a 203 ppp):
-  '   código de barras arriba a la izquierda, con el número centrado debajo
-  '   destino en grande a la derecha y la parroquia debajo
-  '   nombre completo del destinatario abajo a la izquierda, en una sola línea
+  ' Diseño (800 x 400 puntos = 10 x 5 cm a 203 ppp), con bandas que NO se pisan:
+  '    26..138  código de barras            140..196  número del pedido
+  '   186..282  destino en grande, derecha  216..322  destinatario, 1 o 2 renglones, izquierda
+  '   326..362  parroquia, derecha
+  ' El nombre se parte AQUÍ, no con ^FB: cuando el texto no entraba en los renglones
+  ' de ^FB, la impresora escribía el sobrante ENCIMA del último renglón.
   Dim ox As Long, oy As Long, osc As Long, z As String, nom As String
+  Dim l1 As String, l2 As String, alto As Long, anc As Long, y2 As Long
   nom = Limpio(destinatario)
   pedido = Limpio(pedido): destino = Limpio(destino): parroquia = Limpio(parroquia)
+  parroquia = Recortar(parroquia, 23)
+  NombreEnDos nom, 340, l1, l2, alto, anc
   ox = Val(Cfg("ETIQ_OFFSET_X", "0")): oy = Val(Cfg("ETIQ_OFFSET_Y", "0"))
   osc = Val(Cfg("ETIQ_OSCURIDAD", "12")): If osc < 0 Or osc > 30 Then osc = 12
   z = "^XA^CI0^PW800^LL400^LH" & ox & "," & oy & "^MD" & osc & "^PR3"
   z = z & "^FO140,26^BY4,2.5,112^BCN,112,N,N,N^FD" & pedido & "^FS"            ' barras
   z = z & "^FO140,150^A0N,46,40^FB400,1,0,C^FD" & pedido & "^FS"               ' número centrado bajo las barras
-  z = z & "^FO380,186^A0N,96,86^FB390,1,0,R^FD" & destino & "^FS"              ' UIO / GYE / PRO / GPS
-  z = z & "^FO330,288^A0N,38,34^FB440,1,0,R^FD" & parroquia & "^FS"            ' parroquia
-  z = z & "^FO34,224^A0N,54,46^FB330,2,6,L^FD" & nom & "^FS"                   ' destinatario
+  z = z & "^FO390,186^A0N,96,86^FB380,1,0,R^FD" & destino & "^FS"              ' UIO / GYE / PRO / GPS
+  z = z & "^FO30,216^A0N," & alto & "," & anc & "^FB340,1,0,L^FD" & l1 & "^FS" ' destinatario, renglón 1
+  If Len(l2) > 0 Then
+    y2 = 216 + alto + 6
+    z = z & "^FO30," & y2 & "^A0N," & alto & "," & anc & "^FB340,1,0,L^FD" & l2 & "^FS"
+  End If
+  z = z & "^FO330,326^A0N,36,30^FB440,1,0,R^FD" & parroquia & "^FS"            ' parroquia
   z = z & "^PQ1^XZ"
   ZplEtiqueta = z
+End Function
+
+' Parte el nombre en uno o dos renglones que quepan en 'ancho' puntos, con la letra
+' más grande con la que entre. Devuelve también el alto y el ancho de la letra.
+Private Sub NombreEnDos(ByVal nom As String, ByVal ancho As Long, ByRef l1 As String, ByRef l2 As String, _
+                         ByRef alto As Long, ByRef anc As Long)
+  Dim tam, k As Long, cmax As Long
+  tam = Array(48, 42, 36, 30, 26)
+  For k = 0 To UBound(tam)
+    alto = CLng(tam(k)): anc = CLng(tam(k) * 0.85)
+    cmax = CLng(ancho / (anc * 0.62))
+    If cmax < 4 Then cmax = 4
+    If Reparte(nom, cmax, l1, l2) Then Exit Sub
+  Next
+  ' ni con la letra más chica entra: se recorta, pero nunca se escribe encima
+  l1 = Recortar(nom, cmax)
+  l2 = Recortar(Trim$(Mid$(nom, Len(l1) + 1)), cmax)
+End Sub
+
+' Reparte el texto en dos renglones de como máximo cmax caracteres, sin cortar palabras.
+' Devuelve False si no alcanza (hay que probar con letra más chica).
+Private Function Reparte(ByVal s As String, ByVal cmax As Long, ByRef l1 As String, ByRef l2 As String) As Boolean
+  Dim pal, i As Long, cur As String
+  l1 = "": l2 = ""
+  pal = Split(Trim$(s), " ")
+  For i = 0 To UBound(pal)
+    If Len(pal(i)) > 0 Then
+      If Len(pal(i)) > cmax Then Exit Function
+      If Len(l2) = 0 Then
+        cur = Trim$(l1 & " " & pal(i))
+        If Len(cur) <= cmax Then
+          l1 = cur
+        Else
+          l2 = pal(i)
+        End If
+      Else
+        cur = l2 & " " & pal(i)
+        If Len(cur) <= cmax Then l2 = cur Else Exit Function
+      End If
+    End If
+  Next
+  Reparte = (Len(l1) > 0)
+End Function
+
+Private Function Recortar(ByVal s As String, ByVal n As Long) As String
+  If Len(s) <= n Then Recortar = s Else Recortar = Trim$(Left$(s, n))
 End Function
 
 ' ---------- envío RAW a la impresora ----------

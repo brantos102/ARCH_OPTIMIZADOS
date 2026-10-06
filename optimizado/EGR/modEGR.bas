@@ -1151,6 +1151,41 @@ Public Function ValidarHojaExport(ByVal hojaN As String, filas As Collection) As
 End Function
 
 ' formato: "CSV", "XLSX" o "PDF". Devuelve la ruta del archivo creado ("" si no se creó)
+' Encabezados oficiales del archivo de interfaz de TMS (INTERFAZ_TMS).
+' La hoja TMS tiene las mismas 42 columnas y en el MISMO orden, pero con los nombres
+' abreviados. En el archivo que sale se ponen los nombres oficiales y se agregan las
+' 4 columnas finales de la plantilla, que van vacías. La hoja TMS no se modifica.
+Private Sub CabecerasTMS(ByRef vv As Variant, ByVal k As Long, ByRef lc As Long)
+  Dim enc, nue(), i As Long, j As Long, n As Long
+  enc = Array("EMPRESA","FECHA_INTERFAZ","REMITENTE","DIRECCION_RTTE","PISO_RTTE","DEPTO_RTTE", _
+            "CODIGO_POSTAL_RTTE","LOCALIDAD_RTTE","PROVINCIA_RTTE","DESTINATARIO","DIRECCION_DEST", _
+            "PISO_DEST","DEPTO_DEST","CODIGO_POSTAL_DEST","LOCALIDAD_DEST","PROVINCIA_DEST", _
+            "NRO_REFERENCIA","NRO_FACTURA","VALOR_TOTAL_FACTURA","MONEDA_FACTURA","NRO_REMITO","DNI_DEST", _
+            "TELEFONO_MOVIL","TELEFONO_FIJO","EMAIL","FECHA_COMPRA","CODIGO_PRODUCTO", _
+            "DESCRIPCION_PRODUCTO","CANTIDAD_PRODUCTO","PESO_KG_PRODUCTO","VOLUMEN_M3_PRODUCTO", _
+            "OBSERVACIONES_INTERNAS","OBSERVACIONES_DESTINATARIO","TIPO_OPERACION", _
+            "TIPO_SERVICIO_OPERATIVO","TIPO_SERVICIO_ADMINISTRATIVO","HORARIO_FIJO","HORARIO_FIJO_OBS", _
+            "TEXTO_AUX_1","TEXTO_AUX_2","FECHA_AUX_1","FECHA_AUX_2","NRO_TRACKING_EXPRESO", _
+            "NRO_TRACKING_REPRESENTANTE","DEVOLUCION","NRO_DEVOLUCION")
+  n = UBound(enc) + 1
+  If lc > n Then
+    LogE "EXPORTAR TMS: la hoja tiene " & lc & " columnas y la plantilla " & n & ". No se tocan los encabezados.", "AVISO"
+    Exit Sub
+  End If
+  ReDim nue(1 To k, 1 To n)
+  For i = 1 To k
+    For j = 1 To lc
+      nue(i, j) = vv(i, j)
+    Next
+  Next
+  For j = 1 To n
+    nue(1, j) = enc(j - 1)
+  Next
+  vv = nue
+  LogE "EXPORTAR TMS: encabezados de la plantilla oficial (" & lc & " columnas de la hoja + " & (n - lc) & " vacías al final = " & n & ")"
+  lc = n
+End Sub
+
 ' Cambia, SOLO en el bloque que se va a exportar, la columna auxiliar FILA_DATOS por la zona
 ' peligrosa del pedido. FILA_DATOS es la posición dentro de DATOS!A2:A500 (la misma que usan las
 ' fórmulas INDEX de la hoja), así que la fila de DATOS es esa posición + 1.
@@ -1207,6 +1242,7 @@ Public Function ExportarHoja(ByVal hojaN As String, ByVal formato As String, Opt
   ' TRAMACO: la columna auxiliar FILA_DATOS no le sirve al courier. En el archivo que sale
   ' se reemplaza por la ZONA (zona peligrosa que viene de PEDIDOS HCE). La hoja no se toca.
   If UCase$(hojaN) = "TRAMACO" Then FilaPorZona vv, k, lc
+  If UCase$(hojaN) = "TMS" Then CabecerasTMS vv, k, lc
   Application.ScreenUpdating = False: Application.DisplayAlerts = False
   Set wbN = Workbooks.Add(xlWBATWorksheet)
   Set wsN = wbN.Worksheets(1)
