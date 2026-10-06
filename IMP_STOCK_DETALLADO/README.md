@@ -80,7 +80,17 @@ Aceptar e imprime. Nada más.
   (`TODAS`, `100`, `101-300`).
 - A partir de **300 etiquetas** pide una confirmación extra.
 - Al terminar informa cuántas etiquetas se enviaron, en cuántos trabajos, la escala
-  aplicada y los avisos de código de barras.
+  aplicada, el rango de filas de origen usado y los avisos de código de barras.
+
+### Comprobar qué se imprimió
+
+Cada envío escribe la hoja **`ETQ_LOG`** con una línea por fila de origen: número de fila,
+cliente, `producto_id`, descripción, serie y cuántas etiquetas generó. Sirve para contrastar
+el papel que salió de la impresora con lo que se mandó. Se sobrescribe en cada corrida.
+
+> Si lo que sale de la Zebra no coincide con `ETQ_LOG`, lo que está saliendo es un trabajo
+> anterior que seguía en la cola: vacíela (`Configuración > Impresoras > ZD421 > Abrir cola`,
+> `Impresora > Cancelar todos los documentos`) y repita.
 
 No hay vista previa: la ventana de vista previa de Excel tiene su propio botón *Imprimir*
 y usarlo duplicaba el lote. Para verificar antes de un lote grande, seleccione **una fila**
@@ -104,6 +114,7 @@ e imprima esa sola etiqueta.
 | `AVISO_DESDE` | `300` | desde cuántas etiquetas se pide confirmación extra |
 | `ESCALA_FIJA` | `0` | `0` = calcular la escala; `1`-`100` = forzar ese porcentaje |
 | `IMPRESORA_CONTIENE` | `"ZD421"` | texto que identifica a la Zebra |
+| `REGISTRO_LOTE` | `True` | escribe la hoja `ETQ_LOG` con qué fila generó cada etiqueta |
 | `ACTUALIZAR_ETQ` | `True` | deja cargada en `ETQ` la primera etiqueta del lote |
 | `CONSERVAR_LOTE` | `False` | `True` = no borra `ETQ_LOTE` (para revisar el lote armado) |
 
@@ -129,4 +140,5 @@ en el armado y entre trabajos. `Esc` cancela de forma limpia.
 | Las etiquetas salen **muy pequeñas** o descolocadas | ejecute `EtiquetasDiagnostico`: muestra el área imprimible real, la escala calculada y si un lote de 2 ocupa 2 páginas |
 | Las etiquetas salen **cortadas** | el papel del driver es más chico que 100 × 50 mm: corríjalo en las preferencias de la impresora (tamaño definido por el usuario) |
 | El código de barras no se lee | ver el aviso al final del lote: caracteres no válidos para Code 39 o código demasiado largo (`docs/MAPEO_Y_ZEBRA.md`) |
+| Salen etiquetas de filas que no seleccionó | compare con la hoja `ETQ_LOG`: si `ETQ_LOG` es correcto, lo que imprimió es un trabajo anterior encolado — vacíe la cola de impresión y repita |
 | Quedó una hoja `ETQ_LOTE` | se interrumpió el proceso: se puede borrar a mano, la siguiente corrida la borra sola |

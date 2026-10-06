@@ -80,6 +80,15 @@ Datos medidos en el archivo entregado:
    de texto se aplican una vez al primer bloque antes de replicarlo, se replica por
    duplicación, y hay `DoEvents` durante el armado y entre trabajos. `Esc` cancela limpio
    (`EnableCancelKey = xlErrorHandler`).
-8. **La plantilla `ETQ` no se modifica** durante el proceso (sólo, al final y de forma
+8. **Selección respetada al pie de la letra**: `SpecialCells(xlCellTypeVisible)` aplicado a
+   un rango de **una sola celda** busca en TODA la hoja, no en esa celda. Con una selección
+   hecha con `Ctrl` (áreas de una fila) eso colaba filas visibles ajenas a la selección.
+   Ese caso se resuelve ahora mirando `Rows(n).Hidden` directamente, y además se descarta
+   cualquier fila que caiga fuera del área pedida.
+9. **Trazabilidad**: cada envío escribe la hoja `ETQ_LOG` con la fila de origen de cada
+   etiqueta, y los campos de la plantilla se vacían antes de replicar el bloque: si algo
+   fallara al escribir, la etiqueta sale en blanco en vez de salir con los datos de la
+   corrida anterior.
+10. **La plantilla `ETQ` no se modifica** durante el proceso (sólo, al final y de forma
    opcional, se le carga la primera etiqueta del lote para mantener la costumbre anterior).
    La hoja `ETQ_LOTE` se elimina al terminar, incluso si hay un error.

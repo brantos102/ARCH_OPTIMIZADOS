@@ -81,6 +81,8 @@ Private Const BUSCAR_IMPRESORA   As Boolean = True
 ' Compatibilidad / depuración
 Private Const ACTUALIZAR_ETQ     As Boolean = True    ' deja la 1a etiqueta cargada en ETQ
 Private Const CONSERVAR_LOTE     As Boolean = False   ' True = no borra la hoja ETQ_LOTE
+Private Const REGISTRO_LOTE      As Boolean = True    ' hoja ETQ_LOG con lo que se imprimió
+Private Const TOPE_REGISTRO      As Long = 2000       ' filas máximas del registro
 
 '==============================================================================================
 
@@ -275,6 +277,10 @@ Public Sub ImprimirEtiquetas()
     On Error GoTo Limpieza
     GuardarEstado
 
+    If REGISTRO_LOTE Then
+        EscribirRegistro wsOrigen, filas, copias, desde, hasta, soloSeleccion
+    End If
+
     Application.StatusBar = "Preparando la plantilla..."
     Set wsLote = CrearHojaLote(wsPlantilla)
 
@@ -348,7 +354,10 @@ Limpieza:
               "Escala .......: " & mZoom & " %   para " & Format$(ANCHO_ETIQUETA_MM, "0") & " x " & _
                                     Format$(ALTO_ETIQUETA_MM, "0") & " mm" & vbCrLf & _
               "Filas omitidas: " & omitidas & vbCrLf & _
-              "Tiempo .......: " & Format$(Timer - t0, "0.0") & " s"
+              "Filas origen .: " & filas(desde) & " a " & filas(hasta) & _
+                                   IIf(soloSeleccion, "   (seleccionadas)", "   (del filtro)") & vbCrLf & _
+              "Tiempo .......: " & Format$(Timer - t0, "0.0") & " s" & _
+              IIf(REGISTRO_LOTE, vbCrLf & vbCrLf & "Detalle de lo enviado: hoja ETQ_LOG", "")
         If mNumAvisos > 0 Then
             msg = msg & vbCrLf & vbCrLf & "Avisos de código de barras (" & mNumAvisos & "):" & mAvisos
             If mNumAvisos > 10 Then msg = msg & vbCrLf & "  ... y " & (mNumAvisos - 10) & " más."
@@ -487,13 +496,21 @@ Private Function UltimaFila(ByVal ws As Worksheet, ByVal colRef As Long) As Long
 End Function
 
 ' Devuelve en filas() los números de fila VISIBLES del rango, hasta "tope".
-' Trabaja por bloques para no agotar SpecialCells cuando hay decenas de miles de filas ocultas.
+' Trabaja por bloques para no agotar SpecialCells cuando hay decenas de miles de filas
+' ocultas, y NUNCA devuelve filas fuera del rango pedido:
+'
+'   - SpecialCells aplicado a un rango de UNA SOLA CELDA busca en TODA la hoja. Con una
+'     selección hecha con Ctrl (áreas de una fila) eso colaba filas que no estaban
+'     seleccionadas. Ese caso se resuelve mirando directamente si la fila está oculta.
+'   - Además se descarta cualquier fila que caiga fuera del área, por si SpecialCells
+'     devolviera de más.
 Private Function RecolectarVisibles(ByVal rngCol As Range, ByVal tope As Long, _
                                     ByRef filas() As Long) As Long
     Const BLOQUE As Long = 20000
 
     Dim ar As Range, vis As Range, a As Range, ws As Worksheet
-    Dim ini As Long, fin As Long, r1 As Long, r2 As Long, i As Long, n As Long
+    Dim ini As Long, fin As Long, r1 As Long, r2 As Long
+    Dim i As Long, n As Long, f As Long
 
     ReDim filas(1 To tope)
     If rngCol Is Nothing Then Exit Function
@@ -508,20 +525,32 @@ Private Function RecolectarVisibles(ByVal rngCol As Range, ByVal tope As Long, _
             r2 = r1 + BLOQUE - 1
             If r2 > fin Then r2 = fin
 
-            Set vis = Nothing
-            On Error Resume Next
-            Set vis = ws.Range(ws.Cells(r1, ar.Column), ws.Cells(r2, ar.Column)) _
-                        .SpecialCells(xlCellTypeVisible)
-            On Error GoTo 0
+            If r1 = r2 Then
+                ' una sola fila: SpecialCells buscaría en toda la hoja
+                If Not ws.Rows(r1).Hidden Then
+                    n = n + 1
+                    filas(n) = r1
+                    If n >= tope Then GoTo Fin
+                End If
+            Else
+                Set vis = Nothing
+                On Error Resume Next
+                Set vis = ws.Range(ws.Cells(r1, ar.Column), ws.Cells(r2, ar.Column)) _
+                            .SpecialCells(xlCellTypeVisible)
+                On Error GoTo 0
 
-            If Not vis Is Nothing Then
-                For Each a In vis.Areas
-                    For i = 1 To a.Rows.Count
-                        n = n + 1
-                        filas(n) = a.Row + i - 1
-                        If n >= tope Then GoTo Fin
-                    Next i
-                Next a
+                If Not vis Is Nothing Then
+                    For Each a In vis.Areas
+                        For i = 1 To a.Rows.Count
+                            f = a.Row + i - 1
+                            If f >= r1 And f <= r2 Then      ' nunca fuera del área pedida
+                                n = n + 1
+                                filas(n) = f
+                                If n >= tope Then GoTo Fin
+                            End If
+                        Next i
+                    Next a
+                End If
             End If
 
             r1 = r2 + 1
@@ -606,14 +635,18 @@ Private Sub EliminarHojaLote()
     End If
 End Sub
 
-' Formato de texto en las celdas de la etiqueta ANTES de replicar: así se copia a todos los
-' bloques de una vez y el llenado posterior sólo escribe valores (mucho más rápido).
+' Vacía los campos de la etiqueta y les pone formato de texto ANTES de replicar el bloque:
+'   - el formato se copia a todos los bloques de una vez y el llenado posterior sólo
+'     escribe valores (mucho más rápido);
+'   - vaciarlos garantiza que, si algo fallara al escribir, la etiqueta salga EN BLANCO y
+'     no con los datos que había quedado en la plantilla de una corrida anterior.
 Private Sub PrepararFormatos(ByVal ws As Worksheet, ByRef campos() As tCampo)
     Dim i As Long
 
     On Error Resume Next
     For i = LBound(campos) To UBound(campos)
         If Not campos(i).Numero Then ws.Range(campos(i).Celda).NumberFormat = "@"
+        ws.Range(campos(i).Celda).ClearContents
     Next i
     On Error GoTo 0
 End Sub
@@ -929,6 +962,76 @@ End Function
 Private Sub AgregarAviso(ByVal s As String)
     mNumAvisos = mNumAvisos + 1
     If mNumAvisos <= 10 Then mAvisos = mAvisos & vbCrLf & "  - " & s
+End Sub
+
+
+'==============================================================================================
+' REGISTRO DE LO IMPRESO  (hoja ETQ_LOG)
+'
+' Deja constancia de QUÉ fila de origen generó cada etiqueta, para poder contrastar el
+' papel que salió de la impresora con lo que se mandó.
+'==============================================================================================
+Private Sub EscribirRegistro(ByVal wsOrigen As Worksheet, ByRef filas() As Long, _
+                             ByRef copias() As Long, ByVal desde As Long, ByVal hasta As Long, _
+                             ByVal soloSeleccion As Boolean)
+
+    Dim ws As Worksheet
+    Dim datos() As Variant
+    Dim n As Long, i As Long, etq As Long
+    Dim colCliente As Long, colProducto As Long, colSerie As Long, colDesc As Long
+
+    On Error Resume Next
+
+    colCliente = COL_CLIENTE
+    colProducto = ResolverColumna(wsOrigen, "producto_id", 3)
+    colSerie = ResolverColumna(wsOrigen, "nro_serie", 5)
+    colDesc = ResolverColumna(wsOrigen, "descripcion", 4)
+
+    n = hasta - desde + 1
+    If n > TOPE_REGISTRO Then n = TOPE_REGISTRO
+    If n < 1 Then Exit Sub
+
+    ReDim datos(1 To n + 1, 1 To 7)
+    datos(1, 1) = "#"
+    datos(1, 2) = "fila origen"
+    datos(1, 3) = "cliente"
+    datos(1, 4) = "producto_id"
+    datos(1, 5) = "descripcion"
+    datos(1, 6) = "nro_serie"
+    datos(1, 7) = "etiquetas"
+
+    etq = 0
+    For i = 1 To n
+        datos(i + 1, 1) = i
+        datos(i + 1, 2) = filas(desde + i - 1)
+        datos(i + 1, 3) = TextoCelda(wsOrigen.Cells(filas(desde + i - 1), colCliente))
+        datos(i + 1, 4) = TextoCelda(wsOrigen.Cells(filas(desde + i - 1), colProducto))
+        datos(i + 1, 5) = TextoCelda(wsOrigen.Cells(filas(desde + i - 1), colDesc))
+        datos(i + 1, 6) = TextoCelda(wsOrigen.Cells(filas(desde + i - 1), colSerie))
+        datos(i + 1, 7) = copias(desde + i - 1)
+        etq = etq + copias(desde + i - 1)
+    Next i
+
+    Set ws = Nothing
+    Set ws = ThisWorkbook.Worksheets("ETQ_LOG")
+    If ws Is Nothing Then
+        Set ws = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Worksheets(ThisWorkbook.Worksheets.Count))
+        ws.Name = "ETQ_LOG"
+    End If
+
+    ws.Cells.Clear
+    ws.Range("A1").Value = "Último envío a imprimir: " & Format$(Now, "dd/mm/yyyy hh:nn:ss") & _
+                           "   -   " & IIf(soloSeleccion, "filas seleccionadas", "filas del filtro") & _
+                           "   -   " & (hasta - desde + 1) & " fila(s), " & etq & " etiqueta(s)"
+    ws.Range("A1").Font.Bold = True
+    ws.Range(ws.Cells(3, 1), ws.Cells(3 + n, 7)).Value = datos
+    ws.Range(ws.Cells(3, 1), ws.Cells(3, 7)).Font.Bold = True
+    ws.Columns("A:G").AutoFit
+    If (hasta - desde + 1) > n Then
+        ws.Cells(4 + n, 1).Value = "... (registro limitado a " & TOPE_REGISTRO & " filas)"
+    End If
+
+    On Error GoTo 0
 End Sub
 
 
