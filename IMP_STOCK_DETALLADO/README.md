@@ -17,11 +17,18 @@ respetaba el autofiltro de la hoja `Consolidado`.
 
 ```
 src/modEtiquetas.bas            módulo nuevo: motor de impresión por lotes
-src/Modulo1.bas                 reemplazo de Módulo1 (VistaPreviaEImpresion + ValidarDato)
+src/Modulo1.bas                 reemplazo de Módulo1, para IMPORTAR (conserva el atajo)
+src/Modulo1_para_pegar.bas      el mismo código, para COPIAR Y PEGAR (sin líneas Attribute)
 src/_original/                  código tal como estaba en el .xlsm (respaldo)
 docs/ANALISIS.md                análisis del VBA original y defectos corregidos
 docs/MAPEO_Y_ZEBRA.md           mapeo celda <- columna y configuración de la ZD421
 ```
+
+> **Importar o pegar, pero no mezclar.** Los archivos `.bas` empiezan con líneas
+> `Attribute ...` que el editor de VBA sólo acepta al **importar** el archivo. Si copia y
+> pega ese contenido dentro de un módulo, al compilar aparece
+> **"Atributo no válido en Sub o Function"**. Para pegar use
+> `src/Modulo1_para_pegar.bas`, que no las lleva.
 
 ## Instalación (5 minutos)
 
@@ -36,9 +43,9 @@ docs/MAPEO_Y_ZEBRA.md           mapeo celda <- columna y configuración de la ZD
    - Así se conserva el atajo de teclado que ya tenía la macro.
 
    > Si prefiere no quitar el módulo: abra `Módulo1`, borre todo su contenido y pegue el de
-   > `src/Modulo1.bas` **sin** las líneas que empiezan con `Attribute` (el editor no las
-   > acepta pegadas). En ese caso vuelva a asignar el atajo en
-   > `Vista > Macros > Opciones`.
+   > **`src/Modulo1_para_pegar.bas`** (es el mismo código sin las líneas `Attribute`, que el
+   > editor no acepta pegadas). En ese caso vuelva a asignar el atajo en
+   > `Vista > Macros > VistaPreviaEImpresion > Opciones...`, tecla `P`.
 5. `Ctrl + G` (ventana Inmediato) y `Depuración > Compilar VBAProject` para verificar que
    compila sin errores.
 6. Guardar el libro como `.xlsm`.
@@ -101,4 +108,5 @@ envía en 2 trabajos de impresión (antes: 200 trabajos).
 | Aviso de paginación | el papel de `ETQ` no es la etiqueta de 100 x 50 mm, o la escala no cuadra: revisar la vista previa y, si hace falta, poner `ESCALA_FIJA = 28` |
 | Etiquetas en blanco intercaladas | misma causa anterior (una etiqueta ocupa más de una página) |
 | El código de barras no se lee | ver el aviso al final del lote: caracteres no válidos para Code 39 o código demasiado largo (`docs/MAPEO_Y_ZEBRA.md`) |
+| `Atributo no válido en Sub o Function` al compilar | se pegó un `.bas` en vez de importarlo: borre las líneas que empiezan con `Attribute` (o use `src/Modulo1_para_pegar.bas`) y reasigne el atajo en `Vista > Macros > Opciones...` |
 | Quedó una hoja `ETQ_LOTE` | se interrumpió el proceso: se puede borrar a mano, la siguiente corrida la borra sola |
