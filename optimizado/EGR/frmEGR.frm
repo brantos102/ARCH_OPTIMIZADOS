@@ -37,8 +37,7 @@ Private WithEvents bSugTod As MSForms.CommandButton
 Private cboDest As MSForms.ComboBox
 Private WithEvents bAsig As MSForms.CommandButton
 Private WithEvents bQuitar As MSForms.CommandButton
-Private WithEvents bEtqSel As MSForms.CommandButton
-Private WithEvents bEtqTod As MSForms.CommandButton
+Private WithEvents bEtq As MSForms.CommandButton
 Private WithEvents bVPed As MSForms.CommandButton
 Private WithEvents bVEmp As MSForms.CommandButton
 Private cboHoja As MSForms.ComboBox, cboFmt As MSForms.ComboBox
@@ -82,8 +81,7 @@ Private Sub UserForm_Initialize()
   Set bQuitar = NB("Quitar confirmación (selecc.)", 8, 155, 190, 22, RGB(120, 120, 120), "Los pedidos seleccionados vuelven a la regla base por provincia.")
 
   Set t = NL("2  ETIQUETAS (Zebra 10 x 5 cm)", 8, 186, 190, True): t.ForeColor = RGB(0, 128, 96)
-  Set bEtqSel = NB("Imprimir seleccionadas", 8, 202, 93, 28, RGB(0, 128, 96), "Abre el buscador de etiquetas con los pedidos que marcaste en la lista.")
-  Set bEtqTod = NB("Buscar e imprimir", 105, 202, 93, 28, RGB(0, 150, 110), "Abre el buscador de etiquetas con sus propios filtros: estado, destino y búsqueda.")
+  Set bEtq = NB("IMPRIMIR ETIQUETAS", 8, 202, 190, 28, RGB(0, 128, 96), "Abre la lista completa de etiquetas. Filtra ahí lo que necesites e imprime: se imprime todo lo que quede en la lista.")
 
   Set t = NL("3  SEGUIMIENTO", 8, 238, 190, True): t.ForeColor = RGB(112, 48, 160)
   Set bVPed = NB("Pedidos", 8, 254, 60, 24, RGB(89, 89, 89), "Vista principal: todos los pedidos con destino, cobertura y señales.")
@@ -124,7 +122,7 @@ Private Sub UserForm_Initialize()
   Set bCer = NB("Cerrar panel", 8, 559, 190, 22, RGB(192, 80, 77), "Cierra el panel.")
   Set lblGuia = NL("", 8, 586, 190)
   lblGuia.Height = 100: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204): lblGuia.BorderStyle = fmBorderStyleSingle: lblGuia.ForeColor = RGB(128, 64, 0)
-  Set mPasoBtn(1) = bCob: Set mPasoBtn(2) = bCamb: Set mPasoBtn(3) = bEtqSel: Set mPasoBtn(4) = bVEmp: Set mPasoBtn(5) = bExp
+  Set mPasoBtn(1) = bCob: Set mPasoBtn(2) = bCamb: Set mPasoBtn(3) = bEtq: Set mPasoBtn(4) = bVEmp: Set mPasoBtn(5) = bExp
   For i = 1 To 5: mPasoCap(i) = mPasoBtn(i).Caption: mPasoCol(i) = mPasoBtn(i).BackColor: Next
 
   ' ----- área derecha -----
@@ -522,7 +520,7 @@ Private Sub GuiaFlujo(ByVal nFue As Long, ByVal nCam As Long, ByVal nPen As Long
   Select Case sig
     Case 1: txt = "SIGUIENTE: revisar la cobertura TMS. Hay " & nFue & " pedido(s) fuera de cobertura: no tendrán destino ni etiqueta hasta corregirlos en PEDIDOS HCE o en COBERTURAS."
     Case 2: txt = "SIGUIENTE: decidir los destinos. " & nCam & " pedido(s) tienen un destino sugerido distinto (columna SUGER.). Aplica la sugerencia, asigna a mano o déjalos como están."
-    Case 3: txt = "SIGUIENTE: imprimir etiquetas. Pendientes: " & nPen & IIf(nRei > 0, "; por reimprimir (cambió el destino): " & nRei, "") & ". Usa el filtro y 'Imprimir seleccionadas' o 'Imprimir todas'."
+    Case 3: txt = "SIGUIENTE: imprimir etiquetas. Pendientes: " & nPen & IIf(nRei > 0, "; por reimprimir (cambió el destino): " & nRei, "") & ". Pulsa IMPRIMIR ETIQUETAS: ahí filtras y se imprime lo que quede en la lista."
     Case 4: txt = "SIGUIENTE: seguir el empaque. Empacados " & nEmp & " de " & mN & ". Pulsa 'Actualizar datos' cuando bodega avance en el Google Sheets y revisa 'Avance empaque'."
     Case 5: txt = "SIGUIENTE: exportar TRAMACO, TMS y DESPACHOS (elige hoja y formato). Si luego cambia un destino, reimprime la etiqueta y exporta de nuevo."
     Case Else: txt = "Despacho completo: destinos decididos, etiquetas impresas, empaque terminado y reportes exportados."
@@ -762,24 +760,9 @@ End Sub
 ' =====================================================================================
 '  2. Etiquetas
 ' =====================================================================================
-Private Sub bEtqSel_Click()
+Private Sub bEtq_Click()
   If Not Listo() Then Exit Sub
-  If Not EnPedidos() Then Exit Sub
-  Dim c As Collection, f As New Collection, r
-  Set c = Seleccionados()
-  If c.Count = 0 Then MsgBox "Selecciona en la lista los pedidos a imprimir (Ctrl + clic o Shift + clic para varios). Tip: usa el filtro 'ETIQUETA PENDIENTE' o 'REIMPRIMIR ETIQUETA'.", vbInformation: Exit Sub
-  For Each r In c: f.Add mData(r, 2): Next
-  AbrirEtiquetas f
-End Sub
-
-Private Sub bEtqTod_Click()
-  If Not Listo() Then Exit Sub
-  Dim f As New Collection
-  AbrirEtiquetas f          ' sin preselección: el buscador de etiquetas abre con sus propios filtros
-End Sub
-
-Private Sub AbrirEtiquetas(filas As Collection)
-  Set gEtiqFilas = filas
+  RuedaDesactivar                       ' el enganche de la rueda no debe seguir activo con otro formulario encima
   Load frmEtiquetas
   If InStr(1, frmEtiquetas.Caption, "Etiquetas", vbTextCompare) = 0 Then       ' el formulario existe pero sin su código
     Unload frmEtiquetas

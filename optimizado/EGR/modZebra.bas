@@ -22,7 +22,6 @@ Private Declare PtrSafe Function EndPagePrinter Lib "winspool.drv" (ByVal hPrint
 Private Declare PtrSafe Function WritePrinter Lib "winspool.drv" (ByVal hPrinter As LongPtr, pBuf As Any, ByVal cdBuf As Long, pcWritten As Long) As Long
 
 Private Const HETQ As String = "ETIQUETAS"
-Public gEtiqFilas As Collection      ' filas de DATOS para frmEtiquetas
 
 ' ---------- texto seguro para ZPL (sin tildes, sin ^ ni ~) ----------
 Private Function Limpio(ByVal s As String) As String

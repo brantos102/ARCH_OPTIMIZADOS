@@ -1,24 +1,22 @@
 Option Explicit
 ' =====================================================================================
-'  frmEtiquetas - Selección, vista previa e impresión de etiquetas Zebra (10 x 5 cm).
-'  Insertar > UserForm, nombre frmEtiquetas, pegar este código. Lo abre frmEGR o el menú.
-'   - filtros por estado de etiqueta, destino y texto libre
-'   - lo marcado se conserva aunque cambie el filtro
-'   - vista previa del pedido seleccionado
-'   - la impresora se elige una vez y queda guardada
-'  Rendimiento: la lista se arma en memoria y se vuelca de una sola vez (lst.List = arr).
+'  frmEtiquetas - Imprimir etiquetas Zebra (10 x 5 cm).
+'  Insertar > UserForm, nombre frmEtiquetas, pegar este código.
+'  Funciona así: se abre con TODOS los pedidos que tienen destino, se filtra la lista
+'  y se imprime exactamente lo que quedó en la lista. No hay que marcar nada.
+'  Rendimiento: la lista se arma en memoria y se vuelca de una sola vez.
 ' =====================================================================================
 Private Const BASE_W As Single = 860
-Private Const BASE_H As Single = 520
-Private Const TITULO As String = "Etiquetas HYCITE - seleccionar e imprimir"
+Private Const BASE_H As Single = 500
+Private Const TITULO As String = "Imprimir etiquetas HYCITE"
 Private Const PX As Single = 356        ' esquina de la etiqueta de muestra
-Private Const PY As Single = 60
+Private Const PY As Single = 58
 Private Const ES As Single = 0.6        ' 800 x 400 puntos Zebra -> 480 x 240 en pantalla
 
 Private mLay As Variant, mCW As Single, mCH As Single, mEsc As Double, mEscalando As Boolean
 Private mCerrando As Boolean, mCarga As Boolean
 Private mFila() As Long, mPed() As String, mDest() As String, mNom() As String, mParr() As String, mEst() As String
-Private mN As Long, mIdx() As Long, mNIdx As Long, mMarca As Object
+Private mN As Long, mIdx() As Long, mNIdx As Long
 Private lblInfo As MSForms.Label, lblCnt As MSForms.Label, fondo As MSForms.Label
 Private lblNum As MSForms.Label, lblDest As MSForms.Label, lblParr As MSForms.Label, lblNom As MSForms.Label
 Private barras(1 To 90) As MSForms.Label
@@ -27,9 +25,7 @@ Private WithEvents cboEstado As MSForms.ComboBox
 Private WithEvents cboDest As MSForms.ComboBox
 Private WithEvents txtBuscar As MSForms.TextBox
 Private cboImp As MSForms.ComboBox
-Private WithEvents bTodos As MSForms.CommandButton
-Private WithEvents bNinguno As MSForms.CommandButton
-Private WithEvents bLimpF As MSForms.CommandButton
+Private WithEvents bQuitar As MSForms.CommandButton
 Private WithEvents bImprimir As MSForms.CommandButton
 Private WithEvents bZpl As MSForms.CommandButton
 Private WithEvents bCancel As MSForms.CommandButton
@@ -38,32 +34,30 @@ Private Sub UserForm_Initialize()
   Dim t As MSForms.Label, i As Long, f
   Me.Caption = TITULO
   Me.Zoom = 100: Me.Width = BASE_W: Me.Height = BASE_H
-  Set mMarca = CreateObject("Scripting.Dictionary")
 
   Set lblInfo = NL("", 10, 8, 830, 14, True): lblInfo.ForeColor = RGB(48, 84, 150)
 
   ' ----- filtros -----
   NL "Etiqueta:", 10, 30, 46
-  Set cboEstado = NC(58, 27, 104)
-  For Each f In Array("PENDIENTES", "REIMPRIMIR", "PENDIENTES + REIMPRIMIR", "IMPRESAS", "TODAS"): cboEstado.AddItem f: Next
-  NL "Destino:", 170, 30, 42
-  Set cboDest = NC(214, 27, 64)
+  Set cboEstado = NC(58, 27, 118)
+  For Each f In Array("PENDIENTES + REIMPRIMIR", "PENDIENTES", "REIMPRIMIR", "IMPRESAS", "TODAS"): cboEstado.AddItem f: Next
+  NL "Destino:", 184, 30, 42
+  Set cboDest = NC(228, 27, 62)
   For Each f In Array("TODOS", "PRO", "GYE", "UIO", "GPS"): cboDest.AddItem f: Next
-  NL "Buscar:", 286, 30, 38
+  NL "Buscar:", 298, 30, 38
   Set txtBuscar = Me.Controls.Add("Forms.TextBox.1")
-  txtBuscar.Left = 326: txtBuscar.Top = 27: txtBuscar.Width = 150: txtBuscar.Height = 18
-  txtBuscar.ControlTipText = "Pedido, destinatario o parroquia."
-  Set bLimpF = NB("Quitar filtros", 482, 26, 86, 20, RGB(120, 120, 120))
+  txtBuscar.Left = 338: txtBuscar.Top = 27: txtBuscar.Width = 140: txtBuscar.Height = 18
+  txtBuscar.ControlTipText = "Pedido, destinatario o parroquia. Escribe y la lista se filtra sola."
+  Set bQuitar = NB("Quitar filtros", 484, 26, 84, 20, RGB(120, 120, 120))
 
   ' ----- lista -----
-  Set lblCnt = NL("", 10, 50, 330)
+  Set lblCnt = NL("", 10, 50, 336, 14, True)
   Set lst = Me.Controls.Add("Forms.ListBox.1")
-  lst.Left = 10: lst.Top = 66: lst.Width = 336: lst.Height = 352: lst.Font.Size = 8
+  lst.Left = 10: lst.Top = 66: lst.Width = 336: lst.Height = 330: lst.Font.Size = 8
   lst.ColumnCount = 4: lst.ColumnWidths = "72;34;150;74"
-  lst.MultiSelect = fmMultiSelectMulti: lst.ListStyle = fmListStyleOption
-  lst.ControlTipText = "Marca las etiquetas a imprimir. Lo marcado se conserva al cambiar el filtro."
-  Set bTodos = NB("Marcar lo filtrado", 10, 422, 112, 22, RGB(120, 120, 120))
-  Set bNinguno = NB("Desmarcar todo", 126, 422, 104, 22, RGB(120, 120, 120))
+  lst.ControlTipText = "Se imprime TODO lo que esté en esta lista. Usa los filtros de arriba para dejar solo lo que necesitas."
+  Set t = NL("Se imprime todo lo que esté en la lista. Haz clic en un pedido para ver su etiqueta.", 10, 400, 336)
+  t.Height = 26: t.WordWrap = True: t.ForeColor = RGB(120, 120, 120)
 
   ' ----- vista previa -----
   Set t = NL("VISTA PREVIA (10 x 5 cm)", PX, PY - 18, 400, 14, True): t.ForeColor = RGB(48, 84, 150)
@@ -82,26 +76,20 @@ Private Sub UserForm_Initialize()
   Set cboImp = NC(PX + 58, 297, 322)
   Set t = NL("Se guarda la impresora elegida: la próxima vez ya aparece seleccionada.", PX, 318, 390)
   t.ForeColor = RGB(120, 120, 120)
-  Set bImprimir = NB("Imprimir", PX, 342, 200, 38, RGB(0, 128, 96))
-  bImprimir.Font.Size = 10
-  Set bZpl = NB("Guardar ZPL (prueba)", PX + 208, 342, 172, 38, RGB(120, 120, 120))
-  Set bCancel = NB("Cerrar", PX + 208, 386, 172, 26, RGB(192, 80, 77))
-  Set t = NL("Si la etiqueta sale clara o corrida, ajusta ETIQ_OSCURIDAD y ETIQ_OFFSET en la hoja CONFIG_EGR.", PX, 418, 390)
+  Set bImprimir = NB("Imprimir", PX, 342, 244, 40, RGB(0, 128, 96))
+  bImprimir.Font.Size = 11
+  Set bZpl = NB("Guardar ZPL (prueba)", PX + 252, 342, 128, 40, RGB(120, 120, 120))
+  Set bCancel = NB("Cerrar", PX + 252, 390, 128, 24, RGB(192, 80, 77))
+  Set t = NL("Si la etiqueta sale clara o corrida, ajusta ETIQ_OSCURIDAD y ETIQ_OFFSET en la hoja CONFIG_EGR.", PX, 390, 244)
   t.Height = 28: t.WordWrap = True: t.ForeColor = RGB(120, 120, 120)
 
   CargarPedidos
   CargarImpresoras
   mCarga = True
+  cboEstado.ListIndex = 0
   cboDest.ListIndex = 0
-  If PreSeleccion() > 0 Then
-    cboEstado.ListIndex = 4      ' TODAS: ya vienen marcados los elegidos en el panel
-    mCarga = False
-    Filtrar False
-  Else
-    cboEstado.ListIndex = 2      ' pendientes + reimprimir
-    mCarga = False
-    Filtrar True
-  End If
+  mCarga = False
+  Filtrar
   mLay = CapturarLayout(Me, mCW, mCH): mEsc = 1
   HacerRedimensionable TITULO
   AjustarAPantalla Me, BASE_W, BASE_H, 0.9
@@ -182,21 +170,9 @@ Private Sub CargarPedidos()
     End If
   Next
   mN = n
-  lblInfo.Caption = mN & " pedido(s) con destino" & IIf(nSin > 0, "   ·   " & nSin & " sin destino (fuera de cobertura TMS) no se pueden imprimir", "")
+  lblInfo.Caption = mN & " pedido(s) con destino" & _
+    IIf(nSin > 0, "   ·   " & nSin & " sin destino (fuera de cobertura TMS) no se pueden imprimir", "")
 End Sub
-
-' Pedidos que venían marcados desde el panel (gEtiqFilas). Devuelve cuántos se marcaron.
-Private Function PreSeleccion() As Long
-  Dim f, k As Long, n As Long
-  If gEtiqFilas Is Nothing Then Exit Function
-  If gEtiqFilas.Count = 0 Then Exit Function
-  For Each f In gEtiqFilas
-    For k = 1 To mN
-      If mFila(k) = CLng(f) Then mMarca(mPed(k)) = True: n = n + 1: Exit For
-    Next
-  Next
-  PreSeleccion = n
-End Function
 
 Private Sub CargarImpresoras()
   Dim c As Collection, it, guard As String, i As Long
@@ -222,7 +198,7 @@ Private Function Pasa(ByVal k As Long, ByVal est As String, ByVal des As String,
     Case "PENDIENTES + REIMPRIMIR": If mEst(k) = "IMPRESA" Then Exit Function
     Case "IMPRESAS": If mEst(k) <> "IMPRESA" Then Exit Function
   End Select
-  If des <> "TODOS" And des <> "" Then
+  If des <> "TODOS" And Len(des) > 0 Then
     If mDest(k) <> des Then Exit Function
   End If
   If Len(q) > 0 Then
@@ -231,17 +207,13 @@ Private Function Pasa(ByVal k As Long, ByVal est As String, ByVal des As String,
   Pasa = True
 End Function
 
-' marcarNuevos: True = marca lo que entra al filtro (al abrir y al cambiar de filtro)
-Private Sub Filtrar(Optional ByVal marcarNuevos As Boolean = False)
+Private Sub Filtrar()
   Dim k As Long, est As String, des As String, q As String, arr() As String, n As Long
   If mCerrando Or lst Is Nothing Or cboEstado Is Nothing Then Exit Sub
   est = cboEstado.Text: des = cboDest.Text: q = Trim$(txtBuscar.Text)
   ReDim mIdx(1 To IIf(mN > 0, mN, 1)): mNIdx = 0
   For k = 1 To mN
-    If Pasa(k, est, des, q) Then
-      mNIdx = mNIdx + 1: mIdx(mNIdx) = k
-      If marcarNuevos Then mMarca(mPed(k)) = True
-    End If
+    If Pasa(k, est, des, q) Then mNIdx = mNIdx + 1: mIdx(mNIdx) = k
   Next
   mCarga = True
   lst.Clear
@@ -252,11 +224,6 @@ Private Sub Filtrar(Optional ByVal marcarNuevos As Boolean = False)
       arr(n - 1, 0) = mPed(k): arr(n - 1, 1) = mDest(k): arr(n - 1, 2) = mNom(k): arr(n - 1, 3) = mEst(k)
     Next
     lst.List = arr
-    For n = 1 To mNIdx
-      If mMarca.Exists(mPed(mIdx(n))) Then
-        If mMarca(mPed(mIdx(n))) Then lst.Selected(n - 1) = True
-      End If
-    Next
     lst.ListIndex = 0
   End If
   mCarga = False
@@ -265,21 +232,19 @@ Private Sub Filtrar(Optional ByVal marcarNuevos As Boolean = False)
 End Sub
 
 Private Sub Contar()
-  Dim n As Long
-  ' al descargar el formulario los controles se destruyen antes que el código: sin esta guarda
-  ' un último evento de la lista intentaba escribir en un botón que ya no existe
   If mCerrando Or lblCnt Is Nothing Or bImprimir Is Nothing Then Exit Sub
-  n = Marcadas().Count
-  lblCnt.Caption = mNIdx & " en la lista   ·   " & n & " marcada(s) para imprimir"
-  bImprimir.Caption = IIf(n = 0, "Imprimir", "Imprimir " & n & " etiqueta(s)")
+  lblCnt.Caption = mNIdx & " etiqueta(s) en la lista"
+  If mNIdx = 0 Then
+    bImprimir.Caption = "No hay etiquetas que imprimir"
+  Else
+    bImprimir.Caption = "Imprimir las " & mNIdx & " etiqueta(s) de la lista"
+  End If
 End Sub
 
-Private Function Marcadas() As Collection
-  Dim c As New Collection, k As Long
-  For k = 1 To mN
-    If mMarca.Exists(mPed(k)) Then If mMarca(mPed(k)) Then c.Add mFila(k)
-  Next
-  Set Marcadas = c
+Private Function Listadas() As Collection
+  Dim c As New Collection, n As Long
+  For n = 1 To mNIdx: c.Add mFila(mIdx(n)): Next
+  Set Listadas = c
 End Function
 
 ' ---------- vista previa ----------
@@ -314,52 +279,39 @@ End Sub
 ' ---------- eventos ----------
 Private Sub cboEstado_Change()
   If mCarga Then Exit Sub
-  Filtrar True
+  Filtrar
 End Sub
 Private Sub cboDest_Change()
   If mCarga Then Exit Sub
-  Filtrar True
+  Filtrar
 End Sub
 Private Sub txtBuscar_Change()
   If mCarga Then Exit Sub
-  Filtrar False
+  Filtrar
 End Sub
-Private Sub bLimpF_Click()
+Private Sub bQuitar_Click()
+  If mCerrando Then Exit Sub
   mCarga = True
-  cboEstado.ListIndex = 2: cboDest.ListIndex = 0: txtBuscar.Text = ""
+  cboEstado.ListIndex = 0: cboDest.ListIndex = 0: txtBuscar.Text = ""
   mCarga = False
-  Filtrar True
+  Filtrar
 End Sub
 
 Private Sub lst_Change()
-  Dim i As Long
   If mCerrando Or mCarga Or lst Is Nothing Then Exit Sub
-  For i = 0 To lst.ListCount - 1
-    If i < mNIdx Then mMarca(mPed(mIdx(i + 1))) = lst.Selected(i)
-  Next
   If lst.ListIndex >= 0 Then Muestra lst.ListIndex
-  Contar
-End Sub
-
-Private Sub bTodos_Click()
-  Dim i As Long
-  If mCerrando Or lst Is Nothing Then Exit Sub
-  For i = 0 To lst.ListCount - 1: lst.Selected(i) = True: Next
-End Sub
-Private Sub bNinguno_Click()
-  Dim i As Long, k As Long
-  If mCerrando Or lst Is Nothing Then Exit Sub
-  For k = 1 To mN: mMarca(mPed(k)) = False: Next
-  For i = 0 To lst.ListCount - 1: lst.Selected(i) = False: Next
-  Contar
 End Sub
 
 Private Sub bImprimir_Click()
-  Dim c As Collection, n As Long
-  Set c = Marcadas()
-  If c.Count = 0 Then MsgBox "No hay etiquetas marcadas.", vbInformation: Exit Sub
+  Dim c As Collection, n As Long, det As String
+  If mCerrando Then Exit Sub
+  Set c = Listadas()
+  If c.Count = 0 Then MsgBox "No hay etiquetas en la lista. Cambia los filtros.", vbInformation: Exit Sub
   If cboImp.ListIndex < 0 Then MsgBox "Elige la impresora Zebra.", vbExclamation: Exit Sub
-  If MsgBox("Imprimir " & c.Count & " etiqueta(s) en:" & vbCrLf & cboImp.Text, vbYesNo + vbQuestion, "Etiquetas") <> vbYes Then Exit Sub
+  det = "Etiqueta: " & cboEstado.Text & "   ·   Destino: " & cboDest.Text
+  If Len(Trim$(txtBuscar.Text)) > 0 Then det = det & "   ·   Buscar: " & Trim$(txtBuscar.Text)
+  If MsgBox("Imprimir las " & c.Count & " etiqueta(s) de la lista en:" & vbCrLf & cboImp.Text & vbCrLf & vbCrLf & det, _
+            vbYesNo + vbQuestion, "Imprimir etiquetas") <> vbYes Then Exit Sub
   SetCfg "IMPRESORA_ZEBRA", cboImp.Text
   Application.Cursor = xlWait
   n = ImprimirFilas(c, cboImp.Text, False)
@@ -375,8 +327,9 @@ End Sub
 
 Private Sub bZpl_Click()
   Dim c As Collection, n As Long
-  Set c = Marcadas()
-  If c.Count = 0 Then MsgBox "No hay etiquetas marcadas.", vbInformation: Exit Sub
+  If mCerrando Then Exit Sub
+  Set c = Listadas()
+  If c.Count = 0 Then MsgBox "No hay etiquetas en la lista.", vbInformation: Exit Sub
   n = ImprimirFilas(c, "", True)
   If n > 0 Then MsgBox n & " etiqueta(s) guardadas en la carpeta de exportes (archivo .zpl)." & vbCrLf & _
                         "Se puede ver en labelary.com con 8 dpmm y 3,94 x 1,97 pulgadas.", vbInformation

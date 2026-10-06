@@ -458,6 +458,7 @@ Sub RepararFormulasEGR()
   If MsgBox("Se corregirán las fórmulas con #REF! y se prepararán las reglas de destino:" & vbCrLf & vbCrLf & _
             "  - DATOS!A: destino con reglas confirmadas (AF:AH)" & vbCrLf & _
             "  - DATOS!Y: courier (antes INDEX(#REF!) = vacío en todos)" & vbCrLf & _
+            "  - DATOS!R: bultos = contenedoras del pedido (1 contenedora = 1 caja)" & vbCrLf & _
             "  - EMPAQUETADO!F: COUNTIF(#REF!) -> pedidos del día (ITEMS API)" & vbCrLf & _
             "  - DESPACHOS!P: búsqueda sin columnas completas" & vbCrLf & _
             "  - COD POS I:J (vínculo externo roto), nombres #REF!, vínculos externos" & vbCrLf & _
@@ -474,6 +475,18 @@ Sub RepararFormulasEGR()
   ws.Range("Y2:Y" & MAXF).Formula2 = "=IF(OR($B2="""",$A2=""""),"""",IF($A2=""PRO"",""TRAMACO"",IFERROR(IF(ISNUMBER(SEARCH(""ITSANET""," & _
       "INDEX('COBERTURAS Y TARIFAS'!$F$2:$F$1804,MATCH(TEXTJOIN(""_"",TRUE,$H2,$I2,$J2),COBERT_KEY,0)))),""ITSANET"",IF($A2=""GPS"",""TRAMACO"",""LAAR COURIER"")),""ITSANET"")))"
   LogE "REPARAR: DATOS!Y (COURIER): PRO = TRAMACO; UIO/GYE = ITSANET o LAAR según COBERTURA (misma regla que PEDIDOS HCE)"
+  ' BULTOS (DATOS!R): la regla es una contenedora = una caja, sin importar cuántos items lleve.
+  ' Las contenedoras las cuenta la consulta Estado en su columna CAJAS. Si esa columna todavía
+  ' no existe (consulta sin actualizar con SQL_ITEMS_DEPOT.sql), no se toca la fórmula anterior.
+  If TieneColumnaEstado("CAJAS") Then
+    ws.Range("R2:R" & MAXF).Formula2 = _
+      "=IF($B2="""","""",IFERROR(MAX(1,IF(MAXIFS(Estado[CAJAS],Estado[DOC_EXT],TEXT($B2,""0""))>0," & _
+      "MAXIFS(Estado[CAJAS],Estado[DOC_EXT],TEXT($B2,""0""))," & _
+      "IFERROR(VLOOKUP(TEXT($B2,""0""),'TABLAS DINAMICAS'!$H:$K,2,FALSE),1))),1))"
+    LogE "REPARAR: DATOS!R (BULTOS) = contenedoras del pedido en Estado[CAJAS] (1 contenedora = 1 caja); si el pedido no está, se usa la tabla dinámica y en último caso 1"
+  Else
+    LogE "REPARAR: DATOS!R (BULTOS) sin cambios: la consulta Estado todavía no trae la columna CAJAS. Actualiza la consulta con SQL_ITEMS_DEPOT.sql y vuelve a ejecutar Reparar fórmulas.", "AVISO"
+  End If
   Set lo = Nothing
   On Error Resume Next
   Set lo = ThisWorkbook.Worksheets("EMPAQUETADO").ListObjects("EMPAQUETADO")
@@ -807,11 +820,33 @@ Public Function ClaveTMS(ByVal h As String, ByVal i As String, ByVal j As String
   ClaveTMS = UCase$(s)
 End Function
 
+' Índice de una columna de una tabla buscándola por el nombre del encabezado.
+' Así, si la consulta cambia de columnas (p. ej. ahora trae CAJAS y CONTENEDORAS),
+' el código sigue leyendo el dato correcto. Si no está, devuelve 'predet'.
+Public Function ColIdx(lo As ListObject, ByVal nombre As String, Optional ByVal predet As Long = 0) As Long
+  Dim lc As ListColumn
+  ColIdx = predet
+  If lo Is Nothing Then Exit Function
+  For Each lc In lo.ListColumns
+    If UCase$(Trim$(lc.Name)) = UCase$(Trim$(nombre)) Then ColIdx = lc.Index: Exit Function
+  Next
+End Function
+
+' ¿La consulta Estado (ITEMS DEPOT) ya trae esta columna?
+Public Function TieneColumnaEstado(ByVal nombre As String) As Boolean
+  Dim lo As ListObject
+  On Error Resume Next
+  Set lo = ThisWorkbook.Worksheets("ITEMS DEPOT").ListObjects("Estado")
+  On Error GoTo 0
+  TieneColumnaEstado = (ColIdx(lo, nombre, 0) > 0)
+End Function
+
 ' Empaque y picking por pedido -> Array(estado, cajas, peso cajas, volumen %, unidades conf, unidades sol)
 Public Function DictEmpaque() As Object
   Dim d As Object, sol As Object, conf As Object, cont1 As Object, cajas As Object, pesoC As Object, dPct As Object
   Dim cajasD As Object, nCajD As Object
   Dim lo As ListObject, a, i As Long, doc As String, k
+  Dim cDoc As Long, cProd As Long, cConf As Long, cCont As Long, cCaj As Long, nCajas As Long
   Set d = CreateObject("Scripting.Dictionary"): Set sol = CreateObject("Scripting.Dictionary")
   Set conf = CreateObject("Scripting.Dictionary"): Set cont1 = CreateObject("Scripting.Dictionary")
   Set cajasD = CreateObject("Scripting.Dictionary"): Set nCajD = CreateObject("Scripting.Dictionary")
@@ -826,21 +861,37 @@ Public Function DictEmpaque() As Object
   End If
   Set lo = Nothing: Set lo = ThisWorkbook.Worksheets("ITEMS DEPOT").ListObjects("Estado")
   If Not lo Is Nothing Then
+    ' las columnas se buscan por nombre: la consulta puede traer columnas nuevas
+    cDoc = ColIdx(lo, "DOC_EXT", 3): cProd = ColIdx(lo, "PRODUCTO_ID", 4)
+    cConf = ColIdx(lo, "Cantidad_Confirmada", 6): cCont = ColIdx(lo, "NRO_CONTENEDORA_EMPAQUE", 7)
+    cCaj = ColIdx(lo, "CAJAS", 0)
     If lo.ListRows.Count > 0 Then
       a = lo.DataBodyRange.Value
-      ' una fila por pedido + producto + contenedora: cada caja cuenta, pero una
-      ' misma combinación nunca se suma dos veces (pesos y costos correctos)
+      ' Una fila por pedido + producto: la cantidad nunca se suma dos veces
+      ' (pesos y costos correctos para facturar).
+      ' Las cajas = contenedoras distintas del pedido, sin importar cuántos items
+      ' lleve cada una: las da la columna CAJAS; si la consulta todavía no la trae,
+      ' se cuentan las contenedoras que aparecen en las filas.
       For i = 1 To UBound(a, 1)
-        doc = TXE(a(i, 3))
+        doc = TXE(a(i, cDoc))
         If Len(doc) > 0 Then
-          k = doc & Chr(1) & TXE(a(i, 4)) & Chr(1) & TXE(a(i, 7))
+          k = doc & Chr(1) & TXE(a(i, cProd))
           If Not cont1.Exists(k) Then
             cont1(k) = 1
-            conf(doc) = conf(doc) + Val(TXE(a(i, 6)))
+            conf(doc) = conf(doc) + Val(TXE(a(i, cConf)))
           End If
-          If Len(TXE(a(i, 7))) > 0 Then
-            If Not cajasD.Exists(doc & Chr(1) & TXE(a(i, 7))) Then
-              cajasD(doc & Chr(1) & TXE(a(i, 7))) = 1
+          If cCaj > 0 Then
+            nCajas = Val(TXE(a(i, cCaj)))
+            If nCajas > 0 Then
+              If Not nCajD.Exists(doc) Then
+                nCajD(doc) = nCajas
+              ElseIf nCajas > nCajD(doc) Then
+                nCajD(doc) = nCajas
+              End If
+            End If
+          ElseIf Len(TXE(a(i, cCont))) > 0 Then
+            If Not cajasD.Exists(doc & Chr(1) & TXE(a(i, cCont))) Then
+              cajasD(doc & Chr(1) & TXE(a(i, cCont))) = 1
               nCajD(doc) = nCajD(doc) + 1
             End If
           End If
@@ -943,6 +994,7 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
   Dim lo As ListObject, a, k As String, doc As String, ped As String, est As String
   Dim nSin As Long, nPar As Long, nPick As Long, nEmp As Long, nTot As Long, nDup As Long
   Dim skuSinPeso As Object, skuSinPrecio As Object, cajaSin As Object
+  Dim cDoc As Long, cProd As Long, cConf As Long, cPeso As Long, cPrec As Long
   Set sol = CreateObject("Scripting.Dictionary"): Set conf = CreateObject("Scripting.Dictionary")
   Set cont1 = CreateObject("Scripting.Dictionary"): Set emp = CreateObject("Scripting.Dictionary")
   Set skuSinPeso = CreateObject("Scripting.Dictionary"): Set skuSinPrecio = CreateObject("Scripting.Dictionary")
@@ -958,24 +1010,31 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
       Next
     End If
   End If
-  ' confirmado (Estado): una línea por pedido + producto + contenedora; si una se repite, se avisa
+  ' confirmado (Estado): una línea por pedido + producto; si una se repite, se avisa
   Set lo = Nothing: Set lo = ThisWorkbook.Worksheets("ITEMS DEPOT").ListObjects("Estado")
   If Not lo Is Nothing Then
+    cDoc = ColIdx(lo, "DOC_EXT", 3): cProd = ColIdx(lo, "PRODUCTO_ID", 4)
+    cConf = ColIdx(lo, "Cantidad_Confirmada", 6)
+    cPeso = ColIdx(lo, "PESO", 9): cPrec = ColIdx(lo, "PRECIO", 11)
     If lo.ListRows.Count > 0 Then
       a = lo.DataBodyRange.Value
       For i = 1 To UBound(a, 1)
-        doc = TXE(a(i, 3))
+        doc = TXE(a(i, cDoc))
         If Len(doc) > 0 Then
-          k = doc & Chr(1) & TXE(a(i, 4)) & Chr(1) & TXE(a(i, 7))
+          k = doc & Chr(1) & TXE(a(i, cProd))
           If cont1.Exists(k) Then
             nDup = nDup + 1
           Else
             cont1(k) = 1
-            conf(doc) = conf(doc) + Val(TXE(a(i, 6)))
+            conf(doc) = conf(doc) + Val(TXE(a(i, cConf)))
           End If
         End If
-        If TXE(a(i, 9)) = "" And Len(TXE(a(i, 4))) > 0 Then skuSinPeso(TXE(a(i, 4))) = 1
-        If UCase$(TXE(a(i, 11))) = "VERIFICAR" And Len(TXE(a(i, 4))) > 0 Then skuSinPrecio(TXE(a(i, 4))) = 1
+        If cPeso > 0 Then
+          If TXE(a(i, cPeso)) = "" And Len(TXE(a(i, cProd))) > 0 Then skuSinPeso(TXE(a(i, cProd))) = 1
+        End If
+        If cPrec > 0 Then
+          If UCase$(TXE(a(i, cPrec))) = "VERIFICAR" And Len(TXE(a(i, cProd))) > 0 Then skuSinPrecio(TXE(a(i, cProd))) = 1
+        End If
       Next
     End If
   End If
@@ -1018,7 +1077,7 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
   If skuSinPeso.Count > 0 Then LogE "COSTOS: " & skuSinPeso.Count & " SKU sin peso/volumen en DATA CODIGO Y CAJAS: " & Left$(Join(skuSinPeso.Keys, ", "), 300), "AVISO"
   If skuSinPrecio.Count > 0 Then LogE "COSTOS: " & skuSinPrecio.Count & " SKU sin precio (Verificar): " & Left$(Join(skuSinPrecio.Keys, ", "), 300), "AVISO"
   If cajaSin.Count > 0 Then LogE "COSTOS: tipo de caja sin medidas en DATA_CAJAS: " & Join(cajaSin.Keys, ", "), "AVISO"
-  If nDup > 0 Then LogE "ITEMS DEPOT: " & nDup & " fila(s) repetidas (mismo pedido, producto y contenedora). " & _
+  If nDup > 0 Then LogE "ITEMS DEPOT: " & nDup & " fila(s) repetidas (mismo pedido y producto). " & _
        "Las cantidades se contaron una sola vez. Corrige la consulta 'Estado' con SQL_ITEMS_DEPOT.sql para que los pesos y costos de la hoja salgan bien.", "AVISO"
   AvancePedidos = nTot
 End Function
@@ -1239,9 +1298,7 @@ Sub CrearMenuEGR()
   BotonMenu bar, "2 Ver cambios sugeridos", "MenuVerCambios", 1099, False
   BotonMenu bar, "2b Aplicar destinos sugeridos", "MenuAplicarDestinos", 1099, False
   BotonMenu bar, "2c Asignar destino a un pedido", "MenuAsignarDestino", 1099, False
-  BotonMenu bar, "3 Etiquetas: buscar e imprimir", "MenuEtiquetas", 4, True
-  BotonMenu bar, "3b Imprimir pendientes", "MenuImprimirPendientes", 4, False
-  BotonMenu bar, "3c Reimprimir pedido(s)", "MenuReimprimir", 4, False
+  BotonMenu bar, "3 IMPRIMIR ETIQUETAS", "MenuEtiquetas", 4, True
   BotonMenu bar, "4 Avance empaque", "MenuAvance", 1016, True
   BotonMenu bar, "5 Exportar reportes", "MenuExportar", 3, False
   BotonMenu bar, "Actualizar datos", "ActualizarTodo", 459, True
@@ -1463,9 +1520,10 @@ Sub MenuAsignarDestino()
   End If
 End Sub
 
+' Un solo botón de etiquetas: abre la lista completa, se filtra y se imprime lo filtrado.
 Sub MenuEtiquetas()
   If PanelOcupado() Then Exit Sub
-  Set gEtiqFilas = New Collection
+  RuedaDesactivar
   frmEtiquetas.Show vbModal
 End Sub
 

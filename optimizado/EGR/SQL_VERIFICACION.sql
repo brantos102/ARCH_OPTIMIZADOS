@@ -1,53 +1,29 @@
 /* Comprobaciones para ejecutar en SSMS, NO en Power Query.
    Ejecuta un bloque a la vez: selecciónalo y pulsa F5.
-   El bloque 1 es el que decide si la consulta nueva sirve: hazlo primero. */
+
+   Regla del negocio: cada NRO_CONTENEDORA_EMPAQUE es UNA caja del pedido,
+   sin importar cuántos items lleve dentro. Un pedido puede tener varias.
+   Las cantidades (y por tanto el peso y el costo) se cuentan UNA sola vez
+   por pedido + producto: nunca se repiten por caja. */
 
 
 /* ============================================================================
-   1. ¿La contenedora del picking es la misma que la de VIEW_TIEMPO_EMPAQUETADO?
+   1. El pedido del ejemplo: items y cajas.
 
-   La consulta nueva toma la caja de PICKING.NRO_UCEMPAQUETADO, que es la caja
-   en la que se empacó cada producto. Esta comprobación muestra, por pedido,
-   las cajas que ve cada origen. Deben coincidir.
-
-   Si la columna UC sale vacía en todos los pedidos ya empacados, avísame:
-   habría que tomar la caja de otra columna.
-   ============================================================================ */
-
-SELECT
-    CAST(SYD.DOC_EXT AS VARCHAR(50)) AS PEDIDO,
-    (SELECT COUNT(DISTINCT p.NRO_UCEMPAQUETADO)
-       FROM picking p (NOLOCK)
-       JOIN SYS_INT_DET_DOCUMENTO s2 (NOLOCK) ON s2.DOCUMENTO_ID = p.DOCUMENTO_ID
-      WHERE s2.DOC_EXT = SYD.DOC_EXT
-        AND s2.CLIENTE_ID = SYD.CLIENTE_ID
-        AND p.NRO_UCEMPAQUETADO IS NOT NULL) AS CAJAS_SEGUN_PICKING,
-    (SELECT COUNT(DISTINCT VTE.NRO_CONTENEDORA_EMPAQUE)
-       FROM VIEW_TIEMPO_EMPAQUETADO VTE (NOLOCK)
-      WHERE VTE.PEDIDO = SYD.DOC_EXT
-        AND VTE.CLIENTE_ID = SYD.CLIENTE_ID
-        AND VTE.NRO_CONTENEDORA_EMPAQUE IS NOT NULL) AS CAJAS_SEGUN_EMPAQUETADO
-FROM SYS_INT_DOCUMENTO syd (NOLOCK)
-LEFT JOIN SYS_INT_DOCUMENTO_ADICIONAL syd_ad (NOLOCK)
-    ON (syd.doc_ext = syd_ad.doc_ext AND syd.cliente_id = syd_ad.cliente_id)
-WHERE SYD.cliente_id IN ('HYCITE2')
-  AND syd_AD.FECHA_CREACION >= DATEADD(DAY, -1, CAST(GETDATE() AS DATE))
-ORDER BY 3 DESC
-
-
-/* ============================================================================
-   2. El pedido del ejemplo, producto por producto y caja por caja.
-
-   El pedido 102344955 tiene 4 productos en 2 cajas. Antes salían 8 filas con
-   la cantidad REPETIDA en cada caja (peso al doble). Ahora cada fila lleva la
-   cantidad que fue en esa caja, así que el total vuelve a ser el real.
+   102344955 tiene 4 productos en 2 cajas. Debe devolver 4 filas (una por
+   producto), con CAJAS = 2 en todas y CONTENEDORAS con las dos contenedoras.
+   Si salen 8 filas, la consulta nueva no se aplicó.
    ============================================================================ */
 
 SELECT
     CAST(SYD.DOC_EXT AS VARCHAR(50)) AS PEDIDO,
     p_aux.PRODUCTO_ID,
-    p_aux.NRO_CONTENEDORA_EMPAQUE AS CAJA,
-    p_aux.qty_conf AS CONFIRMADA
+    ISNULL(p_aux.qty_conf, 0) AS CONFIRMADA,
+    (SELECT COUNT(DISTINCT V2.NRO_CONTENEDORA_EMPAQUE)
+       FROM VIEW_TIEMPO_EMPAQUETADO V2 (NOLOCK)
+      WHERE V2.PEDIDO = SYD.DOC_EXT
+        AND V2.CLIENTE_ID = SYD.CLIENTE_ID
+        AND V2.NRO_CONTENEDORA_EMPAQUE IS NOT NULL) AS CAJAS
 FROM SYS_INT_DOCUMENTO syd (NOLOCK)
 LEFT JOIN SYS_INT_DET_DOCUMENTO syded (NOLOCK)
     ON (syd.doc_ext = syded.doc_ext AND syd.cliente_id = syded.cliente_id)
@@ -57,30 +33,48 @@ LEFT JOIN (
     SELECT
         p.DOCUMENTO_ID,
         p.PRODUCTO_ID,
-        CAST(p.NRO_UCEMPAQUETADO AS VARCHAR(50)) AS NRO_CONTENEDORA_EMPAQUE,
         SUM(ISNULL(p.CANT_CONFIRMADA, 0)) AS qty_conf
     FROM picking p (NOLOCK)
     GROUP BY
         p.DOCUMENTO_ID,
-        p.PRODUCTO_ID,
-        CAST(p.NRO_UCEMPAQUETADO AS VARCHAR(50))
+        p.PRODUCTO_ID
 ) p_aux ON (p_aux.DOCUMENTO_ID = doc.DOCUMENTO_ID)
 WHERE SYD.cliente_id IN ('HYCITE2')
   AND SYD.DOC_EXT = '102344955'
 
 
 /* ============================================================================
+   2. Cajas por pedido del día: esto es lo que debe salir en BULTOS.
+
+   La columna CAJAS de la consulta Estado alimenta DATOS!R (BULTOS), y de ahí
+   pasa a DESPACHOS, TRAMACO y a la etiqueta. Compara estos números con los
+   que muestra el panel (vista EMPAQUE, columna CAJAS).
+   ============================================================================ */
+
+SELECT
+    CAST(VTE.PEDIDO AS VARCHAR(50)) AS PEDIDO,
+    COUNT(DISTINCT VTE.NRO_CONTENEDORA_EMPAQUE) AS CAJAS
+FROM VIEW_TIEMPO_EMPAQUETADO VTE (NOLOCK)
+JOIN SYS_INT_DOCUMENTO_ADICIONAL ad (NOLOCK)
+    ON (ad.doc_ext = VTE.PEDIDO AND ad.cliente_id = VTE.CLIENTE_ID)
+WHERE VTE.CLIENTE_ID = 'HYCITE2'
+  AND VTE.NRO_CONTENEDORA_EMPAQUE IS NOT NULL
+  AND ad.FECHA_CREACION >= DATEADD(DAY, -1, CAST(GETDATE() AS DATE))
+GROUP BY CAST(VTE.PEDIDO AS VARCHAR(50))
+ORDER BY 2 DESC
+
+
+/* ============================================================================
    3. Total de unidades por pedido, para facturación.
 
-   Este total NO debe cambiar al aplicar la consulta nueva: es el mismo
-   picking, solo que ahora repartido por caja en lugar de repetido.
+   Este total NO debe cambiar con la consulta nueva: es el mismo picking.
+   Si cambia, algo está duplicando filas.
    ============================================================================ */
 
 SELECT
     CAST(s2.DOC_EXT AS VARCHAR(50)) AS PEDIDO,
     COUNT(DISTINCT p.PRODUCTO_ID) AS PRODUCTOS,
-    SUM(ISNULL(p.CANT_CONFIRMADA, 0)) AS UNIDADES_CONFIRMADAS,
-    COUNT(DISTINCT p.NRO_UCEMPAQUETADO) AS CAJAS
+    SUM(ISNULL(p.CANT_CONFIRMADA, 0)) AS UNIDADES_CONFIRMADAS
 FROM picking p (NOLOCK)
 JOIN SYS_INT_DET_DOCUMENTO s2 (NOLOCK)
     ON s2.DOCUMENTO_ID = p.DOCUMENTO_ID
@@ -89,12 +83,34 @@ JOIN SYS_INT_DOCUMENTO_ADICIONAL ad (NOLOCK)
 WHERE s2.CLIENTE_ID = 'HYCITE2'
   AND ad.FECHA_CREACION >= DATEADD(DAY, -1, CAST(GETDATE() AS DATE))
 GROUP BY CAST(s2.DOC_EXT AS VARCHAR(50))
-ORDER BY 4 DESC
+ORDER BY 3 DESC
 
 
 /* ============================================================================
-   4. Columnas de VIEW_TIEMPO_EMPAQUETADO, por si hace falta otra fuente
-      para la caja (peso de la caja, fecha de empaque, etc.).
+   4. Pedidos del día que todavía no tienen ninguna contenedora.
+
+   Son los que aún no se empacan: en el panel salen como PICKEADO o SIN PICKING
+   y en BULTOS quedan en 1 hasta que se empaquen.
+   ============================================================================ */
+
+SELECT
+    CAST(SYD.DOC_EXT AS VARCHAR(50)) AS PEDIDO,
+    syd_ad.FECHA_CREACION
+FROM SYS_INT_DOCUMENTO syd (NOLOCK)
+LEFT JOIN SYS_INT_DOCUMENTO_ADICIONAL syd_ad (NOLOCK)
+    ON (syd.doc_ext = syd_ad.doc_ext AND syd.cliente_id = syd_ad.cliente_id)
+WHERE SYD.cliente_id IN ('HYCITE2')
+  AND syd_AD.FECHA_CREACION >= DATEADD(DAY, -1, CAST(GETDATE() AS DATE))
+  AND NOT EXISTS (SELECT 1
+                    FROM VIEW_TIEMPO_EMPAQUETADO V (NOLOCK)
+                   WHERE V.PEDIDO = SYD.DOC_EXT
+                     AND V.CLIENTE_ID = SYD.CLIENTE_ID
+                     AND V.NRO_CONTENEDORA_EMPAQUE IS NOT NULL)
+
+
+/* ============================================================================
+   5. Columnas de VIEW_TIEMPO_EMPAQUETADO, por si hace falta otro dato
+      de la caja (peso real de la caja, fecha de empaque, etc.).
    ============================================================================ */
 
 SELECT COLUMN_NAME, DATA_TYPE

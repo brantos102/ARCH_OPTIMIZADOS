@@ -18,8 +18,8 @@ imprime las etiquetas, sigue el empaque y exporta TMS, TRAMACO y DESPACHOS.
 4. Inserta › Módulo, nómbralo **modZebra** y pega [`modZebra.bas`](modZebra.bas).
 5. Inserta › Módulo, nómbralo **modVentanas** y pega [`modVentanas.bas`](modVentanas.bas) (es el mismo de PEDIDOS HCE).
 6. Inserta › UserForm, nómbralo **frmEGR** y pega [`frmEGR.frm`](frmEGR.frm) en su código.
-7. Inserta otro UserForm, nómbralo **frmEtiquetas** y pega [`frmEtiquetas.frm`](frmEtiquetas.frm): buscador y vista
-   previa de etiquetas. Inserta un tercero, nómbralo **frmReglas** y pega [`frmReglas.frm`](frmReglas.frm): editor de
+7. Inserta otro UserForm, nómbralo **frmEtiquetas** y pega [`frmEtiquetas.frm`](frmEtiquetas.frm): lista filtrable y
+   vista previa de etiquetas. Inserta un tercero, nómbralo **frmReglas** y pega [`frmReglas.frm`](frmReglas.frm): editor de
    las reglas de destino.
 8. En **ThisWorkbook** pega [`ThisWorkbook.cls`](ThisWorkbook.cls).
 9. Ejecuta **Depuración › Compilar VBAProject**. Si aparece un error, envía la captura con la línea marcada.
@@ -115,7 +115,7 @@ sugerido, el trayecto, la zona, la etiqueta y el empaque.
 |---|---|
 | 0 | PEDIDOS HCE: pasos 0 a 6, y después **7 Enviar a EGR** (con este archivo abierto) |
 | 1 | **Revisar cobertura TMS** y **Ver cambios sugeridos**. El operario decide: **Aplicar sugerencia** (seleccionados), **Aplicar todas las sugerencias**, **Asignar a mano** PRO/GYE/UIO/GPS, o dejarlo como está |
-| 2 | **Etiquetas**: elige los pedidos en la lista (el filtro ayuda) y pulsa **Imprimir seleccionadas**, o **Imprimir todas**. Se abre la **vista previa**: allí se marcan o desmarcan etiquetas y se confirma la impresora |
+| 2 | **IMPRIMIR ETIQUETAS**: se abre la lista completa, se filtra (estado, destino, búsqueda) y se imprime lo que quede en la lista |
 | — | Bodega empaqueta y llena el Google Sheets |
 | 3 | **Avance empaque**: picking, cajas, peso y volumen % por pedido (datos de las tablas dinámicas), más SKU o cajas sin datos de costo |
 | 4 | **Exportar**: elige la **hoja** (TRAMACO, TMS, DESPACHOS o LAS TRES) y el **formato** (CSV, XLSX, PDF). Debajo se ve cuántas filas con datos tiene cada hoja |
@@ -173,7 +173,7 @@ Están en el orden del día, numeradas:
 | 2 Ver cambios sugeridos | Muestra qué pedidos cambian de destino y por qué, sin aplicar nada |
 | 2b Aplicar destinos sugeridos | Confirma todos los cambios de una vez |
 | 2c Asignar destino a un pedido | Pide el número de pedido y el destino nuevo: PRO, GYE, UIO o GPS |
-| 3 Etiquetas: buscar e imprimir | Abre el buscador con filtros por estado, destino y texto |
+| 3 IMPRIMIR ETIQUETAS | Abre la lista completa, se filtra y se imprime lo filtrado |
 | 3b Imprimir pendientes | Imprime directamente las pendientes y las que cambiaron de destino |
 | 3c Reimprimir pedido(s) | Pide los números de pedido |
 | 4 Avance empaque | Resumen de picking y empaque |
@@ -259,16 +259,18 @@ siguiente, un destino viejo nunca se aplica a otro pedido.
   - código de barras Code 128 arriba a la izquierda, con el **número centrado debajo**, sin espacios;
   - **destino en grande** a la derecha (UIO, GYE, PRO o GPS) y la **parroquia** debajo;
   - **nombre completo del destinatario** abajo a la izquierda, en una sola línea.
-- El buscador de etiquetas (frmEtiquetas) se abre desde **Imprimir seleccionadas** (con lo que marcaste en el panel),
-  desde **Buscar e imprimir** o desde Complementos. Tiene:
-  - **filtro por estado**: pendientes, por reimprimir, las dos, impresas o todas;
+- Hay **un solo botón**: **IMPRIMIR ETIQUETAS** (en el panel, en la pestaña Complementos y con Alt + F8 ›
+  `MenuEtiquetas`). No hay que seleccionar nada antes: la ventana abre con **todos** los pedidos con destino y se
+  imprime **exactamente lo que quede en la lista**.
+- Dentro de la ventana:
+  - **filtro por estado**: pendientes + por reimprimir (así abre), pendientes, por reimprimir, impresas o todas;
   - **filtro por destino**: PRO, GYE, UIO, GPS o todos;
-  - **búsqueda** por pedido, destinatario o parroquia;
-  - lista con casilla por etiqueta: **lo que marcas se conserva aunque cambies el filtro**, así puedes juntar, por
-    ejemplo, todas las de GYE más un pedido suelto de PRO;
-  - **Marcar lo filtrado** y **Desmarcar todo**;
-  - vista previa de la etiqueta del pedido seleccionado;
-  - el botón de imprimir dice cuántas van: *Imprimir 23 etiqueta(s)*.
+  - **búsqueda** por pedido, destinatario, parroquia o destino, mientras se escribe;
+  - **Quitar filtros** vuelve a la lista completa;
+  - vista previa de la etiqueta del pedido en el que se hace clic;
+  - el botón dice cuántas van: *Imprimir las 23 etiqueta(s) de la lista*, y antes de imprimir se confirma con el
+    detalle de los filtros aplicados.
+- Ya no hay casillas que marcar ni "imprimir seleccionadas": era el paso donde la ventana abría sin nada marcado.
 - La impresora se elige **una vez** y queda guardada; la próxima vez ya aparece seleccionada.
 - **Cierre de Excel al elegir la impresora:** venía del gancho de la rueda del mouse, que seguía activo mientras se
   abría el cuadro de diálogo. Ahora el gancho se quita antes de cualquier acción, y la lista de impresoras se lee de
@@ -316,6 +318,7 @@ datos.
 | Nombres definidos | 12 nombres con `#REF!` o apuntando a otra copia del archivo | Eliminados |
 | Vínculos externos | Carpeta de red y la propia copia del archivo | Rotos (quedan como valores) |
 | DATA CODIGO Y CAJAS | 185 reglas de formato "duplicados", varias de columna completa | 1 regla (B2:B1000) |
+| DATOS!R (BULTOS) | Siempre la tabla dinámica del Google Sheets | `Estado[CAJAS]` (contenedoras del pedido); si no está, la tabla dinámica y en último caso 1 |
 
 Las demás fórmulas de cada columna se revisaron: son iguales en todas sus filas y dan resultado.
 
@@ -330,43 +333,59 @@ Quedan 3 valores `#N/A` que no son errores de fórmula:
 
 **Síntoma:** un pedido de 4 productos en 2 cajas aparecía con 8 filas y su peso y su costo salían al doble.
 
-**Causa:** la consulta `Estado` unía `VIEW_TIEMPO_EMPAQUETADO` fila a fila. Esa vista devuelve una fila por caja, así
-que cada producto se repetía **con la cantidad completa** en cada caja. El `SELECT DISTINCT` no lo evitaba, porque las
-filas sí eran distintas: cambiaba la contenedora.
+**Causa:** la consulta `Estado` unía `VIEW_TIEMPO_EMPAQUETADO` fila a fila. Esa vista devuelve una fila por
+contenedora, así que cada producto se repetía **con la cantidad completa** en cada caja. El `SELECT DISTINCT` no lo
+evitaba, porque las filas sí eran distintas: cambiaba la contenedora.
 
-**Solución:** reemplaza el SQL con [`SQL_ITEMS_DEPOT.sql`](SQL_ITEMS_DEPOT.sql). La caja deja de venir de esa vista y
-pasa a venir del propio picking (`PICKING.NRO_UCEMPAQUETADO`), que es la caja en la que se empacó cada producto. Así:
+**Regla del negocio:** cada `NRO_CONTENEDORA_EMPAQUE` es **una caja**, sin importar cuántos ítems lleve dentro. Un
+pedido puede tener varias y **todas deben quedar registradas**.
 
-- **cada caja queda registrada**, que es lo que se necesita para facturar: un pedido en 3 cajas sale con sus 3 cajas;
-- **las cantidades se reparten entre las cajas en vez de repetirse**, así que el total de unidades, el peso y el costo
-  del pedido son los reales;
-- la fila es **pedido + producto + caja**, y las 7 columnas siguen con el mismo nombre y el mismo orden, así que la
-  tabla, sus columnas calculadas y las tablas dinámicas no cambian.
+**Solución:** reemplaza el SQL con [`SQL_ITEMS_DEPOT.sql`](SQL_ITEMS_DEPOT.sql). La contenedora sigue saliendo de
+`VIEW_TIEMPO_EMPAQUETADO`, pero ya no por unión fila a fila, sino en **subconsultas por pedido**. Así:
+
+- la fila vuelve a ser **pedido + producto**, una sola vez: el total de unidades, el peso y el costo del pedido son
+  los reales;
+- se agregan dos columnas nuevas al final, que **no mueven ninguna de las anteriores**:
+  - **CAJAS**: cuántas contenedoras distintas tiene el pedido (`COUNT(DISTINCT NRO_CONTENEDORA_EMPAQUE)`);
+  - **CONTENEDORAS**: la lista de todas, separadas por ` | `, para poder auditar cuál es cuál;
+- `NRO_CONTENEDORA_EMPAQUE` se conserva con la primera contenedora, así que EMPAQUETADO!F y las tablas dinámicas
+  siguen funcionando igual.
 
 Ejemplo con el pedido 102344955 (4 productos, 2 cajas):
 
 | | Antes | Ahora |
 |---|---|---|
-| Filas | 8 | las que correspondan, según en qué caja fue cada producto |
-| Cantidad por fila | repetida en las 2 cajas | la que realmente fue en esa caja |
+| Filas | 8 | 4 (una por producto) |
+| Cantidad por fila | repetida en las 2 cajas | la del producto, una sola vez |
 | Peso del pedido | 29,70 kg | 14,85 kg |
-| Cajas registradas | se veían, pero duplicando todo | sí, sin duplicar |
-
-**Antes de aplicarla, ejecuta el bloque 1 de [`SQL_VERIFICACION.sql`](SQL_VERIFICACION.sql)** en SSMS. Compara, por
-pedido, las cajas que ve el picking con las que ve `VIEW_TIEMPO_EMPAQUETADO`. Deben coincidir. Si la columna del
-picking sale vacía en pedidos ya empacados, no apliques la consulta y avísame: habría que tomar la caja de otro campo.
+| Cajas registradas | se veían, pero duplicando todo | CAJAS = 2 y CONTENEDORAS con las dos |
 
 Para aplicarla:
 
 1. Datos › Consultas y conexiones › clic derecho en **Estado** › **Editar**.
 2. En PASOS APLICADOS, pulsa el engranaje del paso **Origen**.
 3. Borra el SQL y pega **todo** el archivo, tal cual. Aceptar › **Cerrar y cargar**.
+4. Vuelve a Excel y pulsa **Reparar fórmulas**: ahí se aplica la fórmula nueva de BULTOS (ver abajo).
 
-> El archivo no lleva comentarios, `WITH`, `ORDER BY` ni punto y coma final, y no anida subconsultas: con cualquiera de
-> esas cosas el servidor devolvía *"Sintaxis incorrecta cerca de 'd'"* (error 102).
+> El archivo no lleva comentarios, `WITH`, `ORDER BY` ni punto y coma final, y no anida tablas derivadas: con
+> cualquiera de esas cosas el servidor devolvía *"Sintaxis incorrecta cerca de 'd'"* (error 102).
 
-**En el panel:** el número de cajas de cada pedido ahora sale de las contenedoras de DEPOT. El Google Sheets de
-empaquetado queda como respaldo, para los pedidos que todavía no tienen contenedora en DEPOT.
+Para comprobarlo en SSMS está [`SQL_VERIFICACION.sql`](SQL_VERIFICACION.sql): el bloque 1 revisa el pedido del
+ejemplo, el bloque 2 lista las cajas por pedido del día y el bloque 3 confirma que el total de unidades no cambió.
+
+### Número de cajas (BULTOS)
+
+**Regla:** una contenedora = una caja.
+
+- `DATOS!R` (BULTOS) ahora toma el valor de **`Estado[CAJAS]`** por número de pedido. Si el pedido todavía no está en
+  la consulta, usa la tabla dinámica del Google Sheets como antes, y en último caso 1. Nunca queda en 0.
+- La fórmula la aplica **Reparar fórmulas**, y solo si la consulta `Estado` ya trae la columna `CAJAS`. Si no la trae,
+  no toca nada y lo avisa en el registro: así no se rompe lo que ya funciona mientras no se actualice el SQL.
+- De `DATOS!R` el número pasa solo a **DESPACHOS!L**, **TRAMACO!W** y a ETIQUETAS ZEBRA.
+- En el panel, la vista **EMPAQUE** muestra las cajas de DEPOT (contenedoras). El Google Sheets de empaquetado queda
+  como respaldo, para los pedidos que todavía no tienen contenedora en DEPOT.
+- El código lee la tabla `Estado` **por nombre de encabezado**, no por posición. Por eso agregar columnas nuevas a la
+  consulta ya no descuadra el panel ni el avance de empaque.
 
 ## 7. Exportación
 
