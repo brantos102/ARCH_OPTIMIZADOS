@@ -186,7 +186,8 @@ Están en el orden del día, numeradas:
 | 4 Avance empaque | Resumen de picking y empaque |
 | Trazabilidad | Arma la hoja TRAZABILIDAD y ofrece guardar una copia en la carpeta de exportes |
 | Datos anteriores | Abre HISTORICO_EMPAQUE: las cajas de los días anteriores, con filtro por fecha |
-| Respaldo del día (.xlsb) | Guarda EGR_DIA_aaaa-mm-dd.xlsb en RESPALDOS_EGR |
+| Respaldo del día (.xlsb) | Guarda EGR_DIA_aaaa-mm-dd.xlsb en RESPALDOS_EGR, ya congelado |
+| Congelar como histórico | Convierte la COPIA abierta en un histórico de solo consulta |
 | 5 Exportar reportes | Pide la hoja (1 TRAMACO, 2 TMS, 3 DESPACHOS, 4 las tres) y el formato (1 CSV, 2 XLSX, 3 PDF) |
 | Actualizar datos | Trae ITEMS API, ITEMS DEPOT, EMPAQUETADO y las tablas dinámicas |
 | **Reglas de destino** | Abre el editor de REGLAS_DESTINO |
@@ -578,6 +579,38 @@ PORCENTAJE y cuándo se guardó.
 
 > No se confunda con los respaldos `EGR_aaaammdd_hhmmss_motivo.xlsm`, que son instantáneas antes de un proceso
 > delicado (actualizar, reparar, limpiar día) y de las que se conservan las 15 últimas.
+
+### Congelar un archivo como histórico
+
+Un histórico es una **foto del día**: debe poder consultarse sin riesgo de que se actualice ni de que alguien lo
+cambie sin querer. Un simple "Guardar como" **no** sirve: la copia se lleva las 5 conexiones vivas (EMPAQUETADO,
+Estado, ITEMS API y las dos del modelo de datos) y todas las fórmulas, así que basta abrirla y pulsar algo para que
+se contamine con los datos de otro día.
+
+Congelar hace cinco cosas:
+
+| Paso | Qué hace | Para qué |
+|---|---|---|
+| 1 | Fórmulas → **valores**, en todas las hojas | nada se recalcula al abrirlo |
+| 2 | Tablas de consulta → **desconectadas** del origen (`Unlink`), conservando los datos | la tabla sigue ahí, pero ya no apunta a DEPOT ni al Sheets |
+| 3 | **Se eliminan las conexiones** (ODBC DEPOTUIO, Google Sheets, modelo de datos) | no hay nada que actualizar |
+| 4 | Tablas dinámicas: guardan sus datos y **no se refrescan al abrir** | los números siguen a la vista |
+| 5 | Marca `ARCHIVO_HISTORICO = SI` y `FECHA_HISTORICO` en CONFIG_EGR | el propio código se bloquea |
+
+Con esa marca, el archivo avisa en la pestaña Complementos (**ARCHIVO HISTÓRICO dd/mm/aaaa – solo consulta**) y
+quedan **bloqueados**: Actualizar datos, Reparar fórmulas, Limpiar día, los cambios de destino y el respaldo del
+día. Lo que sí funciona: mirar, filtrar, ordenar, la trazabilidad y los exportes.
+
+**Hay dos caminos:**
+
+1. **El respaldo diario sale ya congelado.** `EGR_DIA_aaaa-mm-dd.xlsb` se genera al exportar los reportes y pasa por
+   los cinco pasos antes de guardarse. No hay que hacer nada más: ese archivo **es** el histórico del día.
+2. **Congelar una copia a mano** (p. ej. un `BACKUP.xlsm` que ya tengas): se abre **esa copia**, pestaña
+   **Complementos › Congelar como histórico**, se escribe la fecha del día y se confirma escribiendo `HISTORICO`.
+   Al terminar, **guardar** (mejor como `.xlsb`, pesa bastante menos).
+
+> **Protección:** la macro se niega a correr si el nombre del archivo contiene *Formato EGR*, para que nunca se
+> congele el de producción por error. Aun así, **ejecútala siempre sobre una copia**: no se puede deshacer.
 
 ## 9. Exportación
 

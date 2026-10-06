@@ -200,6 +200,7 @@ End Sub
 '  1. ACTUALIZAR TODO (seguro)
 ' =====================================================================================
 Sub ActualizarTodo()
+  If BloqueoHistorico("Actualizar datos") Then Exit Sub
   ' Botón de operación: se puede pulsar en cualquier momento. Trae ITEMS API, ITEMS DEPOT (ODBC),
   ' EMPAQUETADO (Google Sheets) y actualiza las tablas dinámicas. Si una fuente falla, pregunta si sigue.
   Dim ws As Worksheet, lo As ListObject, pc As PivotCache, t0 As Single, nOk As Long, nErr As Long
@@ -433,6 +434,7 @@ End Function
 ' Reescribe F:K en la tabla EMPAQUETADO. Devuelve cuántas columnas se pudieron escribir.
 ' Nunca interrumpe: lo que falle queda en el registro.
 Public Function AplicarColumnasEmpaquetado(Optional ByVal avisar As Boolean = False) As Long
+  If EsHistorico() Then Exit Function          ' en un histórico las fórmulas ya son valores
   Dim lo As ListObject, nom, frm, i As Long, lc As ListColumn, n As Long, falla As String
   On Error Resume Next
   Set lo = ThisWorkbook.Worksheets("EMPAQUETADO").ListObjects("EMPAQUETADO")
@@ -533,6 +535,7 @@ End Sub
 '  2. REPARAR FÓRMULAS (#REF!) - se ejecuta una vez
 ' =====================================================================================
 Sub RepararFormulasEGR()
+  If BloqueoHistorico("Reparar fórmulas") Then Exit Sub
   Dim ws As Worksheet, nm As Name, i As Long, links, n As Long, lo As ListObject
   If MsgBox("Se corregirán las fórmulas con #REF! y se prepararán las reglas de destino:" & vbCrLf & vbCrLf & _
             "  - DATOS!A: destino con reglas confirmadas (AF:AH)" & vbCrLf & _
@@ -842,6 +845,7 @@ End Sub
 ' Confirma un destino (sugerido por reglas o elegido por el operador) para una fila de DATOS
 Public Function ConfirmarDestino(ByVal fila As Long, ByVal destino As String, ByVal motivo As String) As Boolean
   Dim ws As Worksheet, ant As String
+  If BloqueoHistorico("Cambiar el destino de un pedido") Then Exit Function
   Set ws = ThisWorkbook.Worksheets(HDAT)
   If ws.Range("A2").HasFormula Then
     If InStr(ws.Range("A2").Formula, "$AF2") = 0 Then
@@ -1412,6 +1416,9 @@ Sub CrearMenuEGR()
   Application.CommandBars("Despacho EGR HYCITE").Delete
   On Error GoTo 0
   Set bar = Application.CommandBars.Add(Name:="Despacho EGR HYCITE", Position:=msoBarTop, Temporary:=True)
+  If EsHistorico() Then
+    BotonMenu bar, "ARCHIVO HISTÓRICO " & Cfg("FECHA_HISTORICO") & " - solo consulta", "MenuAvisoHistorico", 1100, True
+  End If
   BotonMenu bar, "Panel EGR", "AbrirPanelEGR", 1087, False
   BotonMenu bar, "¿Qué sigue?", "MenuGuia", 984, False
   BotonMenu bar, "0 Limpiar día", "LimpiarDia", 358, True
@@ -1425,6 +1432,7 @@ Sub CrearMenuEGR()
   BotonMenu bar, "Trazabilidad", "MenuTrazabilidad", 1016, False
   BotonMenu bar, "Datos anteriores", "MenuHistorico", 1016, False
   BotonMenu bar, "Respaldo del día (.xlsb)", "MenuRespaldoDia", 3, False
+  BotonMenu bar, "Congelar como histórico", "MenuCongelarHistorico", 1100, False
   BotonMenu bar, "Actualizar datos", "ActualizarTodo", 459, True
   BotonMenu bar, "Reglas de destino", "MenuReglas", 1017, False
   BotonMenu bar, "Productos", "MenuProductos", 1087, False
@@ -1672,6 +1680,7 @@ End Sub
 ' Inicio del día: borra la validación anterior de DATOS (destinos confirmados, datos de PEDIDOS HCE)
 ' y el estado de las etiquetas. Opcionalmente también los pedidos de ayer (C:N).
 Sub LimpiarDia()
+  If BloqueoHistorico("Limpiar día") Then Exit Sub
   Dim ws As Worksheet, wsE As Worksheet, r As VbMsgBoxResult
   If PanelOcupado() Then Exit Sub
   r = MsgBox("INICIAR EL DÍA: se borrará la validación anterior de DATOS:" & vbCrLf & _
@@ -2008,6 +2017,7 @@ End Function
 ' Copia las cajas de hoy de EMPAQUETADO al histórico. Una contenedora se guarda una sola
 ' vez por día: si ya estaba, se actualiza con los datos nuevos. Devuelve cuántas guardó.
 Public Function GuardarHistoricoEmpaque(Optional ByVal avisar As Boolean = False) As Long
+  If EsHistorico() Then Exit Function
   Dim lo As ListObject, ws As Worksheet, a, h, i As Long, lr As Long, d As Object
   Dim k As String, fil As Long, n As Long, nNue As Long, fec As Variant
   On Error GoTo fallo
@@ -2122,6 +2132,7 @@ End Sub
 ' Un archivo por día, con el estado final. El .xlsb pesa bastante menos que el .xlsm
 ' y abre más rápido, que es lo que se quiere para consultar un día pasado.
 Public Function RespaldoDiarioBinario(Optional ByVal avisar As Boolean = False) As String
+  If BloqueoHistorico("Respaldo del día") Then Exit Function
   Dim carp As String, tmp As String, dest As String, wb As Workbook, ev As Boolean
   On Error GoTo fallo
   If Len(ThisWorkbook.Path) = 0 Then
@@ -2138,6 +2149,8 @@ Public Function RespaldoDiarioBinario(Optional ByVal avisar As Boolean = False) 
   If Len(Dir(tmp)) > 0 Then Kill tmp
   ThisWorkbook.SaveCopyAs tmp
   Set wb = Workbooks.Open(Filename:=tmp, UpdateLinks:=0, ReadOnly:=False)
+  ' el respaldo del día es un HISTÓRICO: sale congelado (sin consultas, sin fórmulas vivas)
+  LogE "RESPALDO DIARIO: congelando la copia -> " & CongelarArchivo(wb, Format(Date, "dd/mm/yyyy"))
   wb.SaveAs Filename:=dest, FileFormat:=50          ' 50 = xlExcel12 (.xlsb, conserva macros)
   wb.Close SaveChanges:=False
   Set wb = Nothing
@@ -2169,4 +2182,172 @@ Sub MenuRespaldoDia()
   RuedaDesactivar
   HistoricoAuto
   r = RespaldoDiarioBinario(True)
+End Sub
+
+' =====================================================================================
+'  CONGELAR UN ARCHIVO COMO HISTÓRICO
+'  Un histórico es una foto del día: no se actualiza, no se recalcula y no se puede
+'  alterar sin querer. Para eso hay que quitarle lo que lo haría cambiar:
+'     1. fórmulas  -> valores      (nada se recalcula al abrirlo)
+'     2. tablas de consulta -> se desconectan del origen, pero conservan los datos
+'     3. conexiones (ODBC, Google Sheets, modelo de datos) -> se eliminan
+'     4. tablas dinámicas -> no se refrescan al abrir y guardan sus datos
+'     5. se marca ARCHIVO_HISTORICO = SI en CONFIG_EGR
+'  Con esa marca, el propio código bloquea Actualizar, Reparar, Limpiar día y los
+'  cambios de destino: el archivo queda para consultar, no para trabajar.
+'  El respaldo diario .xlsb sale ya congelado; esto es para congelar una copia a mano.
+' =====================================================================================
+
+Public Function EsHistorico() As Boolean
+  EsHistorico = (UCase$(Cfg("ARCHIVO_HISTORICO", "NO")) = "SI")
+End Function
+
+' Devuelve True (y avisa) si la acción no se puede hacer porque el archivo es histórico.
+Public Function BloqueoHistorico(ByVal accion As String) As Boolean
+  If Not EsHistorico() Then Exit Function
+  MsgBox "Este archivo es un HISTÓRICO congelado" & _
+         IIf(Len(Cfg("FECHA_HISTORICO")) > 0, " del " & Cfg("FECHA_HISTORICO"), "") & "." & vbCrLf & vbCrLf & _
+         "'" & accion & "' está bloqueado para que los datos de ese día no se alteren." & vbCrLf & vbCrLf & _
+         "Para trabajar, abre el archivo de producción.", vbExclamation, "Archivo histórico (solo consulta)"
+  LogE "HISTÓRICO: '" & accion & "' bloqueado en un archivo congelado.", "AVISO"
+  BloqueoHistorico = True
+End Function
+
+' Congela el libro indicado. Devuelve un resumen de lo que hizo.
+Public Function CongelarArchivo(wb As Workbook, ByVal fecha As String) As String
+  Dim ws As Worksheet, lo As ListObject, pt As PivotTable, rg As Range, ar As Range
+  Dim i As Long, nF As Long, nT As Long, nC As Long, nP As Long
+  On Error GoTo fallo
+  ' 1) fórmulas -> valores
+  For Each ws In wb.Worksheets
+    Set rg = Nothing
+    On Error Resume Next
+    Set rg = ws.UsedRange.SpecialCells(xlCellTypeFormulas)
+    Err.Clear
+    On Error GoTo fallo
+    If Not rg Is Nothing Then
+      For Each ar In rg.Areas
+        ar.Value = ar.Value
+        nF = nF + ar.Cells.Count
+      Next
+    End If
+  Next
+  ' 2) tablas de consulta: se desconectan del origen y conservan los datos
+  For Each ws In wb.Worksheets
+    For Each lo In ws.ListObjects
+      On Error Resume Next
+      If lo.SourceType <> xlSrcRange Then
+        lo.Unlink
+        If Err.Number = 0 Then nT = nT + 1
+        Err.Clear
+      End If
+      On Error GoTo fallo
+    Next
+  Next
+  ' 3) conexiones (ODBC DEPOTUIO, Google Sheets, modelo de datos)
+  For i = wb.Connections.Count To 1 Step -1
+    On Error Resume Next
+    wb.Connections(i).Delete
+    If Err.Number = 0 Then nC = nC + 1
+    Err.Clear
+    On Error GoTo fallo
+  Next
+  ' 4) tablas dinámicas: se quedan con los datos que ya tienen y no se refrescan
+  For Each ws In wb.Worksheets
+    For Each pt In ws.PivotTables
+      On Error Resume Next
+      pt.SaveData = True
+      pt.PivotCache.RefreshOnFileOpen = False
+      pt.ManualUpdate = True
+      If Err.Number = 0 Then nP = nP + 1
+      Err.Clear
+      On Error GoTo fallo
+    Next
+  Next
+  ' 5) marca
+  MarcaHistorico wb, fecha
+  CongelarArchivo = nF & " celda(s) pasadas a valor, " & nT & " tabla(s) desconectada(s), " & _
+                    nC & " conexión(es) eliminada(s), " & nP & " tabla(s) dinámica(s) fijada(s)"
+  Exit Function
+fallo:
+  CongelarArchivo = "ERROR: " & Err.Description
+End Function
+
+Private Sub MarcaHistorico(wb As Workbook, ByVal fecha As String)
+  Dim ws As Worksheet
+  On Error Resume Next
+  Set ws = wb.Worksheets(HCFG)
+  On Error GoTo 0
+  If ws Is Nothing Then Exit Sub
+  PonCfgEn ws, "ARCHIVO_HISTORICO", "SI", "SI = archivo congelado de un día: solo consulta, no se actualiza"
+  PonCfgEn ws, "FECHA_HISTORICO", fecha, "Día al que corresponde este histórico"
+End Sub
+
+Private Sub PonCfgEn(ws As Worksheet, ByVal clave As String, ByVal valor As String, ByVal nota As String)
+  Dim lr As Long, i As Long
+  On Error Resume Next
+  lr = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+  For i = 1 To lr
+    If UCase$(Trim$(CStr(ws.Cells(i, 1).Value))) = UCase$(clave) Then
+      ws.Cells(i, 2).Value = valor: ws.Cells(i, 3).Value = nota
+      Exit Sub
+    End If
+  Next
+  ws.Cells(lr + 1, 1).Value = clave
+  ws.Cells(lr + 1, 2).Value = valor
+  ws.Cells(lr + 1, 3).Value = nota
+End Sub
+
+' Congela ESTE archivo. Solo se debe usar sobre una COPIA, nunca sobre el de producción.
+Sub MenuCongelarHistorico()
+  Dim r As String, res As String, fecha As String, nom As String
+  If PanelOcupado() Then Exit Sub
+  RuedaDesactivar
+  If EsHistorico() Then
+    MsgBox "Este archivo ya está congelado como histórico" & _
+           IIf(Len(Cfg("FECHA_HISTORICO")) > 0, " del " & Cfg("FECHA_HISTORICO"), "") & ".", vbInformation, "Archivo histórico"
+    Exit Sub
+  End If
+  nom = UCase$(ThisWorkbook.Name)
+  If InStr(nom, "FORMATO EGR") > 0 Then
+    MsgBox "Este parece el archivo de PRODUCCIÓN (" & ThisWorkbook.Name & ")." & vbCrLf & vbCrLf & _
+           "Congelarlo lo dejaría sin consultas y sin fórmulas." & vbCrLf & _
+           "Haz primero una copia (o usa el respaldo .xlsb del día, que ya sale congelado) y ejecútalo ahí.", _
+           vbCritical, "No se congela el archivo de producción"
+    Exit Sub
+  End If
+  fecha = InputBox("Día al que corresponde este histórico (dd/mm/aaaa):", "Congelar histórico", _
+                   Format(Date - 1, "dd/mm/yyyy"))
+  If Len(Trim$(fecha)) = 0 Then Exit Sub
+  r = InputBox("Esto convierte ESTE archivo (" & ThisWorkbook.Name & ") en un histórico:" & vbCrLf & vbCrLf & _
+               "  - las fórmulas pasan a valores" & vbCrLf & _
+               "  - las tablas se desconectan de sus consultas" & vbCrLf & _
+               "  - se eliminan las conexiones (ODBC, Google Sheets, modelo de datos)" & vbCrLf & _
+               "  - las tablas dinámicas dejan de refrescarse" & vbCrLf & vbCrLf & _
+               "NO SE PUEDE DESHACER. Asegúrate de que es una COPIA." & vbCrLf & vbCrLf & _
+               "Para confirmar, escribe:  HISTORICO", "Congelar histórico")
+  If UCase$(Trim$(r)) <> "HISTORICO" Then
+    MsgBox "Cancelado. No se cambió nada.", vbInformation
+    Exit Sub
+  End If
+  Congelar
+  res = CongelarArchivo(ThisWorkbook, Trim$(fecha))
+  Liberar
+  LogE "HISTÓRICO: archivo congelado (" & Trim$(fecha) & "). " & res
+  If Left$(res, 5) = "ERROR" Then
+    MsgBox "No se pudo congelar del todo:" & vbCrLf & res & vbCrLf & vbCrLf & _
+           "Revisa el registro. NO guardes el archivo si quedó a medias.", vbExclamation
+  Else
+    MsgBox "Archivo congelado como histórico del " & Trim$(fecha) & "." & vbCrLf & vbCrLf & res & vbCrLf & vbCrLf & _
+           "GUÁRDALO AHORA (recomendado: Guardar como .xlsb, pesa menos)." & vbCrLf & _
+           "A partir de ahora, Actualizar, Reparar, Limpiar día y los cambios de destino" & vbCrLf & _
+           "quedan bloqueados en este archivo.", vbInformation, "Histórico listo"
+  End If
+End Sub
+
+Sub MenuAvisoHistorico()
+  MsgBox "Este archivo es una foto congelada del " & Cfg("FECHA_HISTORICO", "(sin fecha)") & "." & vbCrLf & vbCrLf & _
+         "No tiene consultas ni fórmulas vivas: los números son los de ese día y no cambian." & vbCrLf & _
+         "Actualizar, Reparar, Limpiar día y los cambios de destino están bloqueados." & vbCrLf & vbCrLf & _
+         "Para trabajar, abre el archivo de producción.", vbInformation, "Archivo histórico"
 End Sub
