@@ -810,9 +810,11 @@ End Function
 ' Empaque y picking por pedido -> Array(estado, cajas, peso cajas, volumen %, unidades conf, unidades sol)
 Public Function DictEmpaque() As Object
   Dim d As Object, sol As Object, conf As Object, cont1 As Object, cajas As Object, pesoC As Object, dPct As Object
+  Dim cajasD As Object, nCajD As Object
   Dim lo As ListObject, a, i As Long, doc As String, k
   Set d = CreateObject("Scripting.Dictionary"): Set sol = CreateObject("Scripting.Dictionary")
   Set conf = CreateObject("Scripting.Dictionary"): Set cont1 = CreateObject("Scripting.Dictionary")
+  Set cajasD = CreateObject("Scripting.Dictionary"): Set nCajD = CreateObject("Scripting.Dictionary")
   Set cajas = CreateObject("Scripting.Dictionary"): Set pesoC = CreateObject("Scripting.Dictionary"): Set dPct = CreateObject("Scripting.Dictionary")
   On Error Resume Next
   Set lo = ThisWorkbook.Worksheets("ITEMS APIS").ListObjects("ITEMS_API")
@@ -826,15 +828,21 @@ Public Function DictEmpaque() As Object
   If Not lo Is Nothing Then
     If lo.ListRows.Count > 0 Then
       a = lo.DataBodyRange.Value
-      ' una sola vez por pedido + producto: si la consulta SQL todavía repite la fila
-      ' por cada contenedora, aquí no se suma dos veces (pesos y costos correctos)
+      ' una fila por pedido + producto + contenedora: cada caja cuenta, pero una
+      ' misma combinación nunca se suma dos veces (pesos y costos correctos)
       For i = 1 To UBound(a, 1)
         doc = TXE(a(i, 3))
         If Len(doc) > 0 Then
-          k = doc & Chr(1) & TXE(a(i, 4))
+          k = doc & Chr(1) & TXE(a(i, 4)) & Chr(1) & TXE(a(i, 7))
           If Not cont1.Exists(k) Then
             cont1(k) = 1
             conf(doc) = conf(doc) + Val(TXE(a(i, 6)))
+          End If
+          If Len(TXE(a(i, 7))) > 0 Then
+            If Not cajasD.Exists(doc & Chr(1) & TXE(a(i, 7))) Then
+              cajasD(doc & Chr(1) & TXE(a(i, 7))) = 1
+              nCajD(doc) = nCajD(doc) + 1
+            End If
           End If
         End If
       Next
@@ -863,6 +871,15 @@ Public Function DictEmpaque() As Object
   Next
   For Each k In cajas.Keys
     d(k) = Array("EMPACADO", cajas(k), pesoC(k), IIf(dPct.Exists(k), Format(dPct(k), "0%"), ""), conf(k), sol(k))
+  Next
+  ' las cajas reales las da DEPOT (contenedoras de ITEMS DEPOT); el Google Sheets es el respaldo
+  For Each k In nCajD.Keys
+    If d.Exists(k) Then
+      d(k) = Array("EMPACADO", nCajD(k), IIf(cajas.Exists(k), pesoC(k), 0), _
+                   IIf(dPct.Exists(k), Format(dPct(k), "0%"), ""), conf(k), sol(k))
+    Else
+      d(k) = Array("EMPACADO", nCajD(k), 0, "", conf(k), sol(k))
+    End If
   Next
   Set DictEmpaque = d
 End Function
@@ -941,7 +958,7 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
       Next
     End If
   End If
-  ' confirmado (Estado): una línea por pedido + producto; si la consulta repite por contenedora, se avisa
+  ' confirmado (Estado): una línea por pedido + producto + contenedora; si una se repite, se avisa
   Set lo = Nothing: Set lo = ThisWorkbook.Worksheets("ITEMS DEPOT").ListObjects("Estado")
   If Not lo Is Nothing Then
     If lo.ListRows.Count > 0 Then
@@ -949,7 +966,7 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
       For i = 1 To UBound(a, 1)
         doc = TXE(a(i, 3))
         If Len(doc) > 0 Then
-          k = doc & Chr(1) & TXE(a(i, 4))
+          k = doc & Chr(1) & TXE(a(i, 4)) & Chr(1) & TXE(a(i, 7))
           If cont1.Exists(k) Then
             nDup = nDup + 1
           Else
@@ -1001,7 +1018,7 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
   If skuSinPeso.Count > 0 Then LogE "COSTOS: " & skuSinPeso.Count & " SKU sin peso/volumen en DATA CODIGO Y CAJAS: " & Left$(Join(skuSinPeso.Keys, ", "), 300), "AVISO"
   If skuSinPrecio.Count > 0 Then LogE "COSTOS: " & skuSinPrecio.Count & " SKU sin precio (Verificar): " & Left$(Join(skuSinPrecio.Keys, ", "), 300), "AVISO"
   If cajaSin.Count > 0 Then LogE "COSTOS: tipo de caja sin medidas en DATA_CAJAS: " & Join(cajaSin.Keys, ", "), "AVISO"
-  If nDup > 0 Then LogE "ITEMS DEPOT: " & nDup & " fila(s) repetidas (mismo pedido y producto en varias contenedoras). " & _
+  If nDup > 0 Then LogE "ITEMS DEPOT: " & nDup & " fila(s) repetidas (mismo pedido, producto y contenedora). " & _
        "Las cantidades se contaron una sola vez. Corrige la consulta 'Estado' con SQL_ITEMS_DEPOT.sql para que los pesos y costos de la hoja salgan bien.", "AVISO"
   AvancePedidos = nTot
 End Function

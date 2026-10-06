@@ -5,10 +5,7 @@ SELECT DISTINCT
     p_aux.PRODUCTO_ID,
     ISNULL(p_aux.qty_proc, 0) AS Cantidad_Procesada,
     ISNULL(p_aux.qty_conf, 0) AS Cantidad_Confirmada,
-    (SELECT MIN(CAST(VTE.NRO_CONTENEDORA_EMPAQUE AS VARCHAR(50)))
-       FROM VIEW_TIEMPO_EMPAQUETADO VTE (NOLOCK)
-      WHERE VTE.PEDIDO = SYD.DOC_EXT
-        AND VTE.CLIENTE_ID = SYD.CLIENTE_ID) AS NRO_CONTENEDORA_EMPAQUE
+    p_aux.NRO_CONTENEDORA_EMPAQUE
 FROM SYS_INT_DOCUMENTO syd (NOLOCK)
 LEFT JOIN SYS_INT_DET_DOCUMENTO syded (NOLOCK)
     ON (syd.doc_ext = syded.doc_ext AND syd.cliente_id = syded.cliente_id)
@@ -22,12 +19,14 @@ LEFT JOIN (
     SELECT
         p.DOCUMENTO_ID,
         p.PRODUCTO_ID,
+        CAST(p.NRO_UCEMPAQUETADO AS VARCHAR(50)) AS NRO_CONTENEDORA_EMPAQUE,
         SUM(p.CANTIDAD) AS qty_proc,
         SUM(ISNULL(p.CANT_CONFIRMADA, 0)) AS qty_conf
     FROM picking p (NOLOCK)
     GROUP BY
         p.DOCUMENTO_ID,
-        p.PRODUCTO_ID
+        p.PRODUCTO_ID,
+        CAST(p.NRO_UCEMPAQUETADO AS VARCHAR(50))
 ) p_aux ON (p_aux.DOCUMENTO_ID = doc.DOCUMENTO_ID)
 WHERE (UPPER(tc.TIPO_OPERACION_ID) = 'EGR' OR UPPER(doc.TIPO_OPERACION_ID) = 'EGR')
   AND SYD.cliente_id IN ('HYCITE2')

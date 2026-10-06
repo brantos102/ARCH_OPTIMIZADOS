@@ -328,41 +328,45 @@ Quedan 3 valores `#N/A` que no son errores de fórmula:
 
 ### Cantidades, pesos y costos duplicados en ITEMS DEPOT
 
-**Síntoma:** un pedido de 4 productos aparece con 8 filas, repetidas por contenedora, y su peso y su costo salen al
-doble.
+**Síntoma:** un pedido de 4 productos en 2 cajas aparecía con 8 filas y su peso y su costo salían al doble.
 
-**Causa:** la consulta `Estado` une `VIEW_TIEMPO_EMPAQUETADO` fila a fila. Esa vista devuelve una fila por caja, así
-que cada producto se multiplica por el número de cajas del pedido. El `SELECT DISTINCT` no lo evita, porque las filas
-sí son distintas: cambia la contenedora.
+**Causa:** la consulta `Estado` unía `VIEW_TIEMPO_EMPAQUETADO` fila a fila. Esa vista devuelve una fila por caja, así
+que cada producto se repetía **con la cantidad completa** en cada caja. El `SELECT DISTINCT` no lo evitaba, porque las
+filas sí eran distintas: cambiaba la contenedora.
 
-**Solución:** reemplaza el SQL de la consulta con [`SQL_ITEMS_DEPOT.sql`](SQL_ITEMS_DEPOT.sql). Agrega las contenedoras
-antes de unirlas y agrupa el picking por documento y producto, así que devuelve **una fila por pedido y producto**, con
-las mismas 7 columnas y en el mismo orden: la tabla de Excel, sus columnas calculadas y las tablas dinámicas no cambian.
+**Solución:** reemplaza el SQL con [`SQL_ITEMS_DEPOT.sql`](SQL_ITEMS_DEPOT.sql). La caja deja de venir de esa vista y
+pasa a venir del propio picking (`PICKING.NRO_UCEMPAQUETADO`), que es la caja en la que se empacó cada producto. Así:
+
+- **cada caja queda registrada**, que es lo que se necesita para facturar: un pedido en 3 cajas sale con sus 3 cajas;
+- **las cantidades se reparten entre las cajas en vez de repetirse**, así que el total de unidades, el peso y el costo
+  del pedido son los reales;
+- la fila es **pedido + producto + caja**, y las 7 columnas siguen con el mismo nombre y el mismo orden, así que la
+  tabla, sus columnas calculadas y las tablas dinámicas no cambian.
+
+Ejemplo con el pedido 102344955 (4 productos, 2 cajas):
+
+| | Antes | Ahora |
+|---|---|---|
+| Filas | 8 | las que correspondan, según en qué caja fue cada producto |
+| Cantidad por fila | repetida en las 2 cajas | la que realmente fue en esa caja |
+| Peso del pedido | 29,70 kg | 14,85 kg |
+| Cajas registradas | se veían, pero duplicando todo | sí, sin duplicar |
+
+**Antes de aplicarla, ejecuta el bloque 1 de [`SQL_VERIFICACION.sql`](SQL_VERIFICACION.sql)** en SSMS. Compara, por
+pedido, las cajas que ve el picking con las que ve `VIEW_TIEMPO_EMPAQUETADO`. Deben coincidir. Si la columna del
+picking sale vacía en pedidos ya empacados, no apliques la consulta y avísame: habría que tomar la caja de otro campo.
+
+Para aplicarla:
 
 1. Datos › Consultas y conexiones › clic derecho en **Estado** › **Editar**.
 2. En PASOS APLICADOS, pulsa el engranaje del paso **Origen**.
 3. Borra el SQL y pega **todo** el archivo, tal cual. Aceptar › **Cerrar y cargar**.
 
-> **Qué cambia respecto de la consulta anterior.** Es la misma consulta de siempre, con dos cambios:
->
-> 1. `VIEW_TIEMPO_EMPAQUETADO` ya no se une con `LEFT JOIN`. La contenedora se obtiene con una subconsulta en el
->    `SELECT`, que devuelve un solo valor por pedido y por lo tanto no multiplica filas.
-> 2. La subconsulta `p_aux` se agrupa solo por `DOCUMENTO_ID` y `PRODUCTO_ID`. Antes agrupaba también por `PICKING_ID`,
->    lote, partida, serie y posición, así que un producto tomado de dos ubicaciones salía en dos filas.
->
-> También se quitaron las uniones a `CLIENTE` y `SUCURSAL`, que no se usaban en ningún campo.
->
-> El archivo no lleva comentarios, `WITH`, `ORDER BY` ni punto y coma final: con esos elementos Power Query devolvía
-> *"Sintaxis incorrecta cerca de 'd'"* (error 102).
+> El archivo no lleva comentarios, `WITH`, `ORDER BY` ni punto y coma final, y no anida subconsultas: con cualquiera de
+> esas cosas el servidor devolvía *"Sintaxis incorrecta cerca de 'd'"* (error 102).
 
-Para comprobarlo en SSMS, antes de tocar Excel, está [`SQL_VERIFICACION.sql`](SQL_VERIFICACION.sql).
-
-**Comprobación:** después de actualizar, el pedido 102344955 debe salir con **4 filas** y 14,85 kg en total
-(0,45 + 7,00 + 4,50 + 2,90), no con 8 filas ni 29,70 kg.
-
-Mientras tanto, el panel cuenta cada pedido y producto **una sola vez**, así que el avance de empaque es correcto aunque
-la consulta siga repitiendo filas. Si detecta repeticiones lo avisa en el registro. Las columnas PESO, VOLUMEN y PRECIO
-de la hoja sí quedan duplicadas hasta aplicar el SQL.
+**En el panel:** el número de cajas de cada pedido ahora sale de las contenedoras de DEPOT. El Google Sheets de
+empaquetado queda como respaldo, para los pedidos que todavía no tienen contenedora en DEPOT.
 
 ## 7. Exportación
 

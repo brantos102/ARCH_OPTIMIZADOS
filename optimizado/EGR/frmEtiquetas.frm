@@ -234,7 +234,7 @@ End Function
 ' marcarNuevos: True = marca lo que entra al filtro (al abrir y al cambiar de filtro)
 Private Sub Filtrar(Optional ByVal marcarNuevos As Boolean = False)
   Dim k As Long, est As String, des As String, q As String, arr() As String, n As Long
-  If mCarga Or mCerrando Then Exit Sub
+  If mCerrando Or lst Is Nothing Or cboEstado Is Nothing Then Exit Sub
   est = cboEstado.Text: des = cboDest.Text: q = Trim$(txtBuscar.Text)
   ReDim mIdx(1 To IIf(mN > 0, mN, 1)): mNIdx = 0
   For k = 1 To mN
@@ -243,6 +243,7 @@ Private Sub Filtrar(Optional ByVal marcarNuevos As Boolean = False)
       If marcarNuevos Then mMarca(mPed(k)) = True
     End If
   Next
+  mCarga = True
   lst.Clear
   If mNIdx > 0 Then
     ReDim arr(0 To mNIdx - 1, 0 To 3)
@@ -252,16 +253,22 @@ Private Sub Filtrar(Optional ByVal marcarNuevos As Boolean = False)
     Next
     lst.List = arr
     For n = 1 To mNIdx
-      If mMarca.Exists(mPed(mIdx(n))) Then lst.Selected(n - 1) = True
+      If mMarca.Exists(mPed(mIdx(n))) Then
+        If mMarca(mPed(mIdx(n))) Then lst.Selected(n - 1) = True
+      End If
     Next
     lst.ListIndex = 0
-    Muestra 0
   End If
+  mCarga = False
+  If mNIdx > 0 Then Muestra 0
   Contar
 End Sub
 
 Private Sub Contar()
   Dim n As Long
+  ' al descargar el formulario los controles se destruyen antes que el código: sin esta guarda
+  ' un último evento de la lista intentaba escribir en un botón que ya no existe
+  If mCerrando Or lblCnt Is Nothing Or bImprimir Is Nothing Then Exit Sub
   n = Marcadas().Count
   lblCnt.Caption = mNIdx & " en la lista   ·   " & n & " marcada(s) para imprimir"
   bImprimir.Caption = IIf(n = 0, "Imprimir", "Imprimir " & n & " etiqueta(s)")
@@ -306,12 +313,15 @@ End Sub
 
 ' ---------- eventos ----------
 Private Sub cboEstado_Change()
+  If mCarga Then Exit Sub
   Filtrar True
 End Sub
 Private Sub cboDest_Change()
+  If mCarga Then Exit Sub
   Filtrar True
 End Sub
 Private Sub txtBuscar_Change()
+  If mCarga Then Exit Sub
   Filtrar False
 End Sub
 Private Sub bLimpF_Click()
@@ -323,7 +333,7 @@ End Sub
 
 Private Sub lst_Change()
   Dim i As Long
-  If mCerrando Or lst Is Nothing Then Exit Sub
+  If mCerrando Or mCarga Or lst Is Nothing Then Exit Sub
   For i = 0 To lst.ListCount - 1
     If i < mNIdx Then mMarca(mPed(mIdx(i + 1))) = lst.Selected(i)
   Next
@@ -333,10 +343,12 @@ End Sub
 
 Private Sub bTodos_Click()
   Dim i As Long
+  If mCerrando Or lst Is Nothing Then Exit Sub
   For i = 0 To lst.ListCount - 1: lst.Selected(i) = True: Next
 End Sub
 Private Sub bNinguno_Click()
   Dim i As Long, k As Long
+  If mCerrando Or lst Is Nothing Then Exit Sub
   For k = 1 To mN: mMarca(mPed(k)) = False: Next
   For i = 0 To lst.ListCount - 1: lst.Selected(i) = False: Next
   Contar
@@ -354,7 +366,7 @@ Private Sub bImprimir_Click()
   Application.Cursor = xlDefault
   If n > 0 Then
     mCerrando = True
-    MsgBox n & " etiqueta(s) enviadas a " & cboImp.Text & ".", vbInformation
+    MsgBox n & " etiqueta(s) enviadas.", vbInformation
     Unload Me
   Else
     MsgBox "No se pudo imprimir. Revisa que la Zebra esté encendida y conectada (detalle en el registro).", vbExclamation
