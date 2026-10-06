@@ -1432,6 +1432,7 @@ Sub CrearMenuEGR()
   BotonMenu bar, "Trazabilidad", "MenuTrazabilidad", 1016, False
   BotonMenu bar, "Datos anteriores", "MenuHistorico", 1016, False
   BotonMenu bar, "Respaldo del día (.xlsb)", "MenuRespaldoDia", 3, False
+  BotonMenu bar, "Corregir contenedoras (validar)", "MenuCorregirValidar", 1100, False
   BotonMenu bar, "Congelar como histórico", "MenuCongelarHistorico", 1100, False
   BotonMenu bar, "Actualizar datos", "ActualizarTodo", 459, True
   BotonMenu bar, "Reglas de destino", "MenuReglas", 1017, False
@@ -2350,4 +2351,196 @@ Sub MenuAvisoHistorico()
          "No tiene consultas ni fórmulas vivas: los números son los de ese día y no cambian." & vbCrLf & _
          "Actualizar, Reparar, Limpiar día y los cambios de destino están bloqueados." & vbCrLf & vbCrLf & _
          "Para trabajar, abre el archivo de producción.", vbInformation, "Archivo histórico"
+End Sub
+
+' =====================================================================================
+'  CORREGIR LOS "validar" DE EMPAQUETADO (columna F, NRO. DE CONTENEDORA)
+'
+'  NO actualiza ni trae datos nuevos: trabaja SOLO con lo que ya está en el libro
+'  (la tabla Estado de ITEMS DEPOT y la propia hoja EMPAQUETADO). No toca ninguna
+'  consulta, ninguna conexión y ninguna otra hoja.
+'
+'  Por qué aparece "validar": la fórmula de F busca la contenedora del pedido en
+'  Estado con XLOOKUP cuando la columna E (# CONTENEDORA, la que llena bodega en el
+'  Google Sheets) viene vacía. Si el pedido no está en Estado escribe "validar", y si
+'  tampoco está en ITEMS_API escribe "sin pedido". Además XLOOKUP devuelve SIEMPRE la
+'  PRIMERA contenedora del pedido: con dos o tres cajas, todas las filas recibían la
+'  misma y el volumen se iba entero a una caja.
+'
+'  Qué hace esta corrección: a cada fila sin contenedora le asigna UNA contenedora
+'  distinta del mismo pedido, tomada de Estado, y la escribe en la columna E, que es
+'  la que la fórmula respeta por encima de todo ($E2 si no está vacía). Así no se
+'  cambia ninguna fórmula y se puede deshacer borrando lo escrito en E.
+' =====================================================================================
+
+Sub MenuCorregirValidar()
+  CorregirValidarEmpaque True
+End Sub
+
+Public Function CorregirValidarEmpaque(Optional ByVal avisar As Boolean = True) As Long
+  Dim loE As ListObject, loS As ListObject, a, b, i As Long, j As Long
+  Dim dCont As Object, dUsa As Object, dPend As Object, ped As String, k As String
+  Dim cDoc As Long, cCon As Long, v, fil As Long, col As Collection, x
+  Dim nExa As Long, nOrd As Long, nNo As Long, det As String, noRes As String
+  Dim rEmp As Range, rNro As Range
+  On Error GoTo fallo
+
+  Set loE = Nothing: Set loS = Nothing
+  On Error Resume Next
+  Set loE = ThisWorkbook.Worksheets("EMPAQUETADO").ListObjects("EMPAQUETADO")
+  Set loS = ThisWorkbook.Worksheets("ITEMS DEPOT").ListObjects("Estado")
+  On Error GoTo fallo
+  If loE Is Nothing Then
+    If avisar Then MsgBox "No se encontró la tabla EMPAQUETADO en este archivo.", vbExclamation, "Corregir validar"
+    Exit Function
+  End If
+  If loE.ListRows.Count = 0 Then
+    If avisar Then MsgBox "La hoja EMPAQUETADO no tiene filas.", vbInformation, "Corregir validar"
+    Exit Function
+  End If
+  If loS Is Nothing Then
+    If avisar Then MsgBox "No se encontró la tabla Estado (hoja ITEMS DEPOT)." & vbCrLf & _
+                          "Sin ella no hay de dónde sacar las contenedoras.", vbExclamation, "Corregir validar"
+    Exit Function
+  End If
+
+  ' ---- contenedoras por pedido, según Estado (lo que YA está en el libro) ----
+  Set dCont = CreateObject("Scripting.Dictionary")
+  If loS.ListRows.Count > 0 Then
+    cDoc = ColIdx(loS, "DOC_EXT", 3): cCon = ColIdx(loS, "NRO_CONTENEDORA_EMPAQUE", 7)
+    b = loS.DataBodyRange.Value
+    For i = 1 To UBound(b, 1)
+      ped = TXE(b(i, cDoc)): k = TXE(b(i, cCon))
+      If Len(ped) > 0 And Len(k) > 0 Then
+        If Not dCont.Exists(ped) Then Set dCont(ped) = New Collection
+        If Not EnColeccion(dCont(ped), k) Then dCont(ped).Add k
+      End If
+    Next
+  End If
+
+  ' ---- contenedoras que cada pedido ya tiene puestas en EMPAQUETADO (E o F) ----
+  a = loE.DataBodyRange.Value                     ' B..K -> 1..10
+  Set dUsa = CreateObject("Scripting.Dictionary")
+  Set dPend = CreateObject("Scripting.Dictionary")
+  For i = 1 To UBound(a, 1)
+    ped = TXE(a(i, 2))                            ' C = # ORDEN
+    If Len(ped) > 0 Then
+      If Not dUsa.Exists(ped) Then Set dUsa(ped) = New Collection
+      If Len(TXE(a(i, 4))) > 0 Then                               ' E = # CONTENEDORA
+        If Not EnColeccion(dUsa(ped), TXE(a(i, 4))) Then dUsa(ped).Add TXE(a(i, 4))
+      ElseIf EsContenedoraValida(TXE(a(i, 5))) Then               ' F ya resuelta
+        If Not EnColeccion(dUsa(ped), TXE(a(i, 5))) Then dUsa(ped).Add TXE(a(i, 5))
+      Else
+        If Not dPend.Exists(ped) Then Set dPend(ped) = New Collection
+        dPend(ped).Add i                          ' esta fila necesita contenedora
+      End If
+    End If
+  Next
+
+  If dPend.Count = 0 Then
+    If avisar Then MsgBox "No hay filas con 'validar', 'sin pedido' ni vacías en EMPAQUETADO." & vbCrLf & _
+                          "No hay nada que corregir.", vbInformation, "Corregir validar"
+    Exit Function
+  End If
+
+  ' ---- asignación: a cada fila pendiente, una contenedora libre de SU pedido ----
+  Set rEmp = loE.ListColumns("# CONTENEDORA").DataBodyRange
+  Set rNro = loE.ListColumns("NRO. DE CONTENEDORA").DataBodyRange
+  Dim asigF() As Long, asigV() As String, nA As Long
+  ReDim asigF(1 To UBound(a, 1)): ReDim asigV(1 To UBound(a, 1))
+  For Each x In dPend.Keys
+    ped = CStr(x)
+    Set col = New Collection
+    If dCont.Exists(ped) Then
+      For i = 1 To dCont(ped).Count
+        If Not EnColeccion(dUsa(ped), dCont(ped)(i)) Then col.Add dCont(ped)(i)
+      Next
+    End If
+    OrdenarCol col
+    For i = 1 To dPend(ped).Count
+      fil = dPend(ped)(i)
+      If i <= col.Count Then
+        nA = nA + 1: asigF(nA) = fil: asigV(nA) = col(i)
+        If dPend(ped).Count = 1 And col.Count = 1 Then
+          nExa = nExa + 1
+        Else
+          nOrd = nOrd + 1
+          If nOrd <= 12 Then det = det & vbCrLf & "   " & ped & "  fila " & fil & "  ->  " & col(i)
+        End If
+      Else
+        nNo = nNo + 1
+        If nNo <= 12 Then noRes = noRes & vbCrLf & "   " & ped & " (fila " & fil & ")"
+      End If
+    Next
+  Next
+
+  If avisar Then
+    If MsgBox("Corrección de contenedoras en EMPAQUETADO, SOLO con los datos de este archivo." & vbCrLf & _
+              "No se actualiza ninguna consulta ni se traen datos nuevos." & vbCrLf & vbCrLf & _
+              "  Se resuelven sin ambigüedad (1 caja):  " & nExa & vbCrLf & _
+              "  Se reparten por orden (varias cajas):  " & nOrd & det & IIf(nOrd > 12, vbCrLf & "   ...", "") & vbCrLf & _
+              "  Sin contenedora en Estado:             " & nNo & noRes & IIf(nNo > 12, vbCrLf & "   ...", "") & vbCrLf & vbCrLf & _
+              "Las contenedoras se escriben en la columna E (# CONTENEDORA), que la fórmula" & vbCrLf & _
+              "respeta por encima de la búsqueda. Para deshacer, basta borrar lo escrito en E." & vbCrLf & vbCrLf & _
+              "OJO: cuando un pedido tiene varias cajas no hay dato que diga qué contenedora" & vbCrLf & _
+              "corresponde a qué tipo de caja; se reparten en orden. Revísalas antes de facturar." & vbCrLf & vbCrLf & _
+              "¿Aplicar?", vbYesNo + vbQuestion, "Corregir validar") <> vbYes Then Exit Function
+  End If
+
+  Respaldo "antes_corregir_validar"
+  Congelar
+  For i = 1 To nA
+    rEmp.Cells(asigF(i), 1).Value = asigV(i)
+    ' si F ya no es fórmula (archivo congelado), se escribe también ahí
+    If Not rNro.Cells(asigF(i), 1).HasFormula Then rNro.Cells(asigF(i), 1).Value = asigV(i)
+  Next
+  Application.Calculate                     ' recálculo local; no refresca ninguna consulta
+  Liberar
+  LogE "CORREGIR VALIDAR: " & nA & " contenedora(s) escritas en EMPAQUETADO!E (" & nExa & " exactas, " & _
+       nOrd & " repartidas por orden); " & nNo & " fila(s) sin contenedora en Estado. No se actualizó ninguna consulta."
+  If avisar Then
+    MsgBox nA & " fila(s) corregidas." & vbCrLf & vbCrLf & _
+           "  Exactas: " & nExa & vbCrLf & "  Repartidas por orden: " & nOrd & vbCrLf & _
+           "  Sin contenedora en Estado: " & nNo & vbCrLf & vbCrLf & _
+           "VOL. ITEMS y PORCENTAJE se recalcularon con las contenedoras nuevas." & vbCrLf & _
+           "Detalle en el registro. Hay respaldo en RESPALDOS_EGR.", vbInformation, "Corregir validar"
+  End If
+  CorregirValidarEmpaque = nA
+  Exit Function
+fallo:
+  Liberar
+  LogE "CORREGIR VALIDAR: " & Err.Description, "ERROR"
+  If avisar Then MsgBox "No se pudo corregir: " & Err.Description, vbExclamation
+End Function
+
+' ¿El texto de F es una contenedora de verdad y no un aviso?
+Private Function EsContenedoraValida(ByVal s As String) As Boolean
+  s = Trim$(s)
+  If Len(s) = 0 Then Exit Function
+  Select Case UCase$(s)
+    Case "VALIDAR", "SIN PEDIDO", "VERIFICAR", "#N/A": Exit Function
+  End Select
+  EsContenedoraValida = IsNumeric(s)
+End Function
+
+Private Function EnColeccion(c As Collection, ByVal s As String) As Boolean
+  Dim i As Long
+  For i = 1 To c.Count
+    If CStr(c(i)) = s Then EnColeccion = True: Exit Function
+  Next
+End Function
+
+Private Sub OrdenarCol(c As Collection)
+  Dim i As Long, j As Long, n As Long, a() As String, t As String
+  n = c.Count
+  If n < 2 Then Exit Sub
+  ReDim a(1 To n)
+  For i = 1 To n: a(i) = CStr(c(i)): Next
+  For i = 1 To n - 1
+    For j = i + 1 To n
+      If Val(a(j)) < Val(a(i)) Then t = a(i): a(i) = a(j): a(j) = t
+    Next
+  Next
+  For i = n To 1 Step -1: c.Remove i: Next
+  For i = 1 To n: c.Add a(i): Next
 End Sub

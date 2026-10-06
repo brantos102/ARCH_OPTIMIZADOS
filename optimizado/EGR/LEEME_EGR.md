@@ -580,6 +580,42 @@ PORCENTAJE y cuándo se guardó.
 > No se confunda con los respaldos `EGR_aaaammdd_hhmmss_motivo.xlsm`, que son instantáneas antes de un proceso
 > delicado (actualizar, reparar, limpiar día) y de las que se conservan las 15 últimas.
 
+### Corregir los "validar" de EMPAQUETADO, sin actualizar nada
+
+`validar` en **EMPAQUETADO!F** (NRO. DE CONTENEDORA) significa: *el pedido existe hoy, pero no se le encontró
+contenedora*. `sin pedido` significa que ni siquiera está en los pedidos del día.
+
+**De dónde salen.** La fórmula de F usa la columna E (# CONTENEDORA, la que llena bodega en el Google Sheets) y,
+si está vacía, busca la contenedora del pedido en `Estado` con `XLOOKUP`. Eso falla en dos casos:
+
+- el pedido **no está en `Estado`** (p. ej. es de otro día, y `Estado` solo trae hoy) → `validar`;
+- el pedido **tiene varias cajas**: `XLOOKUP` devuelve siempre **la primera**, así que todas las filas del pedido
+  recibían la misma contenedora y el volumen se iba entero a una caja.
+
+**La corrección** (menú **Corregir contenedoras (validar)**) trabaja **solo con lo que ya está en el libro**: la
+tabla `Estado` de ITEMS DEPOT y la propia hoja EMPAQUETADO. **No actualiza ninguna consulta, no abre ninguna
+conexión y no trae datos nuevos.** Lo único que recalcula es la hoja, en local.
+
+A cada fila sin contenedora le asigna **una contenedora distinta del mismo pedido** y la escribe en la **columna
+E**, que la fórmula respeta por encima de la búsqueda (`IF($E2<>"",$E2,…)`). Ventajas: no se cambia ninguna
+fórmula, y **para deshacer basta borrar lo escrito en E**.
+
+Antes de aplicar muestra el reparto y lo clasifica:
+
+| Caso | Qué significa |
+|---|---|
+| **Exactas** | el pedido tiene una sola caja y una sola contenedora: no hay ninguna duda |
+| **Repartidas por orden** | el pedido tiene varias cajas; se asignan las contenedoras en orden ascendente |
+| **Sin contenedora en Estado** | no hay de dónde sacarla; la fila se queda como está y se lista en el registro |
+
+> **Lo que hay que mirar antes de facturar:** cuando un pedido tiene varias cajas, **ningún dato del libro dice qué
+> contenedora corresponde a qué tipo de caja**. El reparto por orden es una suposición razonable, no un hecho. El
+> total del pedido (peso, volumen, costo) sale bien igual, porque son las mismas contenedoras; lo que puede quedar
+> cruzado es el % de ocupación de cada caja por separado. Esas filas salen listadas en el aviso y en el registro.
+
+Antes de escribir deja un respaldo en `RESPALDOS_EGR`. Funciona también en un archivo ya congelado: si F ya no es
+fórmula, escribe el valor directamente.
+
 ### Congelar un archivo como histórico
 
 Un histórico es una **foto del día**: debe poder consultarse sin riesgo de que se actualice ni de que alguien lo
