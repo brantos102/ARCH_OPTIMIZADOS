@@ -58,6 +58,8 @@ hoja temporal (`ETQ_LOTE`) que se elimina al terminar.
 1. En la hoja **`Consolidado`**, aplicar los filtros de siempre (cliente, posición, estado...).
 2. Opcional: seleccionar las filas concretas que se quieren etiquetar.
 3. Ejecutar la macro (el atajo de siempre, o `Vista > Macros > ImprimirEtiquetasZebra`).
+   La primera vez conviene probar con `ImprimirUnaEtiquetaPrueba`: imprime una sola
+   etiqueta para confirmar tamaño, posición y lectura del código de barras.
 4. Responder los 4 pasos:
 
 | Paso | Pregunta | Respuestas |
@@ -78,7 +80,8 @@ cuántas filas se omitieron (filas sin código ni serie) y los avisos de código
 | `ImprimirEtiquetasZebra` | asistente de 4 pasos |
 | `ImprimirEtiquetasSeleccion` | directo: sólo las filas seleccionadas (visibles) |
 | `ImprimirEtiquetasFiltroCompleto` | directo: todas las filas visibles del filtro |
-| `EtiquetasDiagnostico` | informe: filas visibles, impresora, papel y mapeo de columnas |
+| `ImprimirUnaEtiquetaPrueba` | imprime **una sola** etiqueta de prueba, para verificar tamaño antes de un lote |
+| `EtiquetasDiagnostico` | informe: filas visibles, impresora, papel, **escala medida** y mapeo de columnas |
 | `VistaPreviaEImpresion_Clasica` | respaldo: lógica original corregida, una etiqueta por trabajo |
 
 ## Ajustes (parte superior de `modEtiquetas.bas`)
@@ -88,7 +91,7 @@ cuántas filas se omitieron (filas sin código ni serie) y los avisos de código
 | `PAGINAS_POR_TRABAJO` | `100` | etiquetas por trabajo de impresión. Si la cola del driver se traba, bajar a `50` |
 | `TOPE_ETIQUETAS` | `10000` | tope de seguridad por corrida |
 | `AVISO_DESDE` | `300` | desde cuántas etiquetas se pide confirmación extra |
-| `ESCALA_FIJA` | `0` | `0` = reproducir el ajuste de `ETQ`; `28` = forzar escala del 28 % |
+| `ESCALA_FIJA` | `0` | `0` = medir la escala real con la paginación de Excel; `1`-`100` = forzar ese porcentaje |
 | `IMPRESORA_CONTIENE` | `"ZD421"` | texto que identifica a la Zebra |
 | `ACTUALIZAR_ETQ` | `True` | deja cargada en `ETQ` la primera etiqueta del lote |
 | `CONSERVAR_LOTE` | `False` | `True` = no borra `ETQ_LOTE` (para revisar el lote armado) |
@@ -105,7 +108,8 @@ envía en 2 trabajos de impresión (antes: 200 trabajos).
 |---|---|
 | "Debe estar en la hoja Consolidado o IMPRIMIR" | ejecutar la macro con esa hoja activa |
 | "No se encontraron filas visibles" | el filtro no deja ninguna fila, o la selección está toda oculta |
-| Aviso de paginación | el papel de `ETQ` no es la etiqueta de 100 x 50 mm, o la escala no cuadra: revisar la vista previa y, si hace falta, poner `ESCALA_FIJA = 28` |
+| Las etiquetas salen **muy pequeñas** o descolocadas | es la escala de impresión. Ejecute `EtiquetasDiagnostico`: muestra la escala medida y si un lote de 2 ocupa 2 páginas. Si la medición falla, fije `ESCALA_FIJA` al porcentaje correcto |
+| Aviso de paginación | el papel de `ETQ` no es la etiqueta de 100 x 50 mm, o la impresora activa no es la ZD421: revisar la vista previa antes de continuar |
 | Etiquetas en blanco intercaladas | misma causa anterior (una etiqueta ocupa más de una página) |
 | El código de barras no se lee | ver el aviso al final del lote: caracteres no válidos para Code 39 o código demasiado largo (`docs/MAPEO_Y_ZEBRA.md`) |
 | `Atributo no válido en Sub o Function` al compilar | se pegó un `.bas` en vez de importarlo: borre las líneas que empiezan con `Attribute` (o use `src/Modulo1_para_pegar.bas`) y reasigne el atajo en `Vista > Macros > Opciones...` |

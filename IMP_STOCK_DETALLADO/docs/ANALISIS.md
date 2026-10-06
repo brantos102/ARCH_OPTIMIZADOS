@@ -62,9 +62,14 @@ Datos medidos en el archivo entregado:
    La única excepción es `A2` (cliente/marca), que se mantiene en la **columna 2 fija** porque
    en `Consolidado` es el nombre del cliente y en `IMPRIMIR` es el campo `ABC`: en las dos
    hojas la columna 2 es el texto que debe ir en la etiqueta.
-5. **Verificación de paginación**: antes de imprimir se compara `PageSetup.Pages.Count` con el
-   número de etiquetas del lote. Si no coinciden se reintenta con escala fija del 28 % y, si
-   aún así no cuadra, se avisa en pantalla en vez de gastar etiquetas.
+5. **Escala medida, no heredada**: la hoja `ETQ` imprime con "ajustar a 1 página", ajuste que
+   no se puede trasladar a una hoja de varias etiquetas (se aplicaría al lote entero). El
+   módulo busca por bisección el mayor porcentaje con el que las columnas `A:J` entran a lo
+   ancho de la etiqueta y las 17 filas entran a lo alto, consultando la paginación real de
+   Excel con la impresora activa. Si la medición falla, avisa y pasa a modo compatible
+   (una etiqueta por trabajo, con el ajuste de `ETQ`), que es lento pero correcto.
+   Además se compara `PageSetup.Pages.Count` con el número de etiquetas del lote y se avisa
+   en pantalla si no coinciden, en vez de gastar etiquetas.
 6. **La plantilla `ETQ` no se modifica** durante el proceso (sólo, al final y de forma
    opcional, se le carga la primera etiqueta del lote para mantener la costumbre anterior).
    La hoja `ETQ_LOTE` se elimina al terminar, incluso si hay un error.

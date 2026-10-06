@@ -54,10 +54,12 @@ Private Const AVISO_DESDE        As Long = 300
 Private Const TOPE_ETIQUETAS     As Long = 10000
 
 ' Escala de impresión:
-'   0  = reproducir el ajuste de la hoja ETQ (ajustar a 1 página de ancho)  <- recomendado
-'   28 = forzar escala fija del 28 % (valor guardado en la plantilla)
+'   0 = MEDIR la escala real con la paginación de Excel (recomendado). Se busca el
+'       mayor porcentaje con el que las columnas A:J entran en el ancho de la etiqueta
+'       y las 17 filas entran en el alto: exactamente lo mismo que hace la hoja ETQ
+'       cuando se imprime una sola etiqueta.
+'   1-100 = forzar ese porcentaje (sólo si la medición automática no funciona)
 Private Const ESCALA_FIJA        As Long = 0
-Private Const ESCALA_RESPALDO    As Long = 28
 
 ' Columna fija para el campo "cliente / marca" (celda A2 de la etiqueta).
 ' Se usa posición fija porque en "Consolidado" la columna B es el nombre del cliente
@@ -88,7 +90,7 @@ Private mScreenUpdating  As Boolean
 Private mEnableEvents    As Boolean
 Private mDisplayAlerts   As Boolean
 Private mEstadoGuardado  As Boolean
-Private mEscalaForzada   As Boolean
+Private mZoom            As Long
 Private mAvisos          As String
 Private mNumAvisos       As Long
 
@@ -108,10 +110,17 @@ Public Sub ImprimirEtiquetasFiltroCompleto()
     EjecutarLote 2
 End Sub
 
+' Imprime UNA sola etiqueta de prueba (la primera fila visible de la selección o del
+' filtro) para verificar tamaño y posición antes de lanzar un lote grande.
+Public Sub ImprimirUnaEtiquetaPrueba()
+    EjecutarLote 3
+End Sub
+
 
 '==============================================================================================
 ' MOTOR
 '   modo 0 = preguntar alcance    1 = solo selección    2 = todas las filas visibles
+'   modo 3 = una sola etiqueta de prueba
 '==============================================================================================
 Private Sub EjecutarLote(ByVal modo As Long)
 
@@ -125,7 +134,7 @@ Private Sub EjecutarLote(ByVal modo As Long)
     Dim desde As Long, hasta As Long, omitidas As Long
     Dim bloquesHoja As Long, k As Long, idx As Long
     Dim trabajos As Long, impresas As Long, nTrabajos As Long
-    Dim i As Long, c As Long
+    Dim i As Long, c As Long, b As Long
     Dim respuesta As VbMsgBoxResult
     Dim rngCol As Range
     Dim hojaAnterior As Worksheet, selAnterior As Range
@@ -134,7 +143,7 @@ Private Sub EjecutarLote(ByVal modo As Long)
     Dim t0 As Single
     Dim nError As Long, sError As String
 
-    mAvisos = "": mNumAvisos = 0: mEscalaForzada = False
+    mAvisos = "": mNumAvisos = 0: mZoom = 0
 
     '--- 1. Contexto ---------------------------------------------------------------------
     If Not ValidarEntorno(wsOrigen, wsPlantilla) Then Exit Sub
@@ -148,7 +157,7 @@ Private Sub EjecutarLote(ByVal modo As Long)
     colCantidad = ResolverColumna(wsOrigen, "cantidad", 13)
 
     '--- 2. Alcance ----------------------------------------------------------------------
-    soloSeleccion = (modo = 1)
+    soloSeleccion = (modo = 1) Or (modo = 3 And TypeName(Selection) = "Range")
 
     If modo = 1 And TypeName(Selection) <> "Range" Then
         MsgBox "Seleccione primero una o varias filas en la hoja """ & wsOrigen.Name & """.", _
@@ -173,6 +182,12 @@ Private Sub EjecutarLote(ByVal modo As Long)
     Application.StatusBar = "Explorando filas visibles..."
     Set rngCol = RangoCandidato(wsOrigen, colProducto, soloSeleccion)
     nFilas = RecolectarVisibles(rngCol, TOPE_FILAS, filas)
+
+    If nFilas = 0 And modo = 3 And soloSeleccion Then
+        soloSeleccion = False
+        Set rngCol = RangoCandidato(wsOrigen, colProducto, False)
+        nFilas = RecolectarVisibles(rngCol, TOPE_FILAS, filas)
+    End If
     Application.StatusBar = False
 
     If nFilas = 0 Then
@@ -184,7 +199,8 @@ Private Sub EjecutarLote(ByVal modo As Long)
 
     '--- 4. Cuántas filas ----------------------------------------------------------------
     txt = "TODAS"
-    If modo <> 1 Or nFilas > PAGINAS_POR_TRABAJO Then
+    If modo = 3 Then txt = "1"
+    If (modo <> 1 And modo <> 3) Or (modo = 1 And nFilas > PAGINAS_POR_TRABAJO) Then
         txt = InputBox("PASO 2 de 4 - Filas a imprimir" & vbCrLf & vbCrLf & _
             "Filas visibles disponibles: " & nFilas & IIf(nFilas = TOPE_FILAS, " (tope alcanzado)", "") & vbCrLf & vbCrLf & _
             "Escriba:" & vbCrLf & _
@@ -213,6 +229,11 @@ Private Sub EjecutarLote(ByVal modo As Long)
     End If
 
     '--- 5. Copias por etiqueta ----------------------------------------------------------
+    If modo = 3 Then
+        copiasFijas = 1
+        GoTo ArmarCola
+    End If
+
     txt = InputBox("PASO 3 de 4 - Copias de cada etiqueta" & vbCrLf & vbCrLf & _
         "Cada fila es una etiqueta. Indique cuántas copias se imprimen de cada una:" & vbCrLf & vbCrLf & _
         "    1, 2, 3 ...   número fijo de copias para todas" & vbCrLf & _
@@ -230,6 +251,7 @@ Private Sub EjecutarLote(ByVal modo As Long)
     End If
 
     '--- 6. Armado de la cola de etiquetas ----------------------------------------------
+ArmarCola:
     ReDim copias(1 To nFilas)
     nCola = 0
     For i = desde To hasta
@@ -293,6 +315,14 @@ Private Sub EjecutarLote(ByVal modo As Long)
         msg = msg & vbCrLf & vbCrLf & "ATENCIÓN: va a imprimir " & nCola & " etiquetas."
     End If
 
+    If modo = 3 Then
+        msg = "ETIQUETA DE PRUEBA" & vbCrLf & String$(46, "-") & vbCrLf & _
+              "Se imprimirá UNA etiqueta con los datos de la primera fila visible," & vbCrLf & _
+              "para verificar tamaño, posición y lectura del código de barras." & vbCrLf & _
+              "Impresora: " & impresoraUsada & vbCrLf & vbCrLf & _
+              "SÍ = ver la vista previa primero" & vbCrLf & "NO = imprimir directamente"
+    End If
+
     respuesta = MsgBox(msg, vbYesNoCancel + vbQuestion, "Etiquetas")
     If respuesta = vbCancel Then
         RestaurarImpresora impresoraOrig, impresoraUsada
@@ -307,16 +337,28 @@ Private Sub EjecutarLote(ByVal modo As Long)
 
     Set wsLote = CrearHojaLote(wsPlantilla)
     bloquesHoja = MinL(nCola, PAGINAS_POR_TRABAJO)
+
+    Application.StatusBar = "Preparando el lote de etiquetas..."
     PrepararBloques wsLote, bloquesHoja
+
+    Application.StatusBar = "Calculando la escala de impresión..."
+    mZoom = DeterminarZoom(wsLote)
+    MarcarSaltos wsLote, bloquesHoja
 
     idx = 1
     Do While idx <= nCola
         k = MinL(bloquesHoja, nCola - idx + 1)
 
         LlenarBloques wsLote, wsOrigen, cola, idx, k, campos
-        AjustarPagina wsLote, k
 
-        If Not VerificarPaginacion(wsLote, k) Then GoTo Limpieza
+        If mZoom > 0 Then
+            AjustarPagina wsLote, k
+            If Not VerificarPaginacion(wsLote, k) Then GoTo Limpieza
+        Else
+            ' no se pudo medir la escala: modo compatible, se imprime etiqueta por
+            ' etiqueta con el mismo ajuste de página que usa la hoja ETQ
+            AjustarPaginaEtiqueta wsLote, 1
+        End If
 
         If vistaPrevia Then
             vistaPrevia = False
@@ -329,10 +371,19 @@ Private Sub EjecutarLote(ByVal modo As Long)
             If respuesta <> vbYes Then GoTo Limpieza
         End If
 
-        Application.StatusBar = "Imprimiendo etiquetas " & idx & " a " & (idx + k - 1) & " de " & nCola & "..."
-        wsLote.PrintOut Copies:=1, Collate:=True
+        If mZoom > 0 Then
+            Application.StatusBar = "Imprimiendo etiquetas " & idx & " a " & (idx + k - 1) & " de " & nCola & "..."
+            wsLote.PrintOut Copies:=1, Collate:=True
+            nTrabajos = nTrabajos + 1
+        Else
+            For b = 1 To k
+                AjustarPaginaEtiqueta wsLote, b
+                Application.StatusBar = "Imprimiendo etiqueta " & (idx + b - 1) & " de " & nCola & "..."
+                wsLote.PrintOut Copies:=1
+                nTrabajos = nTrabajos + 1
+            Next b
+        End If
 
-        nTrabajos = nTrabajos + 1
         impresas = impresas + k
         idx = idx + k
     Loop
@@ -376,7 +427,14 @@ Limpieza:
               "Trabajos de impresión : " & nTrabajos & vbCrLf & _
               "Impresora ............: " & impresoraUsada & vbCrLf & _
               "Filas omitidas .......: " & omitidas & vbCrLf & _
+              "Escala de impresión ..: " & IIf(mZoom > 0, mZoom & " %", "ajuste de la hoja ETQ") & vbCrLf & _
               "Tiempo ...............: " & Format$(Timer - t0, "0.0") & " s"
+        If mZoom = 0 Then
+            msg = msg & vbCrLf & vbCrLf & _
+                  "Nota: no se pudo medir la escala de impresión, así que se imprimió" & vbCrLf & _
+                  "en modo compatible (un trabajo por etiqueta). El resultado es correcto," & vbCrLf & _
+                  "pero más lento. Ejecute EtiquetasDiagnostico para ver el detalle."
+        End If
         If mNumAvisos > 0 Then
             msg = msg & vbCrLf & vbCrLf & "Avisos de código de barras (" & mNumAvisos & "):" & mAvisos
             If mNumAvisos > 10 Then msg = msg & vbCrLf & "  ... y " & (mNumAvisos - 10) & " más."
@@ -652,11 +710,21 @@ Private Sub PrepararBloques(ByVal ws As Worksheet, ByVal n As Long)
     Loop
     Application.CutCopyMode = False
 
+    ' área de impresión de al menos dos etiquetas: hace falta para poder medir dónde
+    ' corta Excel la página (ver DeterminarZoom)
     On Error Resume Next
     Application.PrintCommunication = False
-    ws.PageSetup.PrintArea = "$A$1:$" & COL_FINAL & "$" & (FILAS_ETIQUETA * n)
+    ws.PageSetup.PrintArea = "$A$1:$" & COL_FINAL & "$" & (FILAS_ETIQUETA * MaxL(n, 2))
     Application.PrintCommunication = True
+    ws.ResetAllPageBreaks
+    On Error GoTo 0
+End Sub
 
+' Coloca un salto de página al inicio de cada etiqueta.
+Private Sub MarcarSaltos(ByVal ws As Worksheet, ByVal n As Long)
+    Dim i As Long
+
+    On Error Resume Next
     ws.ResetAllPageBreaks
     For i = 1 To n - 1
         ws.Rows(FILAS_ETIQUETA * i + 1).PageBreak = xlPageBreakManual
@@ -664,19 +732,115 @@ Private Sub PrepararBloques(ByVal ws As Worksheet, ByVal n As Long)
     On Error GoTo 0
 End Sub
 
+'----------------------------------------------------------------------------------------------
+' ESCALA DE IMPRESIÓN
+'
+' La plantilla ETQ imprime "ajustar a 1 página": Excel calcula solo el porcentaje con el
+' que las 10 columnas y las 17 filas entran en la etiqueta de 100 x 50 mm. Ese cálculo no
+' se puede trasladar tal cual a una hoja de varias etiquetas (el ajuste se aplicaría al
+' lote completo, no a cada etiqueta), así que aquí se MIDE: se prueban porcentajes y se
+' mira dónde corta Excel la página con la impresora real.
+'
+' Se busca el mayor porcentaje que cumple las dos condiciones de una etiqueta:
+'    - las columnas A:J entran en el ancho de la página  (sin saltos verticales)
+'    - las 17 filas entran en el alto de la página       (el 1er salto va en la fila 18)
+'----------------------------------------------------------------------------------------------
+Private Function DeterminarZoom(ByVal ws As Worksheet) As Long
+
+    Dim lo As Long, hi As Long, medio As Long, mejor As Long
+    Dim filasPag As Long, anchoOK As Boolean
+    Dim screenAnt As Boolean, saltosAnt As Boolean
+
+    If ESCALA_FIJA > 0 Then
+        DeterminarZoom = ESCALA_FIJA
+        Exit Function
+    End If
+
+    screenAnt = Application.ScreenUpdating
+    saltosAnt = ws.DisplayPageBreaks
+
+    ' Excel sólo calcula los saltos automáticos con el dibujo de pantalla activo
+    Application.ScreenUpdating = True
+    On Error Resume Next
+    ws.DisplayPageBreaks = True
+    On Error GoTo 0
+
+    lo = 10: hi = 100
+    Do While lo <= hi
+        medio = (lo + hi) \ 2
+        filasPag = FilasPorPagina(ws, medio, anchoOK)
+        If anchoOK And filasPag >= FILAS_ETIQUETA Then
+            mejor = medio
+            lo = medio + 1
+        Else
+            hi = medio - 1
+        End If
+    Loop
+
+    On Error Resume Next
+    ws.DisplayPageBreaks = saltosAnt
+    On Error GoTo 0
+    Application.ScreenUpdating = screenAnt
+
+    DeterminarZoom = mejor
+End Function
+
+' Aplica el zoom indicado y devuelve cuántas filas entran en la primera página.
+' anchoOK queda en True si las columnas del área de impresión entran a lo ancho.
+Private Function FilasPorPagina(ByVal ws As Worksheet, ByVal z As Long, _
+                                ByRef anchoOK As Boolean) As Long
+    anchoOK = False
+
+    On Error Resume Next
+    Application.PrintCommunication = False
+    ws.PageSetup.Zoom = z
+    Application.PrintCommunication = True
+    ws.ResetAllPageBreaks
+
+    anchoOK = (ws.VPageBreaks.Count = 0)
+
+    If ws.HPageBreaks.Count = 0 Then
+        FilasPorPagina = 1000000            ' no hay corte: entra todo el área
+    Else
+        FilasPorPagina = ws.HPageBreaks(1).Location.Row - 1
+    End If
+    On Error GoTo 0
+End Function
+
 Private Sub AjustarPagina(ByVal ws As Worksheet, ByVal k As Long)
 
     On Error Resume Next
     Application.PrintCommunication = False
     With ws.PageSetup
         .PrintArea = "$A$1:$" & COL_FINAL & "$" & (FILAS_ETIQUETA * k)
-        If ESCALA_FIJA > 0 Or mEscalaForzada Then
-            .Zoom = IIf(ESCALA_FIJA > 0, ESCALA_FIJA, ESCALA_RESPALDO)
+        If mZoom > 0 Then
+            .Zoom = mZoom                   ' escala medida: una etiqueta por página
         Else
-            .Zoom = False
+            .Zoom = False                   ' no se pudo medir: ajuste heredado de ETQ
             .FitToPagesWide = 1
             .FitToPagesTall = k
         End If
+    End With
+    Application.PrintCommunication = True
+    On Error GoTo 0
+End Sub
+
+' Modo compatible: deja como área de impresión UNA sola etiqueta del lote, con el mismo
+' "ajustar a 1 página" que usa la hoja ETQ. Se imprime igual que la macro original.
+Private Sub AjustarPaginaEtiqueta(ByVal ws As Worksheet, ByVal b As Long)
+
+    Dim f1 As Long, f2 As Long
+
+    f1 = (b - 1) * FILAS_ETIQUETA + 1
+    f2 = b * FILAS_ETIQUETA
+
+    On Error Resume Next
+    Application.PrintCommunication = False
+    With ws.PageSetup
+        .PrintArea = "$A$" & f1 & ":$" & COL_FINAL & "$" & f2
+        .Zoom = False
+        .FitToPagesWide = 1
+        .FitToPagesTall = 1
     End With
     Application.PrintCommunication = True
     On Error GoTo 0
@@ -696,23 +860,12 @@ Private Function VerificarPaginacion(ByVal ws As Worksheet, ByVal k As Long) As 
         Exit Function
     End If
 
-    If ESCALA_FIJA = 0 And Not mEscalaForzada Then
-        mEscalaForzada = True
-        AjustarPagina ws, k
-        On Error Resume Next
-        p = ws.PageSetup.Pages.Count
-        On Error GoTo 0
-        If p = 0 Or p = k Then
-            VerificarPaginacion = True
-            Exit Function
-        End If
-    End If
-
     Application.ScreenUpdating = True
     VerificarPaginacion = (MsgBox("Aviso de paginación" & vbCrLf & vbCrLf & _
-        "Se esperaban " & k & " páginas (una por etiqueta) y Excel calcula " & p & "." & vbCrLf & vbCrLf & _
+        "Se esperaban " & k & " páginas (una por etiqueta) y Excel calcula " & p & "." & vbCrLf & _
+        "Escala medida: " & mZoom & " %" & vbCrLf & vbCrLf & _
         "Revise en Diseño de página que el tamaño de papel de la hoja ETQ sea la etiqueta " & _
-        "de 100 x 50 mm de la Zebra." & vbCrLf & vbCrLf & _
+        "de 100 x 50 mm de la Zebra, y que la impresora activa sea la ZD421." & vbCrLf & vbCrLf & _
         "¿Desea continuar de todas formas?", vbYesNo + vbExclamation, "Etiquetas") = vbYes)
     Application.ScreenUpdating = False
 End Function
@@ -969,16 +1122,20 @@ Private Function MinL(ByVal a As Long, ByVal b As Long) As Long
     If a < b Then MinL = a Else MinL = b
 End Function
 
+Private Function MaxL(ByVal a As Long, ByVal b As Long) As Long
+    If a > b Then MaxL = a Else MaxL = b
+End Function
+
 
 '==============================================================================================
 ' DIAGNÓSTICO
 '==============================================================================================
 Public Sub EtiquetasDiagnostico()
 
-    Dim wsOrigen As Worksheet, wsPlantilla As Worksheet
+    Dim wsOrigen As Worksheet, wsPlantilla As Worksheet, wsLote As Worksheet
     Dim campos() As tCampo
     Dim filas() As Long
-    Dim nFilas As Long, i As Long
+    Dim nFilas As Long, i As Long, escala As Long, paginas As Long
     Dim msg As String
 
     If Not ValidarEntorno(wsOrigen, wsPlantilla) Then Exit Sub
@@ -987,13 +1144,32 @@ Public Sub EtiquetasDiagnostico()
     nFilas = RecolectarVisibles(RangoCandidato(wsOrigen, ResolverColumna(wsOrigen, "producto_id", 3), False), _
                                 TOPE_FILAS, filas)
 
+    ' se arma un lote de prueba de 2 etiquetas para medir la escala y la paginación reales
+    On Error Resume Next
+    GuardarEstado
+    Set wsLote = CrearHojaLote(wsPlantilla)
+    PrepararBloques wsLote, 2
+    escala = DeterminarZoom(wsLote)
+    mZoom = escala
+    AjustarPagina wsLote, 2
+    MarcarSaltos wsLote, 2
+    paginas = wsLote.PageSetup.Pages.Count
+    Application.DisplayAlerts = False
+    wsLote.Delete
+    RestaurarEstado
+    wsOrigen.Activate
+    On Error GoTo 0
+
     msg = "DIAGNÓSTICO DE ETIQUETAS" & vbCrLf & String$(46, "-") & vbCrLf & _
           "Hoja de origen .......: " & wsOrigen.Name & vbCrLf & _
           "Filas visibles .......: " & nFilas & vbCrLf & _
           "Plantilla ............: " & wsPlantilla.Name & " (" & FILAS_ETIQUETA & " filas x A:" & COL_FINAL & ")" & vbCrLf & _
           "Etiquetas por trabajo : " & PAGINAS_POR_TRABAJO & vbCrLf & _
           "Impresora activa .....: " & ImpresoraActual() & vbCrLf & _
-          "Papel de la plantilla : " & TamanoPapel(wsPlantilla) & vbCrLf & String$(46, "-") & vbCrLf & _
+          "Papel de la plantilla : " & TamanoPapel(wsPlantilla) & vbCrLf & _
+          "Escala medida ........: " & IIf(escala > 0, escala & " %", "no se pudo medir") & vbCrLf & _
+          "Páginas de un lote de 2: " & paginas & IIf(paginas = 2, "  (correcto)", "  <-- REVISAR") & vbCrLf & _
+          String$(46, "-") & vbCrLf & _
           "MAPEO CELDA <- COLUMNA" & vbCrLf
 
     For i = LBound(campos) To UBound(campos)

@@ -85,4 +85,25 @@ Al terminar deja la impresora activa como estaba.
 3. Desactivar `Spool`/`Imprimir directamente en la impresora` sólo si la cola se traba:
    lo normal con lotes de 100 páginas es dejar el spooler activo.
 4. Si al imprimir aparecen etiquetas en blanco intercaladas, es paginación: use la vista
-   previa del paso 4 y, si hace falta, fije `ESCALA_FIJA = 28` en el módulo.
+   previa del paso 4 y revise con `EtiquetasDiagnostico` la escala medida.
+
+## 5. Cómo se calcula la escala de impresión
+
+La hoja `ETQ` imprime con "ajustar a 1 página": Excel calcula solo el porcentaje con el que
+las columnas `A:J` y las 17 filas entran en la etiqueta de 100 x 50 mm. Ese ajuste **no se
+puede trasladar tal cual** a una hoja con muchas etiquetas, porque se aplicaría al lote
+completo en vez de a cada etiqueta.
+
+Por eso el módulo **mide** la escala antes de imprimir: prueba porcentajes por búsqueda
+binaria (10 % a 100 %) y, en cada uno, consulta a Excel dónde corta la página con la
+impresora real. Se queda con el mayor porcentaje que cumple las dos condiciones de una
+etiqueta:
+
+- las columnas `A:J` entran a lo ancho (`VPageBreaks.Count = 0`);
+- las 17 filas entran a lo alto (el primer corte horizontal cae en la fila 18 o más abajo).
+
+El porcentaje elegido se informa al terminar el lote y en `EtiquetasDiagnostico`. Si la
+medición no fuera posible en el equipo, el módulo avisa y pasa a **modo compatible**:
+imprime etiqueta por etiqueta con el mismo "ajustar a 1 página" de `ETQ`, lo que da el
+resultado correcto aunque más lento. Con `ESCALA_FIJA` se puede forzar un porcentaje
+concreto y saltarse la medición.
