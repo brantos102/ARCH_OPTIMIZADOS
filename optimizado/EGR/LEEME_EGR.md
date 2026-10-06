@@ -102,6 +102,9 @@ Al abrir el panel (Complementos › **Panel EGR (despacho)**) se ven **todos los
 
 Arriba de la lista hay tres herramientas de búsqueda, que se combinan entre sí:
 
+0. **Ordenar**: clic en cualquier encabezado de la lista ordena por esa columna; otro clic invierte el orden
+   (la flecha ▲▼ marca cuál). Ordena solo lo que está en pantalla: no toca los datos ni la hoja DATOS. Al cambiar de
+   vista (Pedidos / Empaque / Cobertura) el orden se quita, porque las columnas son otras.
 1. **Filtro rápido**: cambios sugeridos, fuera de cobertura TMS, zonas, etiquetas pendientes o por reimprimir, sin
    empacar, destino PRO/GYE/UIO/GPS, difiere de PEDIDOS HCE…
 2. **Tres filtros por columna**: se elige la columna (pedido, destinatario, provincia, cantón, parroquia, destino,
@@ -177,6 +180,7 @@ Están en el orden del día, numeradas:
 | 3b Imprimir pendientes | Imprime directamente las pendientes y las que cambiaron de destino |
 | 3c Reimprimir pedido(s) | Pide los números de pedido |
 | 4 Avance empaque | Resumen de picking y empaque |
+| Trazabilidad | Arma la hoja TRAZABILIDAD y ofrece guardar una copia en la carpeta de exportes |
 | 5 Exportar reportes | Pide la hoja (1 TRAMACO, 2 TMS, 3 DESPACHOS, 4 las tres) y el formato (1 CSV, 2 XLSX, 3 PDF) |
 | Actualizar datos | Trae ITEMS API, ITEMS DEPOT, EMPAQUETADO y las tablas dinámicas |
 | **Reglas de destino** | Abre el editor de REGLAS_DESTINO |
@@ -432,7 +436,32 @@ los `Verificar` deberían desaparecer salvo en un caso legítimo: la contenedora
 **El código lee la tabla `Estado` por nombre de encabezado**, no por posición, así que si algún día la consulta
 cambia de columnas, el panel y el avance de empaque no se descuadran.
 
-## 7. Exportación
+## 7. Trazabilidad de pedidos
+
+Para presentar la trazabilidad completa del día hay una hoja **TRAZABILIDAD**, con tres bloques:
+
+| Bloque | Qué contiene |
+|---|---|
+| 1. Estado final de cada pedido | Una fila por pedido con la hoja DATOS tal como quedó: pedido, destinatario, provincia/cantón/parroquia, parroquia TMS y código postal, dirección, teléfono, **destino final**, **origen del destino** (regla base por provincia / confirmado por regla / confirmado a mano / sin destino), **destino que daría la regla base**, sugerencia vigente sin aplicar y su motivo, motivo con **quién y cuándo**, courier, trayecto, zona peligrosa, cobertura TMS, diagnóstico, bultos, peso, etiqueta (estado, destino impreso y fecha), empaque, cajas y unidades confirmadas/solicitadas |
+| 2. Cambios de destino confirmados | Solo los pedidos que se apartaron de la regla base: **destino sin confirmar → destino final**, con el motivo, el usuario y la fecha |
+| 3. Registro de acciones de hoy | Las líneas de LOG_EGR del día: revisiones de cobertura, destinos, etiquetas impresas, exportes y errores |
+
+**Cuándo se genera:**
+
+- **Sola**, cada vez que se aplican destinos sugeridos (desde el panel o desde *2b Aplicar destinos sugeridos*). Si por
+  lo que sea fallara, solo queda anotado en el registro: **nunca interrumpe** lo que se estaba haciendo.
+- **A pedido**, con el botón **Trazabilidad de pedidos** del panel o con *Trazabilidad* en la pestaña Complementos.
+  Ahí pregunta si además guarda una copia **.xlsx** en la carpeta de exportes
+  (`EXPORTES\aaaa-mm-dd\TRAZABILIDAD_aaaammdd_hhmm.xlsx`), que es la que se adjunta o se imprime.
+
+La hoja se rehace entera cada vez y es **solo lectura** sobre las hojas de trabajo: no cambia un dato, una fórmula ni
+una conexión. Si la borras, se vuelve a crear sola la próxima vez.
+
+> El "destino que daría la regla base" se calcula con la misma regla de la fórmula de `DATOS!A` (Pichincha = UIO,
+> Guayas = GYE, Galápagos = GPS, el resto = PRO). Así el **antes → después** de cada cambio queda sin depender de que
+> alguien se acuerde de anotarlo.
+
+## 8. Exportación
 
 - Se elige la **hoja** (TRAMACO, TMS, DESPACHOS o LAS TRES) y el **formato** (CSV, XLSX o PDF) en listas desplegables.
 - Se exportan **solo las filas con datos de esa hoja**, con **las mismas columnas y en el mismo orden**, porque son
@@ -454,7 +483,7 @@ cambia de columnas, el panel y el avance de empaque no se descuadran.
 - **Carpeta:** `EXPORTES\aaaa-mm-dd`, junto al archivo. Otra ruta se configura en `CARPETA_EXPORTES`.
 - **Correo:** destinatarios en `CORREO_PARA`. Se crea un **borrador** en Outlook; nunca se envía solo.
 
-## 8. Qué verificar en la prueba
+## 9. Qué verificar en la prueba
 
 1. Compilar sin errores: módulos modEGR, modZebra y modVentanas; formularios frmEGR y frmEtiquetas.
 2. **Reparar fórmulas**: DATOS!Y deja de estar vacío.
@@ -466,6 +495,8 @@ cambia de columnas, el panel y el avance de empaque no se descuadran.
    - 1 de El Triunfo;
    - 1 de Durán / El Recreo;
    - 1 de Guayaquil / Ximena porque la dirección dice GUASMO. Confirma que Guasmo va por PRO.
-5. **Imprimir seleccionadas** con 1 pedido: se ve la vista previa. Elige la Zebra e imprime. Vuelve a imprimir: la
-   impresora ya aparece elegida.
+5. **IMPRIMIR ETIQUETAS**: la ventana abre con la lista llena. Filtra por destino GYE, comprueba que el botón dice
+   cuántas van e imprime. Vuelve a abrirla: la impresora ya aparece elegida.
+5b. **Clic en un encabezado de la lista** del panel: ordena por esa columna y aparece la flecha; otro clic invierte.
+5c. **Trazabilidad de pedidos**: se arma la hoja con los tres bloques y, si aceptas, deja el .xlsx en EXPORTES.
 6. **Exportar** TRAMACO en CSV: el archivo debe tener las mismas filas que la hoja TRAMACO.

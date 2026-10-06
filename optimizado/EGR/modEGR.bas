@@ -18,6 +18,7 @@ Public Const HDAT As String = "DATOS"
 Public Const HREG As String = "REGLAS_DESTINO"
 Public Const HCFG As String = "CONFIG_EGR"
 Public Const HLOGE As String = "LOG_EGR"
+Public Const HTRZ As String = "TRAZABILIDAD"
 Public Const MAXF As Long = 500           ' última fila de fórmulas de DATOS
 
 ' columnas de DATOS
@@ -1316,6 +1317,7 @@ Sub CrearMenuEGR()
   BotonMenu bar, "3 IMPRIMIR ETIQUETAS", "MenuEtiquetas", 4, True
   BotonMenu bar, "4 Avance empaque", "MenuAvance", 1016, True
   BotonMenu bar, "5 Exportar reportes", "MenuExportar", 3, False
+  BotonMenu bar, "Trazabilidad", "MenuTrazabilidad", 1016, False
   BotonMenu bar, "Actualizar datos", "ActualizarTodo", 459, True
   BotonMenu bar, "Reglas de destino", "MenuReglas", 1017, False
   BotonMenu bar, "Productos", "MenuProductos", 1087, False
@@ -1369,7 +1371,9 @@ Sub MenuAplicarDestinos()
   If MsgBox(n & " pedido(s) cambian de destino:" & s & IIf(n > 20, vbCrLf & "...", "") & vbCrLf & vbCrLf & _
             "¿Confirmar TODOS? (para elegir uno por uno usa el Panel EGR)", vbYesNo + vbQuestion, "Destinos sugeridos") <> vbYes Then Exit Sub
   AplicarDestinos
-  MsgBox n & " destino(s) confirmados. Si ya tenían etiqueta, reimprímelas y vuelve a exportar.", vbInformation
+  TrazaAuto
+  MsgBox n & " destino(s) confirmados. Si ya tenían etiqueta, reimprímelas y vuelve a exportar." & vbCrLf & _
+         "La hoja TRAZABILIDAD se actualizó con el estado final y los cambios.", vbInformation
 End Sub
 
 Sub MenuAvance()
@@ -1411,7 +1415,7 @@ Private Sub ListaHojasMenu(bar As CommandBar)
   c.OnAction = "'" & ThisWorkbook.Name & "'!IrAHojaMenu"
   For Each h In Array("DATOS", "TMS", "TRAMACO", "DESPACHOS", "ETIQUETAS", "EMPAQUETADO", _
                       "TABLAS DINAMICAS", "ITEMS APIS", "ITEMS DEPOT", "COBERTURAS Y TARIFAS", _
-                      "DATA CODIGO Y CAJAS", "REGLAS_DESTINO", "LOG_EGR", "PANEL")
+                      "DATA CODIGO Y CAJAS", "REGLAS_DESTINO", "TRAZABILIDAD", "LOG_EGR", "PANEL")
     c.AddItem CStr(h)
   Next
   c.ListIndex = 1
@@ -1586,4 +1590,286 @@ End Sub
 Sub BorrarMenuEGR()
   On Error Resume Next
   Application.CommandBars("Despacho EGR HYCITE").Delete
+End Sub
+
+' =====================================================================================
+'  TRAZABILIDAD DE PEDIDOS
+'  Genera la hoja TRAZABILIDAD con tres bloques:
+'    1. estado final de cada pedido (hoja DATOS, tal como quedó),
+'    2. los cambios de destino confirmados (quién, cuándo y por qué),
+'    3. el registro de acciones del día (LOG_EGR).
+'  Es SOLO LECTURA sobre las hojas de trabajo: no cambia ni un dato ni una fórmula.
+'  Si algo falla, lo anota en el registro y no interrumpe lo que se estaba haciendo.
+' =====================================================================================
+
+' Destino que saldría por la regla base de provincia, sin destino confirmado.
+' Es la misma regla de la fórmula de DATOS!A, para poder mostrar el "antes".
+Public Function DestinoBase(ByVal prov As String) As String
+  Select Case UCase$(Trim$(prov))
+    Case "", "VALIDAR": DestinoBase = ""
+    Case "PICHINCHA": DestinoBase = "UIO"
+    Case "GUAYAS": DestinoBase = "GYE"
+    Case "GALAPAGOS": DestinoBase = "GPS"
+    Case Else: DestinoBase = "PRO"
+  End Select
+End Function
+
+' Arma (o rehace) la hoja TRAZABILIDAD. Devuelve cuántos pedidos quedaron listados.
+Public Function GenerarTrazabilidad(Optional ByVal avisar As Boolean = True) As Long
+  Dim ws As Worksheet, wsD As Worksheet, wsE As Worksheet, wsL As Worksheet
+  Dim lr As Long, v, e, i As Long, n As Long, r As Long, j As Long
+  Dim dC As Object, dE As Object, dSug As Object, cob, x, p
+  Dim a() As Variant, enc, ped As String, dest As String, base As String, conf As Boolean
+  Dim nConf As Long, nSug As Long, nFue As Long, k As String
+  On Error GoTo fallo
+  Set wsD = ThisWorkbook.Worksheets(HDAT)
+  Set wsE = ThisWorkbook.Worksheets("ETIQUETAS")
+  Application.Calculate
+  lr = UltimaFilaDatos()
+  If lr < 2 Then
+    If avisar Then MsgBox "La hoja DATOS no tiene pedidos.", vbInformation, "Trazabilidad"
+    Exit Function
+  End If
+  v = wsD.Range(wsD.Cells(1, 1), wsD.Cells(lr, 41)).Value
+  e = wsE.Range(wsE.Cells(1, 1), wsE.Cells(lr, 14)).Value
+  Set dC = DictCobertura(): Set dE = DictEmpaque()
+
+  ' sugerencias vigentes de las reglas + cobertura (lo que propone "Ver cambios sugeridos")
+  Set dSug = CreateObject("Scripting.Dictionary")
+  On Error Resume Next
+  nSug = ProponerDestinos()
+  If Not gPropuestas Is Nothing Then
+    For i = 1 To gPropuestas.Count
+      p = gPropuestas(i)
+      dSug(CLng(p(0))) = Array(TXE(p(7)), TXE(p(8)))
+    Next
+  End If
+  Err.Clear
+  On Error GoTo fallo
+
+  enc = Array("FILA", "PEDIDO", "DESTINATARIO", "PROVINCIA", "CANTÓN", "PARROQUIA", "PARR. TMS", "COD. POSTAL TMS", _
+              "DIRECCIÓN", "TELÉFONO", "DESTINO FINAL", "ORIGEN DEL DESTINO", "DESTINO POR REGLA BASE", _
+              "SUGERIDO AHORA (sin aplicar)", "MOTIVO DEL SUGERIDO", "MOTIVO / QUIÉN Y CUÁNDO", "COURIER", "TRAYECTO", _
+              "ZONA PELIGROSA", "COBERTURA TMS", "DIAGNÓSTICO COBERTURA", "BULTOS", "PESO KG", _
+              "ETIQUETA", "DESTINO IMPRESO", "FECHA IMPRESIÓN", "EMPAQUE", "CAJAS", "UNID. CONF/SOL")
+  ReDim a(1 To lr, 1 To UBound(enc) + 1)
+  For i = 2 To lr
+    ped = TXE(v(i, D_PED))
+    If Len(ped) > 0 Then
+      n = n + 1
+      dest = UCase$(TXE(v(i, D_DEST)))
+      base = DestinoBase(TXE(v(i, D_PROV)))
+      conf = (Len(TXE(v(i, D_RDEST))) > 0 And TXE(v(i, D_RPED)) = ped)
+      If conf Then nConf = nConf + 1
+      k = ClaveTMS(TXE(v(i, D_H)), TXE(v(i, D_I)), TXE(v(i, D_J)))
+      cob = Empty: If dC.Exists(k) Then cob = dC(k)
+      a(n, 1) = i: a(n, 2) = ped: a(n, 3) = TXE(v(i, D_NOM))
+      a(n, 4) = TXE(v(i, D_PROV)): a(n, 5) = TXE(v(i, D_CANT)): a(n, 6) = TXE(v(i, D_PARR))
+      a(n, 7) = TXE(v(i, D_PARRSP)): a(n, 8) = TXE(v(i, D_CPTMS))
+      a(n, 9) = TXE(v(i, D_DIR)): a(n, 10) = TXE(v(i, D_TEL))
+      a(n, 11) = dest
+      If conf Then
+        If InStr(1, TXE(v(i, D_RMOT)), "MANUAL", vbTextCompare) > 0 Then
+          a(n, 12) = "CONFIRMADO A MANO"
+        Else
+          a(n, 12) = "CONFIRMADO POR REGLA"
+        End If
+      ElseIf Len(dest) = 0 Then
+        a(n, 12) = "SIN DESTINO (fuera de cobertura)"
+      Else
+        a(n, 12) = "REGLA BASE POR PROVINCIA"
+      End If
+      a(n, 13) = base
+      If dSug.Exists(i) Then
+        x = dSug(i)
+        If UCase$(x(0)) <> dest Then a(n, 14) = x(0): a(n, 15) = x(1)
+      End If
+      a(n, 16) = IIf(conf, TXE(v(i, D_RMOT)), "")
+      a(n, 17) = TXE(v(i, D_COUR))
+      a(n, 18) = TXE(v(i, 37)): If Len(a(n, 18)) = 0 Then a(n, 18) = CobVal2(cob, 2)
+      a(n, 19) = TXE(v(i, 39))
+      a(n, 20) = CobVal2(cob, 0)
+      If UCase$(TXE(v(i, D_VAL))) = "REVISAR" Then
+        nFue = nFue + 1
+        a(n, 21) = "FUERA DE COBERTURA: " & TXE(v(i, D_DIAG)) & IIf(Len(TXE(v(i, D_SUG))) > 0, " (sugerida: " & TXE(v(i, D_SUG)) & ")", "")
+      Else
+        a(n, 21) = "OK"
+      End If
+      a(n, 22) = TXE(v(i, D_BUL)): a(n, 23) = TXE(v(i, D_PESO))
+      If UCase$(TXE(e(i, 6))) = "OK" Then
+        If Len(TXE(e(i, 13))) > 0 And UCase$(TXE(e(i, 13))) <> dest Then a(n, 24) = "REIMPRIMIR" Else a(n, 24) = "IMPRESA"
+        a(n, 25) = TXE(e(i, 13)): a(n, 26) = TXE(e(i, 14))
+      Else
+        a(n, 24) = "PENDIENTE"
+      End If
+      a(n, 27) = EstadoEmpaque(dE, ped)
+      If dE.Exists(ped) Then
+        x = dE(ped)
+        a(n, 28) = x(1): a(n, 29) = x(4) & "/" & x(5)
+      End If
+    End If
+  Next
+
+  Set ws = HojaTraza()
+  Congelar
+  If ws.AutoFilterMode Then ws.AutoFilterMode = False
+  ws.Cells.Clear
+  ws.Range("A1").Value = "TRAZABILIDAD DE PEDIDOS - HYCITE"
+  ws.Range("A1").Font.Size = 14: ws.Range("A1").Font.Bold = True
+  ws.Range("A2").Value = "Generada el " & Format(Now, "dd/mm/yyyy hh:nn") & " por " & Application.UserName & _
+                         "   ·   " & n & " pedido(s)   ·   " & nConf & " con destino confirmado   ·   " & _
+                         nFue & " fuera de cobertura TMS   ·   " & dSug.Count & " con sugerencia vigente"
+  ws.Range("A2").Font.Italic = True
+  ws.Range("A4").Value = "1. ESTADO FINAL DE CADA PEDIDO (hoja DATOS tal como quedó)"
+  Bloque ws, 4
+  For j = 0 To UBound(enc): ws.Cells(5, j + 1).Value = enc(j): Next
+  Encabezado ws.Range(ws.Cells(5, 1), ws.Cells(5, UBound(enc) + 1))
+  If n > 0 Then
+    ws.Range(ws.Cells(6, 1), ws.Cells(5 + n, UBound(enc) + 1)).Value = a
+    ws.Range(ws.Cells(5, 1), ws.Cells(5 + n, UBound(enc) + 1)).AutoFilter
+  End If
+
+  r = 5 + n + 2
+  ws.Cells(r, 1).Value = "2. CAMBIOS DE DESTINO CONFIRMADOS (lo que se apartó de la regla base)"
+  Bloque ws, r
+  r = r + 1
+  enc = Array("FILA", "PEDIDO", "DESTINATARIO", "PROVINCIA", "CANTÓN", "PARROQUIA", "DESTINO SIN CONFIRMAR (regla base)", _
+              "DESTINO FINAL", "MOTIVO / QUIÉN Y CUÁNDO")
+  For j = 0 To UBound(enc): ws.Cells(r, j + 1).Value = enc(j): Next
+  Encabezado ws.Range(ws.Cells(r, 1), ws.Cells(r, UBound(enc) + 1))
+  j = 0
+  For i = 1 To n
+    If Left$(TXE(a(i, 12)), 11) = "CONFIRMADO " Then
+      j = j + 1
+      ws.Cells(r + j, 1).Value = a(i, 1): ws.Cells(r + j, 2).Value = a(i, 2): ws.Cells(r + j, 3).Value = a(i, 3)
+      ws.Cells(r + j, 4).Value = a(i, 4): ws.Cells(r + j, 5).Value = a(i, 5): ws.Cells(r + j, 6).Value = a(i, 6)
+      ws.Cells(r + j, 7).Value = a(i, 13): ws.Cells(r + j, 8).Value = a(i, 11): ws.Cells(r + j, 9).Value = a(i, 16)
+    End If
+  Next
+  If j = 0 Then ws.Cells(r + 1, 1).Value = "(ningún pedido tiene destino confirmado: todos salen por la regla base de provincia)"
+
+  r = r + j + 3
+  ws.Cells(r, 1).Value = "3. REGISTRO DE ACCIONES DEL DÍA (hoja oculta LOG_EGR)"
+  Bloque ws, r
+  r = r + 1
+  enc = Array("FECHA", "USUARIO", "NIVEL", "ACCIÓN")
+  For j = 0 To UBound(enc): ws.Cells(r, j + 1).Value = enc(j): Next
+  Encabezado ws.Range(ws.Cells(r, 1), ws.Cells(r, 4))
+  Set wsL = Hoja(HLOGE)
+  j = 0
+  If Not wsL Is Nothing Then
+    Dim lrl As Long, w
+    lrl = wsL.Cells(wsL.Rows.Count, 1).End(xlUp).Row
+    If lrl >= 2 Then
+      w = wsL.Range("A2:D" & lrl).Value
+      For i = 1 To UBound(w, 1)
+        If IsDate(w(i, 1)) Then
+          If Int(CDate(w(i, 1))) = Date Then
+            j = j + 1
+            ws.Cells(r + j, 1).Value = Format(w(i, 1), "dd/mm/yyyy hh:nn:ss")
+            ws.Cells(r + j, 2).Value = w(i, 2): ws.Cells(r + j, 3).Value = w(i, 3): ws.Cells(r + j, 4).Value = w(i, 4)
+          End If
+        End If
+      Next
+    End If
+  End If
+  If j = 0 Then ws.Cells(r + 1, 1).Value = "(no hay acciones registradas hoy)"
+
+  ws.Columns("A:AC").AutoFit
+  For j = 1 To 29
+    If ws.Columns(j).ColumnWidth > 42 Then ws.Columns(j).ColumnWidth = 42
+  Next
+  Liberar
+  LogE "TRAZABILIDAD: hoja generada con " & n & " pedido(s), " & nConf & " destino(s) confirmado(s) y el registro del día"
+  GenerarTrazabilidad = n
+  Exit Function
+fallo:
+  Liberar
+  LogE "TRAZABILIDAD: " & Err.Description, "ERROR"
+  If avisar Then MsgBox "No se pudo generar la trazabilidad: " & Err.Description, vbExclamation
+End Function
+
+' Rehace la hoja TRAZABILIDAD sin interrumpir nunca lo que se estaba haciendo.
+' Se llama después de aplicar destinos: si fallara, solo queda anotado en el registro.
+Public Sub TrazaAuto()
+  On Error Resume Next
+  GenerarTrazabilidad False
+End Sub
+
+' Lee un dato de la cobertura sin que IIf evalúe las dos ramas (mismo criterio que el panel)
+Private Function CobVal2(ByVal cob As Variant, ByVal i As Long) As String
+  If IsArray(cob) Then
+    If i >= LBound(cob) And i <= UBound(cob) Then CobVal2 = TXE(cob(i))
+  End If
+End Function
+
+Private Function HojaTraza() As Worksheet
+  Dim ws As Worksheet
+  Set ws = Hoja(HTRZ)
+  If ws Is Nothing Then
+    Set ws = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Worksheets(ThisWorkbook.Worksheets.Count))
+    ws.Name = HTRZ
+  End If
+  ws.Visible = xlSheetVisible
+  Set HojaTraza = ws
+End Function
+
+Private Sub Bloque(ws As Worksheet, ByVal fila As Long)
+  With ws.Cells(fila, 1)
+    .Font.Bold = True: .Font.Size = 11: .Font.Color = RGB(48, 84, 150)
+  End With
+End Sub
+
+Private Sub Encabezado(rg As Range)
+  With rg
+    .Font.Bold = True: .Font.Color = vbWhite
+    .Interior.Color = RGB(48, 84, 150)
+    .HorizontalAlignment = xlCenter
+  End With
+End Sub
+
+' Deja una copia de la hoja TRAZABILIDAD en la carpeta de exportes. Devuelve la ruta.
+Public Function GuardarCopiaTraza() As String
+  Dim wb As Workbook, ruta As String
+  On Error GoTo fallo
+  Application.ScreenUpdating = False: Application.DisplayAlerts = False
+  ThisWorkbook.Worksheets(HTRZ).Copy
+  Set wb = ActiveWorkbook
+  ruta = CarpetaExportes() & Application.PathSeparator & "TRAZABILIDAD_" & Format(Now, "yyyymmdd_hhnn") & ".xlsx"
+  wb.SaveAs Filename:=ruta, FileFormat:=51
+  wb.Close SaveChanges:=False
+  Application.DisplayAlerts = True: Application.ScreenUpdating = True
+  LogE "TRAZABILIDAD: copia guardada en " & ruta
+  GuardarCopiaTraza = ruta
+  Exit Function
+fallo:
+  On Error Resume Next
+  If Not wb Is Nothing Then wb.Close SaveChanges:=False
+  Application.DisplayAlerts = True: Application.ScreenUpdating = True
+  LogE "TRAZABILIDAD: no se pudo guardar la copia: " & Err.Description, "ERROR"
+  MsgBox "La hoja quedó lista, pero no se pudo guardar la copia: " & Err.Description, vbExclamation
+End Function
+
+' Texto del aviso, igual desde el menú y desde el panel
+Public Function TextoTraza(ByVal n As Long) As String
+  TextoTraza = "Hoja TRAZABILIDAD lista con " & n & " pedido(s):" & vbCrLf & vbCrLf & _
+               "  1. estado final de cada pedido" & vbCrLf & _
+               "  2. cambios de destino confirmados (quién, cuándo y por qué)" & vbCrLf & _
+               "  3. registro de acciones de hoy" & vbCrLf & vbCrLf & _
+               "¿Guardar además una copia en la carpeta de exportes?"
+End Function
+
+' Genera la hoja, la muestra y ofrece dejar una copia en la carpeta de exportes.
+Sub MenuTrazabilidad()
+  Dim n As Long, ruta As String
+  If PanelOcupado() Then Exit Sub
+  RuedaDesactivar
+  n = GenerarTrazabilidad(True)
+  If n = 0 Then Exit Sub
+  On Error Resume Next
+  ThisWorkbook.Worksheets(HTRZ).Activate
+  On Error GoTo 0
+  If MsgBox(TextoTraza(n), vbYesNo + vbQuestion, "Trazabilidad") <> vbYes Then Exit Sub
+  ruta = GuardarCopiaTraza()
+  If Len(ruta) > 0 Then MsgBox "Copia guardada en:" & vbCrLf & ruta, vbInformation, "Trazabilidad"
 End Sub

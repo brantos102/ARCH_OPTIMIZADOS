@@ -19,6 +19,9 @@ Private lblGuia As MSForms.Label, mCobRevisada As Boolean, mExportado As Boolean
 Private mPrimera As Boolean, mVista As String, mData() As Variant, mN As Long, mIdx() As Long, mNIdx As Long, mListo As Boolean
 Private lblVista As MSForms.Label, lblKpi As MSForms.Label, lblDet As MSForms.Label, lblFilasExp As MSForms.Label
 Private hdr(1 To 14) As MSForms.Label, txtLog As MSForms.TextBox
+Private WithEvents hdrClic As MSForms.Label          ' capa transparente sobre los encabezados: ordena al hacer clic
+Private mAncho(1 To 14) As Single                    ' ancho en pantalla de cada encabezado visible
+Private mOrdCol As Long, mOrdDesc As Boolean         ' columna por la que se ordena (0 = sin ordenar) y sentido
 Private WithEvents lst As MSForms.ListBox
 Private WithEvents cboFiltro As MSForms.ComboBox
 Private WithEvents txtBuscar As MSForms.TextBox
@@ -45,6 +48,7 @@ Private WithEvents bExp As MSForms.CommandButton
 Private WithEvents bExpM As MSForms.CommandButton
 Private WithEvents bAct As MSForms.CommandButton
 Private WithEvents bRep As MSForms.CommandButton
+Private WithEvents bTraza As MSForms.CommandButton
 Private cboIrHoja As MSForms.ComboBox
 Private WithEvents bIrHoja As MSForms.CommandButton
 Private WithEvents bRegl As MSForms.CommandButton
@@ -108,7 +112,7 @@ Private Sub UserForm_Initialize()
   Set cboIrHoja = Me.Controls.Add("Forms.ComboBox.1")
   cboIrHoja.Left = 8: cboIrHoja.Top = 460: cboIrHoja.Width = 128: cboIrHoja.Height = 18: cboIrHoja.Style = fmStyleDropDownList: cboIrHoja.ListRows = 14
   For Each f In Array("DATOS", "TMS", "TRAMACO", "DESPACHOS", "ETIQUETAS", "EMPAQUETADO", "TABLAS DINAMICAS", "ITEMS APIS", "ITEMS DEPOT", _
-                      "COBERTURAS Y TARIFAS", "DATA CODIGO Y CAJAS", "REGLAS_DESTINO", "PANEL")
+                      "COBERTURAS Y TARIFAS", "DATA CODIGO Y CAJAS", "REGLAS_DESTINO", "TRAZABILIDAD", "PANEL")
     cboIrHoja.AddItem f
   Next
   cboIrHoja.ListIndex = 0
@@ -120,8 +124,9 @@ Private Sub UserForm_Initialize()
   Set bDesb = NB("Desbloquear", 8, 534, 93, 22, RGB(120, 120, 120), "Restaura pantalla, eventos y cálculo si Excel quedó bloqueado.")
   Set bExcel = NB("Ver Excel", 105, 534, 93, 22, RGB(0, 97, 0), "Oculta el panel. Para volver: Complementos > Panel EGR.")
   Set bCer = NB("Cerrar panel", 8, 559, 190, 22, RGB(192, 80, 77), "Cierra el panel.")
-  Set lblGuia = NL("", 8, 586, 190)
-  lblGuia.Height = 100: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204): lblGuia.BorderStyle = fmBorderStyleSingle: lblGuia.ForeColor = RGB(128, 64, 0)
+  Set bTraza = NB("Trazabilidad de pedidos", 8, 586, 190, 22, RGB(47, 117, 181), "Arma la hoja TRAZABILIDAD: estado final de cada pedido, los cambios de destino confirmados (quién, cuándo y por qué) y el registro de acciones de hoy. No modifica ninguna hoja de trabajo.")
+  Set lblGuia = NL("", 8, 612, 190)
+  lblGuia.Height = 74: lblGuia.WordWrap = True: lblGuia.BackColor = RGB(255, 242, 204): lblGuia.BorderStyle = fmBorderStyleSingle: lblGuia.ForeColor = RGB(128, 64, 0)
   Set mPasoBtn(1) = bCob: Set mPasoBtn(2) = bCamb: Set mPasoBtn(3) = bEtq: Set mPasoBtn(4) = bVEmp: Set mPasoBtn(5) = bExp
   For i = 1 To 5: mPasoCap(i) = mPasoBtn(i).Caption: mPasoCol(i) = mPasoBtn(i).BackColor: Next
 
@@ -172,6 +177,13 @@ Private Sub UserForm_Initialize()
   lst.Left = X0: lst.Top = 94: lst.Width = ANCHO: lst.Height = 358: lst.Font.Size = 8
   lst.MultiSelect = fmMultiSelectExtended
   lst.ControlTipText = "Clic = detalle. Ctrl/Shift + clic = varios. Doble clic = ir a la fila en DATOS."
+  Set hdrClic = Me.Controls.Add("Forms.Label.1")
+  hdrClic.Caption = "": hdrClic.BackStyle = fmBackStyleTransparent
+  hdrClic.Left = X0: hdrClic.Top = 80: hdrClic.Width = ANCHO: hdrClic.Height = 14
+  hdrClic.ControlTipText = "Clic en un encabezado para ordenar la lista por esa columna. Otro clic invierte el orden."
+  On Error Resume Next
+  hdrClic.ZOrder 0
+  On Error GoTo 0
   Set t = NL("DETALLE DEL PEDIDO", X0, 458, 590, True): t.ForeColor = RGB(48, 84, 150)
   Set lblDet = NL("Selecciona un pedido para ver el detalle.", X0, 474, 590)
   lblDet.Height = 212: lblDet.WordWrap = True: lblDet.BorderStyle = fmBorderStyleSingle: lblDet.BackColor = RGB(248, 248, 248): lblDet.Font.Size = 9
@@ -483,6 +495,7 @@ sig:
   End If
   cols = ColumnasVista()
   nc = UBound(cols) + 1
+  OrdenarLista cols, nc
   PonerColumnas
   lst.Clear
   If mNIdx = 0 Then Exit Sub
@@ -551,22 +564,103 @@ Private Sub PonerColumnas()
     anc = Array(70, 28, 60, 120, 72, 80, 100, 36, 42, 70, 88, 88, 62, 72)
   End If
   e = mEsc: If e <= 0 Then e = 1
+  If mOrdCol > UBound(nom) + 1 Then mOrdCol = 0
   x = lst.Left + 3 * e
   For i = 1 To 14
     If i - 1 <= UBound(nom) Then
-      hdr(i).Caption = " " & nom(i - 1): hdr(i).Left = x: hdr(i).Width = anc(i - 1) * e - 1: hdr(i).Visible = True
-      x = x + anc(i - 1) * e
-      w = w & IIf(Len(w) > 0, ";", "") & CStr(CLng(anc(i - 1) * e))
+      hdr(i).Caption = " " & nom(i - 1) & Marca(i)
+      hdr(i).Left = x: hdr(i).Width = anc(i - 1) * e - 1: hdr(i).Visible = True
+      mAncho(i) = anc(i - 1) * e
+      x = x + mAncho(i)
+      w = w & IIf(Len(w) > 0, ";", "") & CStr(CLng(mAncho(i)))
     Else
-      hdr(i).Visible = False
+      hdr(i).Visible = False: mAncho(i) = 0
     End If
   Next
   lst.ColumnWidths = w
+  If Not hdrClic Is Nothing Then
+    hdrClic.Left = lst.Left + 3 * e
+    hdrClic.Top = hdr(1).Top
+    hdrClic.Height = hdr(1).Height
+    hdrClic.Width = x - hdrClic.Left
+  End If
 End Sub
+
+' Flecha del encabezado por el que se está ordenando
+Private Function Marca(ByVal i As Long) As String
+  If i <> mOrdCol Then Exit Function
+  If mOrdDesc Then Marca = " " & ChrW(9660) Else Marca = " " & ChrW(9650)
+End Function
+
+' Clic en la franja de encabezados: ordena por esa columna; otro clic invierte el orden
+Private Sub hdrClic_MouseUp(ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Single, ByVal Y As Single)
+  Dim i As Long, acum As Single, col As Long
+  If Not mListo Or Button <> 1 Then Exit Sub
+  For i = 1 To 14
+    If mAncho(i) <= 0 Then Exit For
+    acum = acum + mAncho(i)
+    If X <= acum Then col = i: Exit For
+  Next
+  If col = 0 Then Exit Sub
+  If col = mOrdCol Then
+    mOrdDesc = Not mOrdDesc
+  Else
+    mOrdCol = col: mOrdDesc = False
+  End If
+  Filtrar
+End Sub
+
+' Ordena las filas que ya pasaron el filtro. No toca los datos ni la hoja.
+Private Sub OrdenarLista(cols As Variant, ByVal nc As Long)
+  If mOrdCol < 1 Or mOrdCol > nc Or mNIdx < 2 Then Exit Sub
+  QSort 1, mNIdx, CLng(cols(mOrdCol - 1))
+End Sub
+
+Private Sub QSort(ByVal lo As Long, ByVal hi As Long, ByVal c As Long)
+  Dim i As Long, j As Long, t As Long, piv As Variant
+  If lo >= hi Then Exit Sub
+  i = lo: j = hi
+  piv = mData(mIdx((lo + hi) \ 2), c)
+  Do While i <= j
+    Do While Menor(mData(mIdx(i), c), piv)
+      i = i + 1
+    Loop
+    Do While Menor(piv, mData(mIdx(j), c))
+      j = j - 1
+    Loop
+    If i <= j Then
+      t = mIdx(i): mIdx(i) = mIdx(j): mIdx(j) = t
+      i = i + 1: j = j - 1
+    End If
+  Loop
+  If lo < j Then QSort lo, j, c
+  If i < hi Then QSort i, hi, c
+End Sub
+
+Private Function Menor(a As Variant, b As Variant) As Boolean
+  If mOrdDesc Then Menor = (Comparar(a, b) > 0) Else Menor = (Comparar(a, b) < 0)
+End Function
+
+' -1 si a va antes, 1 si va después, 0 si da igual. Números como números, texto sin distinguir
+' mayúsculas, y las celdas vacías siempre al final de la lista ascendente.
+Private Function Comparar(a As Variant, b As Variant) As Long
+  Dim sa As String, sb As String, na As Double, nb As Double
+  sa = Trim$(CStr(a & "")): sb = Trim$(CStr(b & ""))
+  If Len(sa) = 0 And Len(sb) = 0 Then Exit Function
+  If Len(sa) = 0 Then Comparar = 1: Exit Function
+  If Len(sb) = 0 Then Comparar = -1: Exit Function
+  If IsNumeric(sa) And IsNumeric(sb) Then
+    na = Val(sa): nb = Val(sb)
+    If na < nb Then Comparar = -1 ElseIf na > nb Then Comparar = 1
+  Else
+    Comparar = StrComp(sa, sb, vbTextCompare)
+  End If
+End Function
 
 ' Las acciones sobre pedidos necesitan la vista de pedidos (no la de cobertura)
 Private Function EnPedidos() As Boolean
   If mVista = "COBERTURA" Then
+    mOrdCol = 0
     mVista = "PEDIDOS": lblVista.Caption = "PEDIDOS DEL DÍA"
     Recargar
     MsgBox "Se volvió a la vista de pedidos. Selecciona los pedidos y repite la acción.", vbInformation
@@ -726,6 +820,7 @@ Private Sub AplicarSug(c As Collection)
   Application.Calculate
   mExportado = False
   LogE "DESTINOS: " & n & " confirmado(s). Si ya tenían etiqueta, aparecen como '@ REIMPRIMIR'; vuelve a exportar los reportes."
+  TrazaAuto                             ' deja la hoja TRAZABILIDAD al día (nunca interrumpe)
   Recargar
 End Sub
 
@@ -779,6 +874,7 @@ End Sub
 ' =====================================================================================
 Private Sub bVPed_Click()
   If Not Listo() Then Exit Sub
+  mOrdCol = 0
   mVista = "PEDIDOS": lblVista.Caption = "PEDIDOS DEL DÍA"
   cboFiltro.Text = "TODOS"
   Recargar
@@ -786,6 +882,7 @@ End Sub
 
 Private Sub bVCob_Click()
   If Not Listo() Then Exit Sub
+  mOrdCol = 0
   mVista = "COBERTURA": lblVista.Caption = "COBERTURA TMS DE ESTE ARCHIVO (COBERTURAS Y TARIFAS)"
   txtBuscar.Text = ""
   Recargar
@@ -832,6 +929,7 @@ Private Sub bVEmp_Click()
   If Not Listo() Then Exit Sub
   Dim c As New Collection, res As String
   AvancePedidos c, res                       ' KPI + avisos de costos en el registro
+  mOrdCol = 0
   mVista = "EMPAQUE": lblVista.Caption = "AVANCE DE EMPAQUE (picking, cajas, peso, volumen %)"
   Recargar
 End Sub
@@ -863,6 +961,16 @@ Private Sub bAct_Click()
   If Not Listo() Then Exit Sub
   ActualizarTodo
 End Sub
+Private Sub bTraza_Click()
+  Dim n As Long, ruta As String
+  If Not Listo() Then Exit Sub
+  n = GenerarTrazabilidad(True)
+  If n = 0 Then Exit Sub
+  If MsgBox(TextoTraza(n), vbYesNo + vbQuestion, "Trazabilidad") <> vbYes Then Exit Sub
+  ruta = GuardarCopiaTraza()
+  If Len(ruta) > 0 Then MsgBox "Copia guardada en:" & vbCrLf & ruta, vbInformation, "Trazabilidad"
+End Sub
+
 Private Sub bRep_Click()
   If Not Listo() Then Exit Sub
   RepararFormulasEGR
