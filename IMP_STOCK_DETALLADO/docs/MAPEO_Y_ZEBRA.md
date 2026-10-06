@@ -48,15 +48,39 @@ La fuente `Free 3 of 9 Extended` sólo codifica:
 0-9   A-Z   -   .   espacio   $   /   +   %
 ```
 
-Por eso el módulo pasa el valor a **mayúsculas** antes de envolverlo en asteriscos.
-Si una fila trae otros caracteres (minúsculas acentuadas, `#`, `(`, `_`, `,`, ...), la
-etiqueta se imprime igual pero el lector **no** va a poder leer ese código: al terminar el
-lote aparece un aviso con el número de fila y los caracteres problemáticos.
+El módulo pasa el valor a **mayúsculas** y descarta lo que la fuente no sabe dibujar, para
+que no queden barras basura en medio del código. El valor completo y sin tocar se imprime
+igual en texto legible debajo (`A9` / `A17`) y queda registrado en `ETQ_LOG`.
 
-También se avisa cuando el código supera los **20 caracteres**: en `A6:G8` el texto está con
-"Reducir hasta ajustar", así que un código como `VWMKT-201902-SCC-ATRIL TABLET` (29
-caracteres) se comprime tanto que las barras quedan por debajo de lo que lee un escáner a
-203 ppp. En esos casos conviene imprimir la etiqueta sin barras o pasar ese campo a Code 128.
+### Ancho de la barra fina
+
+Es lo que decide si el lector puede leer el código. En Code 39 cada carácter ocupa 16
+módulos (15 + separación), y el área `A6:G8` mide **63,5 mm** impresos, o sea 508 puntos a
+203 ppp:
+
+| Caracteres | Módulos | Barra fina | Lectura |
+|---|---|---|---|
+| 9 | 176 | 2,9 puntos · 0,36 mm | holgada |
+| 12 | 224 | 2,3 puntos · 0,28 mm | holgada |
+| 14 | 256 | 2,0 puntos · 0,25 mm | correcta |
+| 18 | 320 | 1,6 puntos · 0,20 mm | justa |
+| 29 | 496 | 1,0 punto · 0,13 mm | al límite del cabezal |
+
+Con el "Reducir hasta ajustar" de la celda, Excel encogía la fuente sin mirar nada de esto
+y las barras terminaban pegadas unas a otras. Ahora el módulo **calcula el tamaño de fuente
+de cada código**: lo agranda hasta ocupar todo el ancho disponible (sin pasarse del tamaño
+original de la plantilla, para que los códigos cortos salgan igual que siempre) y lo ajusta
+para que la barra fina caiga en un número **entero** de puntos de impresora, que es lo que
+permite al lector distinguir barra fina de barra gruesa.
+
+El ancho de carácter de la fuente se mide en tiempo de ejecución, así que el cálculo sigue
+siendo válido si se cambia la fuente o el diseño de la etiqueta. `EtiquetasDiagnostico`
+informa el ancho útil y hasta cuántos caracteres entran con barra de 2 puntos.
+
+Para códigos muy largos el límite es físico: 29 caracteres en Code 39 necesitan 124 mm a
+0,25 mm de barra, más que la etiqueta entera. Si esos artículos tienen que leerse con
+pistola, las salidas son acortar el código o pasar ese campo a Code 128 (más denso),
+lo que requiere instalar esa fuente.
 
 ## 4. Impresora
 

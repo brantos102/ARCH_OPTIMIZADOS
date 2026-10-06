@@ -13,7 +13,7 @@ respetaba el autofiltro de la hoja `Consolidado`.
 | La escala dependía del papel del driver | Escala calculada para **10 × 5 cm** en cualquier impresora |
 | Excel se quedaba colgado con lotes grandes | Repaginación desactivada durante el armado + `DoEvents` |
 | Se caía con celdas `#N/A`, descripciones con salto de línea, etc. | Valores saneados antes de imprimir |
-| Código de barras tal cual (podía no ser legible) | Mayúsculas + aviso de caracteres no válidos en Code 39 |
+| Código de barras encogido por la celda hasta volverse ilegible | Tamaño de fuente calculado por código: barra fina en puntos enteros de impresora |
 
 ## Archivos
 
@@ -139,6 +139,6 @@ en el armado y entre trabajos. `Esc` cancela de forma limpia.
 | "No hay filas visibles para imprimir" | el filtro no deja ninguna fila, o la selección está toda oculta |
 | Las etiquetas salen **muy pequeñas** o descolocadas | ejecute `EtiquetasDiagnostico`: muestra el área imprimible real, la escala calculada y si un lote de 2 ocupa 2 páginas |
 | Las etiquetas salen **cortadas** | el papel del driver es más chico que 100 × 50 mm: corríjalo en las preferencias de la impresora (tamaño definido por el usuario) |
-| El código de barras no se lee | ver el aviso al final del lote: caracteres no válidos para Code 39 o código demasiado largo (`docs/MAPEO_Y_ZEBRA.md`) |
+| El código de barras no se lee | ejecute `EtiquetasDiagnostico`: informa hasta cuántos caracteres entran con barra de 2 puntos. Por encima de eso el límite es físico, no del código (`docs/MAPEO_Y_ZEBRA.md`) |
 | Salen etiquetas de filas que no seleccionó | compare con la hoja `ETQ_LOG`: si `ETQ_LOG` es correcto, lo que imprimió es un trabajo anterior encolado — vacíe la cola de impresión y repita |
 | Quedó una hoja `ETQ_LOTE` | se interrumpió el proceso: se puede borrar a mano, la siguiente corrida la borra sola |

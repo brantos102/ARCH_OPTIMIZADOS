@@ -61,6 +61,15 @@ Private Const AVISO_DESDE        As Long = 300     ' desde aquí se pide confirma
 ' Escala: 0 = calcularla con el tamaño de etiqueta (recomendado); 1-100 = forzar ese %
 Private Const ESCALA_FIJA        As Long = 0
 
+' CÓDIGO DE BARRAS (Code 39, fuente "Free 3 of 9 Extended")
+' El tamaño de la fuente se calcula para cada código de modo que las barras ocupen todo
+' el ancho disponible y la barra fina caiga en un número entero de puntos de impresora.
+' Así no interviene el "reducir hasta ajustar" de la celda, que deja las barras pegadas.
+Private Const DPI_IMPRESORA      As Long = 203    ' resolución de la ZD421
+Private Const MODULOS_CARACTER   As Long = 16     ' Code 39: 15 módulos + separación
+Private Const FUENTE_BARRAS_MAX  As Double = 80   ' tamaño original de la plantilla
+Private Const MARGEN_BARRAS      As Double = 0.97 ' holgura para que nunca se recorte
+
 ' Columna fija del campo "cliente / marca" (celda A2). Se usa posición fija porque en
 ' "Consolidado" la columna B es el nombre del cliente y en "IMPRIMIR" es el campo "ABC":
 ' en las dos hojas la columna B es el texto que va en la etiqueta.
@@ -86,6 +95,7 @@ Private Type tCampo
     Col As Long              ' columna resuelta
     Barras As Boolean        ' True = se escribe *CÓDIGO* para la fuente Code 39
     Numero As Boolean        ' True = se conserva el valor numérico
+    AnchoPt As Double        ' ancho útil de la celda, en puntos (sólo campos de barras)
 End Type
 
 Private mScreenUpdating  As Boolean
@@ -96,8 +106,8 @@ Private mEstadoGuardado  As Boolean
 Private mZoom            As Long
 Private mAnchoMm         As Double
 Private mAltoMm          As Double
-Private mAvisos          As String
-Private mNumAvisos       As Long
+Private mRatioFuente     As Double
+Private mAnchoBarrasPt   As Double
 
 
 '==============================================================================================
@@ -122,7 +132,7 @@ Public Sub ImprimirEtiquetas()
     Dim t0 As Single
     Dim nError As Long, sError As String
 
-    mAvisos = "": mNumAvisos = 0: mZoom = 0: mAnchoMm = 0: mAltoMm = 0
+    mZoom = 0: mAnchoMm = 0: mAltoMm = 0: mRatioFuente = 0: mAnchoBarrasPt = 0
 
     '--- 1. Contexto ---------------------------------------------------------------------
     If Not ValidarEntorno(wsOrigen, wsPlantilla) Then Exit Sub
@@ -284,6 +294,7 @@ Public Sub ImprimirEtiquetas()
     End If
     If Not AreaSuficiente() Then GoTo Limpieza
 
+    CalibrarBarras wsLote, campos
     PrepararFormatos wsLote, campos
     bloquesHoja = MinL(nCola, PAGINAS_POR_TRABAJO)
     ReplicarBloques wsLote, bloquesHoja
@@ -350,10 +361,6 @@ Limpieza:
                                    IIf(soloSeleccion, "   (seleccionadas)", "   (del filtro)") & vbCrLf & _
               "Tiempo .......: " & Format$(Timer - t0, "0.0") & " s" & _
               IIf(REGISTRO_LOTE, vbCrLf & vbCrLf & "Detalle de lo enviado: hoja ETQ_LOG", "")
-        If mNumAvisos > 0 Then
-            msg = msg & vbCrLf & vbCrLf & "Avisos de código de barras (" & mNumAvisos & "):" & mAvisos
-            If mNumAvisos > 10 Then msg = msg & vbCrLf & "  ... y " & (mNumAvisos - 10) & " más."
-        End If
         MsgBox msg, vbInformation, "Etiquetas"
     End If
 End Sub
@@ -638,6 +645,16 @@ Private Sub PrepararFormatos(ByVal ws As Worksheet, ByRef campos() As tCampo)
     On Error Resume Next
     For i = LBound(campos) To UBound(campos)
         If Not campos(i).Numero Then ws.Range(campos(i).Celda).NumberFormat = "@"
+        If campos(i).Barras And mRatioFuente > 0 Then
+            ' el tamaño de la fuente lo fija el módulo para cada código: sin esto Excel
+            ' encoge las barras hasta volverlas ilegibles.
+            ' Si la medición de la fuente hubiera fallado (mRatioFuente = 0) se deja el
+            ' "reducir hasta ajustar" de la plantilla, para no recortar nunca el código.
+            With ws.Range(campos(i).Celda)
+                .ShrinkToFit = False
+                .WrapText = False
+            End With
+        End If
         ws.Range(campos(i).Celda).ClearContents
     Next i
     On Error GoTo 0
@@ -829,7 +846,7 @@ Private Sub LlenarBloques(ByVal wsLote As Worksheet, ByVal wsOrigen As Worksheet
         off = (b - 1) * FILAS_ETIQUETA
         For i = LBound(campos) To UBound(campos)
             EscribirCampo wsLote.Range(campos(i).Celda).Offset(off, 0), _
-                          wsOrigen.Cells(fila, campos(i).Col), campos(i), fila
+                          wsOrigen.Cells(fila, campos(i).Col), campos(i), True
         Next i
         If b Mod 10 = 0 Then DoEvents      ' que Excel no se vea "sin responder"
     Next b
@@ -842,16 +859,18 @@ Private Sub LlenarEtiquetaPlantilla(ByVal wsPlantilla As Worksheet, ByVal wsOrig
 
     On Error Resume Next
     For i = LBound(campos) To UBound(campos)
+        ' en la plantilla no se toca el tamaño de la fuente: queda como la diseñaron
         EscribirCampo wsPlantilla.Range(campos(i).Celda), _
-                      wsOrigen.Cells(fila, campos(i).Col), campos(i), fila
+                      wsOrigen.Cells(fila, campos(i).Col), campos(i), False
     Next i
     On Error GoTo 0
 End Sub
 
 Private Sub EscribirCampo(ByVal destino As Range, ByVal origen As Range, ByRef campo As tCampo, _
-                          ByVal fila As Long)
+                          ByVal ajustarBarras As Boolean)
     Dim v As Variant
     Dim s As String
+    Dim tam As Double
 
     If campo.Numero Then
         v = origen.Value
@@ -864,7 +883,17 @@ Private Sub EscribirCampo(ByVal destino As Range, ByVal origen As Range, ByRef c
     End If
 
     s = TextoCelda(origen)
-    If campo.Barras Then s = CodigoBarras(s, fila)
+
+    If campo.Barras Then
+        s = CodigoBarras(s)
+        destino.Value = s
+        If ajustarBarras And Len(s) > 0 Then
+            tam = TamanoFuenteBarras(Len(s), campo.AnchoPt)
+            If tam > 0 Then destino.Font.Size = tam
+        End If
+        Exit Sub
+    End If
+
     destino.Value = s
 End Sub
 
@@ -923,13 +952,16 @@ Private Function EsNumero(ByVal v As Variant) As Boolean
     End Select
 End Function
 
-' Prepara el texto para la fuente "Free 3 of 9 Extended" (Code 39): mayúsculas y
-' asteriscos de inicio/fin. Si hay caracteres que Code 39 no codifica, avisa.
-Private Function CodigoBarras(ByVal s As String, ByVal fila As Long) As String
+' Prepara el texto para la fuente "Free 3 of 9 Extended" (Code 39).
+' Code 39 sólo codifica mayúsculas, dígitos y  - . espacio $ / + %  : se pasa a mayúsculas
+' y se descarta lo que la fuente no sabe dibujar, para que no queden barras basura en medio
+' del código. El valor completo y sin tocar se sigue imprimiendo en texto legible debajo
+' del código (celda A9 / A17) y queda registrado en la hoja ETQ_LOG.
+Private Function CodigoBarras(ByVal s As String) As String
 
     Const VALIDOS As String = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%"
 
-    Dim t As String, ch As String, malos As String
+    Dim t As String, ch As String, limpio As String
     Dim i As Long
 
     t = UCase$(Trim$(s))
@@ -937,24 +969,110 @@ Private Function CodigoBarras(ByVal s As String, ByVal fila As Long) As String
 
     For i = 1 To Len(t)
         ch = Mid$(t, i, 1)
-        If InStr(1, VALIDOS, ch, vbBinaryCompare) = 0 Then
-            If InStr(1, malos, ch, vbBinaryCompare) = 0 Then malos = malos & ch
+        If InStr(1, VALIDOS, ch, vbBinaryCompare) > 0 Then limpio = limpio & ch
+    Next i
+
+    If Len(limpio) = 0 Then Exit Function
+
+    CodigoBarras = "*" & limpio & "*"
+End Function
+
+
+'----------------------------------------------------------------------------------------------
+' ANCHO DE LAS BARRAS
+'
+' Con "reducir hasta ajustar" Excel encoge la fuente lo que haga falta, sin mirar si las
+' barras siguen siendo imprimibles: un código largo termina en un borrón negro. Aquí se
+' calcula el tamaño de fuente de CADA código para que:
+'
+'   - las barras ocupen todo el ancho de la celda, y ni un punto más (nunca se recortan);
+'   - la barra fina caiga en un número ENTERO de puntos de impresora, que es lo que
+'     permite al lector distinguir barra fina de barra gruesa;
+'   - no se pase del tamaño original de la plantilla, de modo que los códigos cortos
+'     salgan exactamente igual que hasta ahora.
+'
+' El ancho de carácter de la fuente se mide en el momento, así que el cálculo sigue siendo
+' válido aunque se cambie la fuente o el diseño de la etiqueta.
+'----------------------------------------------------------------------------------------------
+Private Sub CalibrarBarras(ByVal ws As Worksheet, ByRef campos() As tCampo)
+
+    Const COL_PRUEBA As Long = 60       ' columna auxiliar, fuera del área de impresión
+    Const FILA_PRUEBA As Long = 20
+    Const TAM_PRUEBA As Double = 100
+
+    Dim celda As Range
+    Dim w10 As Double, w20 As Double
+    Dim i As Long
+
+    mRatioFuente = 0
+
+    On Error Resume Next
+
+    mAnchoBarrasPt = 0
+    For i = LBound(campos) To UBound(campos)
+        If campos(i).Barras Then
+            campos(i).AnchoPt = ws.Range(campos(i).Celda).MergeArea.Width
+            If campos(i).AnchoPt > mAnchoBarrasPt Then mAnchoBarrasPt = campos(i).AnchoPt
         End If
     Next i
 
-    If Len(malos) > 0 Then
-        AgregarAviso "fila " & fila & ": """ & malos & """ no se puede codificar en Code 39"
-    ElseIf Len(t) > 20 Then
-        AgregarAviso "fila " & fila & ": código de " & Len(t) & " caracteres, las barras quedan muy comprimidas"
-    End If
+    Set celda = ws.Cells(FILA_PRUEBA, COL_PRUEBA)
+    celda.Clear
+    celda.NumberFormat = "@"
+    celda.Font.Name = ws.Range(campos(PrimerCampoBarras(campos)).Celda).Font.Name
+    celda.Font.Size = TAM_PRUEBA
 
-    CodigoBarras = "*" & t & "*"
+    celda.Value = String$(10, "A")
+    ws.Columns(COL_PRUEBA).AutoFit
+    w10 = ws.Columns(COL_PRUEBA).Width
+
+    celda.Value = String$(20, "A")
+    ws.Columns(COL_PRUEBA).AutoFit
+    w20 = ws.Columns(COL_PRUEBA).Width
+
+    celda.Clear
+    ws.Columns(COL_PRUEBA).ColumnWidth = 11
+
+    ' la diferencia entre 20 y 10 caracteres elimina el relleno que agrega AutoFit
+    If w20 > w10 Then mRatioFuente = (w20 - w10) / (10 * TAM_PRUEBA)
+
+    On Error GoTo 0
+End Sub
+
+Private Function PrimerCampoBarras(ByRef campos() As tCampo) As Long
+    Dim i As Long
+
+    PrimerCampoBarras = LBound(campos)
+    For i = LBound(campos) To UBound(campos)
+        If campos(i).Barras Then
+            PrimerCampoBarras = i
+            Exit Function
+        End If
+    Next i
 End Function
 
-Private Sub AgregarAviso(ByVal s As String)
-    mNumAvisos = mNumAvisos + 1
-    If mNumAvisos <= 10 Then mAvisos = mAvisos & vbCrLf & "  - " & s
-End Sub
+Private Function TamanoFuenteBarras(ByVal caracteres As Long, ByVal anchoPt As Double) As Double
+
+    Dim fuente As Double, xPt As Double, xPuntos As Double
+    Dim enteros As Long
+
+    If caracteres <= 0 Or anchoPt <= 0 Or mRatioFuente <= 0 Or mZoom <= 0 Then Exit Function
+
+    ' tamaño que llena el ancho disponible
+    fuente = (anchoPt * MARGEN_BARRAS) / (caracteres * mRatioFuente)
+    If fuente > FUENTE_BARRAS_MAX Then fuente = FUENTE_BARRAS_MAX
+
+    ' ancho de la barra fina, en puntos de impresora, ya con la escala de impresión aplicada
+    xPt = fuente * mRatioFuente / MODULOS_CARACTER
+    xPuntos = xPt * (mZoom / 100#) / 72# * DPI_IMPRESORA
+
+    ' ajustar a un número entero de puntos de impresora (hacia abajo: nunca recortar)
+    enteros = Int(xPuntos)
+    If enteros >= 1 And xPuntos > 0 Then fuente = fuente * enteros / xPuntos
+
+    If fuente < 4 Then fuente = 4
+    TamanoFuenteBarras = Int(fuente * 2) / 2       ' Excel trabaja en medios puntos
+End Function
 
 
 '==============================================================================================
@@ -1170,6 +1288,7 @@ Public Sub EtiquetasDiagnostico()
     MedirAreaImprimible wsLote
     escala = DeterminarZoom(wsLote)
     mZoom = escala
+    CalibrarBarras wsLote, campos
     ReplicarBloques wsLote, 2
     MarcarSaltos wsLote, 2
     AjustarPagina wsLote, 2
@@ -1190,6 +1309,7 @@ Public Sub EtiquetasDiagnostico()
                                           Format$(ALTO_ETIQUETA_MM, "0") & " mm" & vbCrLf & _
           "Área imprimible real ...: " & AreaImprimibleTexto() & AvisoArea() & vbCrLf & _
           "Escala calculada .......: " & IIf(escala > 0, escala & " %", "no se pudo calcular") & vbCrLf & _
+          "Código de barras .......: " & TextoBarras() & vbCrLf & _
           "Páginas de un lote de 2 : " & paginas & IIf(paginas = 2, "   (correcto)", "   <-- REVISAR") & vbCrLf & _
           String$(46, "-") & vbCrLf & _
           "MAPEO CELDA <- COLUMNA" & vbCrLf
@@ -1202,6 +1322,31 @@ Public Sub EtiquetasDiagnostico()
 
     MsgBox msg, vbInformation, "Etiquetas"
 End Sub
+
+' Hasta cuántos caracteres entra un código con barras de 2 puntos de impresora, que es
+' el ancho con el que cualquier lector trabaja cómodo.
+Private Function TextoBarras() As String
+
+    Dim anchoPt As Double, maxCar As Long
+
+    If mRatioFuente <= 0 Or mZoom <= 0 Then
+        TextoBarras = "tamaño automático"
+        Exit Function
+    End If
+
+    anchoPt = mAnchoBarrasPt
+    If anchoPt <= 0 Then
+        TextoBarras = "tamaño automático"
+        Exit Function
+    End If
+
+    ' módulos que entran en el ancho disponible con barra fina de 2 puntos
+    maxCar = Int((anchoPt * MARGEN_BARRAS * (mZoom / 100#) / 72# * DPI_IMPRESORA) / (2 * MODULOS_CARACTER)) - 2
+    If maxCar < 0 Then maxCar = 0
+
+    TextoBarras = "ancho útil " & Format$(anchoPt * (mZoom / 100#) * 25.4 / 72#, "0.0") & " mm" & _
+                  "   (hasta " & maxCar & " caracteres con barra de 2 puntos)"
+End Function
 
 Private Function AvisoArea() As String
     If mAnchoMm <= 0 Or mAltoMm <= 0 Then Exit Function
