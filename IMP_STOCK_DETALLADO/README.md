@@ -46,8 +46,11 @@ docs/MAPEO_Y_ZEBRA.md             mapeo celda <- columna y configuración de la 
 
 ### Combinación de teclas
 
-Al importar, `ImprimirEtiquetas` queda con `Ctrl + P`. Para cambiarla:
 `Vista > Macros > ImprimirEtiquetas > Opciones...` y escribir la letra deseada.
+
+El atajo **no** viene guardado en el código a propósito: se guardaría con una línea
+`Attribute`, y esa línea pegada en el editor produce *Error de sintaxis*. Así los dos
+archivos (`.bas` para importar y `*_para_pegar.bas` para pegar) funcionan igual.
 
 ## Uso
 
@@ -119,7 +122,7 @@ en el armado y entre trabajos. `Esc` cancela de forma limpia.
 
 | Síntoma | Causa / solución |
 |---|---|
-| `Atributo no válido en Sub o Function` | se pegó un `.bas` en vez de importarlo: use los `*_para_pegar.bas` |
+| `Atributo no válido en Sub o Function` o `Error de sintaxis` en una línea `Attribute` | se pegó un `.bas` en vez de importarlo: borre esa línea, o use los `*_para_pegar.bas` |
 | `Sub o Function no definida` al compilar | falta reemplazar `Módulo1` por el nuevo (paso 5 de la instalación) |
 | "Debe estar en la hoja Consolidado o IMPRIMIR" | ejecutar la macro con esa hoja activa |
 | "No hay filas visibles para imprimir" | el filtro no deja ninguna fila, o la selección está toda oculta |

@@ -1,9 +1,9 @@
 ' ===========================================================================================
-'  VERSION PARA PEGAR en el editor de VBA (sin lineas Attribute)
+'  VERSION PARA PEGAR en el editor de VBA (sin la linea Attribute VB_Name)
 '
-'  Las lineas 'Attribute' solo son validas dentro de un .bas IMPORTADO: pegadas en el
-'  editor producen el error 'Atributo no valido en Sub o Function'.
-'  Al pegar, la combinacion de teclas se asigna a mano en:
+'  Para pegar: abra el modulo, seleccione todo (Ctrl+E), borre y pegue esto.
+'  Para importar: use el archivo modEtiquetas.bas (Archivo > Importar archivo...).
+'  En los dos casos la combinacion de teclas se asigna en
 '     Vista > Macros > ImprimirEtiquetas > Opciones...
 ' ===========================================================================================
 
@@ -19,6 +19,10 @@ Option Explicit
 ' UNA SOLA ENTRADA
 '     ImprimirEtiquetas ....... imprime las filas seleccionadas (o las del filtro)
 '     EtiquetasDiagnostico .... herramienta de verificación, no imprime
+'
+' La combinación de teclas se asigna en Vista > Macros > ImprimirEtiquetas > Opciones...
+' (a propósito no se guarda en el código: una línea Attribute pegada en el editor da
+'  "Error de sintaxis", y este módulo tiene que poder importarse Y pegarse)
 '
 ' CÓMO FUNCIONA
 '   1. Toma las filas VISIBLES (nunca las ocultas por el autofiltro): las seleccionadas

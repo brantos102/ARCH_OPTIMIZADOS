@@ -12,6 +12,10 @@ Option Explicit
 '     ImprimirEtiquetas ....... imprime las filas seleccionadas (o las del filtro)
 '     EtiquetasDiagnostico .... herramienta de verificación, no imprime
 '
+' La combinación de teclas se asigna en Vista > Macros > ImprimirEtiquetas > Opciones...
+' (a propósito no se guarda en el código: una línea Attribute pegada en el editor da
+'  "Error de sintaxis", y este módulo tiene que poder importarse Y pegarse)
+'
 ' CÓMO FUNCIONA
 '   1. Toma las filas VISIBLES (nunca las ocultas por el autofiltro): las seleccionadas
 '      si hay selección, o las del filtro completo si no la hay.
@@ -98,7 +102,6 @@ Private mNumAvisos       As Long
 ' ENTRADA ÚNICA
 '==============================================================================================
 Public Sub ImprimirEtiquetas()
-Attribute ImprimirEtiquetas.VB_ProcData.VB_Invoke_Func = "P\n14"
 
     Dim wsOrigen As Worksheet, wsPlantilla As Worksheet, wsLote As Worksheet
     Dim campos() As tCampo
