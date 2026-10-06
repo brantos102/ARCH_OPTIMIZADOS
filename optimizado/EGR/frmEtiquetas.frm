@@ -22,7 +22,12 @@ Private lblNum As MSForms.Label, lblDest As MSForms.Label, lblParr As MSForms.La
 Private barras(1 To 90) As MSForms.Label
 Private WithEvents lst As MSForms.ListBox
 Private WithEvents cboEstado As MSForms.ComboBox
-Private WithEvents cboDest As MSForms.ComboBox
+Private WithEvents chkPRO As MSForms.CheckBox
+Private WithEvents chkGYE As MSForms.CheckBox
+Private WithEvents chkUIO As MSForms.CheckBox
+Private WithEvents chkGPS As MSForms.CheckBox
+Private WithEvents bTodo As MSForms.CommandButton
+Private WithEvents bNada As MSForms.CommandButton
 Private WithEvents txtBuscar As MSForms.TextBox
 Private cboImp As MSForms.ComboBox
 Private WithEvents bQuitar As MSForms.CommandButton
@@ -41,23 +46,31 @@ Private Sub UserForm_Initialize()
   NL "Etiqueta:", 10, 30, 46
   Set cboEstado = NC(58, 27, 118)
   For Each f In Array("PENDIENTES + REIMPRIMIR", "PENDIENTES", "REIMPRIMIR", "IMPRESAS", "TODAS"): cboEstado.AddItem f: Next
-  NL "Destino:", 184, 30, 42
-  Set cboDest = NC(228, 27, 62)
-  For Each f In Array("TODOS", "PRO", "GYE", "UIO", "GPS"): cboDest.AddItem f: Next
-  NL "Buscar:", 298, 30, 38
+  NL "Buscar:", 184, 30, 38
   Set txtBuscar = Me.Controls.Add("Forms.TextBox.1")
-  txtBuscar.Left = 338: txtBuscar.Top = 27: txtBuscar.Width = 140: txtBuscar.Height = 18
+  txtBuscar.Left = 224: txtBuscar.Top = 27: txtBuscar.Width = 158: txtBuscar.Height = 18
   txtBuscar.ControlTipText = "Pedido, destinatario o parroquia. Escribe y la lista se filtra sola."
-  Set bQuitar = NB("Quitar filtros", 484, 26, 84, 20, RGB(120, 120, 120))
+  Set bQuitar = NB("Quitar filtros", 390, 26, 84, 20, RGB(120, 120, 120))
+
+  ' ----- destinos: se pueden combinar (un lote PRO + GYE + UIO a la vez) -----
+  NL "Destinos:", 10, 53, 46, 14, True
+  Set chkPRO = NK("PRO", 58, 51)
+  Set chkGYE = NK("GYE", 118, 51)
+  Set chkUIO = NK("UIO", 178, 51)
+  Set chkGPS = NK("GPS", 238, 51)
+  Set t = NL("(marca los que quieras imprimir juntos)", 300, 53, 174): t.ForeColor = RGB(120, 120, 120)
 
   ' ----- lista -----
-  Set lblCnt = NL("", 10, 50, 336, 14, True)
+  Set lblCnt = NL("", 10, 72, 336, 14, True)
   Set lst = Me.Controls.Add("Forms.ListBox.1")
-  lst.Left = 10: lst.Top = 66: lst.Width = 336: lst.Height = 330: lst.Font.Size = 8
+  lst.Left = 10: lst.Top = 88: lst.Width = 336: lst.Height = 284: lst.Font.Size = 8
   lst.ColumnCount = 4: lst.ColumnWidths = "72;34;150;74"
-  lst.ControlTipText = "Se imprime TODO lo que esté en esta lista. Usa los filtros de arriba para dejar solo lo que necesitas."
-  Set t = NL("Se imprime todo lo que esté en la lista. Haz clic en un pedido para ver su etiqueta.", 10, 400, 336)
-  t.Height = 26: t.WordWrap = True: t.ForeColor = RGB(120, 120, 120)
+  lst.MultiSelect = fmMultiSelectExtended
+  lst.ControlTipText = "Sin seleccionar nada se imprime TODA la lista. Si seleccionas (Ctrl o Shift + clic) se imprime solo lo seleccionado."
+  Set bTodo = NB("Seleccionar todo", 10, 376, 100, 18, RGB(120, 120, 120))
+  Set bNada = NB("Quitar selección", 114, 376, 100, 18, RGB(120, 120, 120))
+  Set t = NL("Sin selección se imprime toda la lista. Ctrl + clic o Shift + clic para elegir solo algunos. Un clic muestra la etiqueta.", 10, 398, 336)
+  t.Height = 28: t.WordWrap = True: t.ForeColor = RGB(120, 120, 120)
 
   ' ----- vista previa -----
   Set t = NL("VISTA PREVIA (10 x 5 cm)", PX, PY - 18, 400, 14, True): t.ForeColor = RGB(48, 84, 150)
@@ -87,7 +100,6 @@ Private Sub UserForm_Initialize()
   CargarImpresoras
   mCarga = True
   cboEstado.ListIndex = 0
-  cboDest.ListIndex = 0
   mCarga = False
   Filtrar
   mLay = CapturarLayout(Me, mCW, mCH): mEsc = 1
@@ -128,6 +140,13 @@ Private Function TL(x As Single, y As Single, w As Single, tam As Single, Option
   c.Font.Name = "Arial": c.Font.Size = tam: c.Font.Bold = bold: c.ForeColor = vbBlack
   Set TL = c
 End Function
+Private Function NK(cap As String, x As Single, y As Single) As MSForms.CheckBox
+  Dim c As MSForms.CheckBox: Set c = Me.Controls.Add("Forms.CheckBox.1")
+  c.Caption = cap: c.Left = x: c.Top = y: c.Width = 56: c.Height = 16: c.Value = True
+  c.Font.Bold = True
+  Set NK = c
+End Function
+
 Private Function NC(x As Single, y As Single, w As Single) As MSForms.ComboBox
   Dim c As MSForms.ComboBox: Set c = Me.Controls.Add("Forms.ComboBox.1")
   c.Left = x: c.Top = y: c.Width = w: c.Height = 18: c.ListRows = 12: c.Style = fmStyleDropDownList
@@ -198,8 +217,9 @@ Private Function Pasa(ByVal k As Long, ByVal est As String, ByVal des As String,
     Case "PENDIENTES + REIMPRIMIR": If mEst(k) = "IMPRESA" Then Exit Function
     Case "IMPRESAS": If mEst(k) <> "IMPRESA" Then Exit Function
   End Select
-  If des <> "TODOS" And Len(des) > 0 Then
-    If mDest(k) <> des Then Exit Function
+  ' des trae los destinos marcados entre barras: "|PRO|GYE|". Vacío = todos.
+  If Len(des) > 0 Then
+    If InStr(1, des, "|" & mDest(k) & "|", vbTextCompare) = 0 Then Exit Function
   End If
   If Len(q) > 0 Then
     If InStr(1, mPed(k) & " " & mNom(k) & " " & mParr(k) & " " & mDest(k), q, vbTextCompare) = 0 Then Exit Function
@@ -207,14 +227,38 @@ Private Function Pasa(ByVal k As Long, ByVal est As String, ByVal des As String,
   Pasa = True
 End Function
 
+' Destinos marcados, en texto, para el aviso de confirmación.
+Private Function TextoDestinos() As String
+  Dim s As String
+  If chkPRO.Value Then s = s & "PRO "
+  If chkGYE.Value Then s = s & "GYE "
+  If chkUIO.Value Then s = s & "UIO "
+  If chkGPS.Value Then s = s & "GPS "
+  If Len(s) = 0 Then TextoDestinos = "(ninguno)" Else TextoDestinos = Trim$(s)
+End Function
+
+' Destinos marcados, entre barras. Si están los cuatro (o ninguno) devuelve vacío = todos.
+Private Function DestinosMarcados() As String
+  Dim s As String
+  If chkPRO Is Nothing Then Exit Function
+  If chkPRO.Value Then s = s & "PRO|"
+  If chkGYE.Value Then s = s & "GYE|"
+  If chkUIO.Value Then s = s & "UIO|"
+  If chkGPS.Value Then s = s & "GPS|"
+  If Len(s) = 0 Then DestinosMarcados = "|(ninguno)|": Exit Function   ' sin destinos marcados: lista vacía
+  If s = "PRO|GYE|UIO|GPS|" Then Exit Function                          ' los cuatro = todos
+  DestinosMarcados = "|" & s
+End Function
+
 Private Sub Filtrar()
   Dim k As Long, est As String, des As String, q As String, arr() As String, n As Long
   If mCerrando Or lst Is Nothing Or cboEstado Is Nothing Then Exit Sub
-  est = cboEstado.Text: des = cboDest.Text: q = Trim$(txtBuscar.Text)
+  est = cboEstado.Text: des = DestinosMarcados(): q = Trim$(txtBuscar.Text)
   ReDim mIdx(1 To IIf(mN > 0, mN, 1)): mNIdx = 0
   For k = 1 To mN
     If Pasa(k, est, des, q) Then mNIdx = mNIdx + 1: mIdx(mNIdx) = k
   Next
+  Ordenar                                   ' agrupa el lote por destino y dentro por pedido
   mCarga = True
   lst.Clear
   If mNIdx > 0 Then
@@ -224,26 +268,50 @@ Private Sub Filtrar()
       arr(n - 1, 0) = mPed(k): arr(n - 1, 1) = mDest(k): arr(n - 1, 2) = mNom(k): arr(n - 1, 3) = mEst(k)
     Next
     lst.List = arr
-    lst.ListIndex = 0
+    ' no se fija ListIndex: en una lista de selección múltiple eso dejaría marcada la
+    ' primera fila y parecería que hay selección cuando no la hay
   End If
   mCarga = False
   If mNIdx > 0 Then Muestra 0
   Contar
 End Sub
 
+Private Function NSeleccionadas() As Long
+  Dim i As Long, n As Long
+  If lst Is Nothing Then Exit Function
+  For i = 0 To lst.ListCount - 1
+    If lst.Selected(i) Then n = n + 1
+  Next
+  NSeleccionadas = n
+End Function
+
 Private Sub Contar()
+  Dim nSel As Long
   If mCerrando Or lblCnt Is Nothing Or bImprimir Is Nothing Then Exit Sub
-  lblCnt.Caption = mNIdx & " etiqueta(s) en la lista"
+  nSel = NSeleccionadas()
   If mNIdx = 0 Then
+    lblCnt.Caption = "0 etiquetas en la lista"
     bImprimir.Caption = "No hay etiquetas que imprimir"
+  ElseIf nSel > 0 Then
+    lblCnt.Caption = mNIdx & " en la lista   ·   " & nSel & " seleccionada(s)"
+    bImprimir.Caption = "Imprimir las " & nSel & " seleccionada(s)"
   Else
-    bImprimir.Caption = "Imprimir las " & mNIdx & " etiqueta(s) de la lista"
+    lblCnt.Caption = mNIdx & " etiqueta(s) en la lista   ·   sin selección = se imprimen todas"
+    bImprimir.Caption = "Imprimir las " & mNIdx & " de la lista"
   End If
 End Sub
 
+' Lo que se va a imprimir: lo seleccionado si hay selección; si no, toda la lista filtrada.
 Private Function Listadas() As Collection
-  Dim c As New Collection, n As Long
-  For n = 1 To mNIdx: c.Add mFila(mIdx(n)): Next
+  Dim c As New Collection, n As Long, hay As Boolean
+  hay = (NSeleccionadas() > 0)
+  For n = 1 To mNIdx
+    If Not hay Then
+      c.Add mFila(mIdx(n))
+    ElseIf n - 1 < lst.ListCount Then
+      If lst.Selected(n - 1) Then c.Add mFila(mIdx(n))
+    End If
+  Next
   Set Listadas = c
 End Function
 
@@ -281,9 +349,62 @@ Private Sub cboEstado_Change()
   If mCarga Then Exit Sub
   Filtrar
 End Sub
-Private Sub cboDest_Change()
+Private Sub chkPRO_Change()
   If mCarga Then Exit Sub
   Filtrar
+End Sub
+Private Sub chkGYE_Change()
+  If mCarga Then Exit Sub
+  Filtrar
+End Sub
+Private Sub chkUIO_Change()
+  If mCarga Then Exit Sub
+  Filtrar
+End Sub
+Private Sub chkGPS_Change()
+  If mCarga Then Exit Sub
+  Filtrar
+End Sub
+
+Private Sub bTodo_Click()
+  Dim i As Long
+  If mCerrando Or lst Is Nothing Then Exit Sub
+  mCarga = True
+  For i = 0 To lst.ListCount - 1: lst.Selected(i) = True: Next
+  mCarga = False
+  Contar
+End Sub
+
+Private Sub bNada_Click()
+  Dim i As Long
+  If mCerrando Or lst Is Nothing Then Exit Sub
+  mCarga = True
+  For i = 0 To lst.ListCount - 1: lst.Selected(i) = False: Next
+  mCarga = False
+  Contar
+End Sub
+
+' Ordena las filas filtradas por destino y, dentro de cada destino, por número de pedido.
+Private Sub Ordenar()
+  Dim i As Long, j As Long, h As Long, t As Long, cl() As String, ct As String
+  If mNIdx < 2 Then Exit Sub
+  ReDim cl(1 To mNIdx)
+  For i = 1 To mNIdx: cl(i) = mDest(mIdx(i)) & Chr(1) & mPed(mIdx(i)): Next
+  h = 1
+  Do While h < mNIdx \ 3: h = h * 3 + 1: Loop
+  Do While h >= 1
+    For i = h + 1 To mNIdx
+      t = mIdx(i): ct = cl(i)
+      j = i
+      Do While j > h
+        If cl(j - h) <= ct Then Exit Do
+        mIdx(j) = mIdx(j - h): cl(j) = cl(j - h)
+        j = j - h
+      Loop
+      mIdx(j) = t: cl(j) = ct
+    Next
+    h = (h - 1) \ 3
+  Loop
 End Sub
 Private Sub txtBuscar_Change()
   If mCarga Then Exit Sub
@@ -292,7 +413,8 @@ End Sub
 Private Sub bQuitar_Click()
   If mCerrando Then Exit Sub
   mCarga = True
-  cboEstado.ListIndex = 0: cboDest.ListIndex = 0: txtBuscar.Text = ""
+  cboEstado.ListIndex = 0: txtBuscar.Text = ""
+  chkPRO.Value = True: chkGYE.Value = True: chkUIO.Value = True: chkGPS.Value = True
   mCarga = False
   Filtrar
 End Sub
@@ -300,6 +422,7 @@ End Sub
 Private Sub lst_Change()
   If mCerrando Or mCarga Or lst Is Nothing Then Exit Sub
   If lst.ListIndex >= 0 Then Muestra lst.ListIndex
+  Contar
 End Sub
 
 Private Sub bImprimir_Click()
@@ -308,9 +431,10 @@ Private Sub bImprimir_Click()
   Set c = Listadas()
   If c.Count = 0 Then MsgBox "No hay etiquetas en la lista. Cambia los filtros.", vbInformation: Exit Sub
   If cboImp.ListIndex < 0 Then MsgBox "Elige la impresora Zebra.", vbExclamation: Exit Sub
-  det = "Etiqueta: " & cboEstado.Text & "   ·   Destino: " & cboDest.Text
+  det = "Etiqueta: " & cboEstado.Text & "   ·   Destinos: " & TextoDestinos()
   If Len(Trim$(txtBuscar.Text)) > 0 Then det = det & "   ·   Buscar: " & Trim$(txtBuscar.Text)
-  If MsgBox("Imprimir las " & c.Count & " etiqueta(s) de la lista en:" & vbCrLf & cboImp.Text & vbCrLf & vbCrLf & det, _
+  det = det & vbCrLf & IIf(NSeleccionadas() > 0, "Se imprime SOLO lo seleccionado.", "Se imprime toda la lista.")
+  If MsgBox("Imprimir " & c.Count & " etiqueta(s) en:" & vbCrLf & cboImp.Text & vbCrLf & vbCrLf & det, _
             vbYesNo + vbQuestion, "Imprimir etiquetas") <> vbYes Then Exit Sub
   SetCfg "IMPRESORA_ZEBRA", cboImp.Text
   Application.Cursor = xlWait

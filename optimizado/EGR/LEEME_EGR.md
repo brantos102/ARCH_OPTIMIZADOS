@@ -285,13 +285,19 @@ siguiente, un destino viejo nunca se aplica a otro pedido.
   imprime **exactamente lo que quede en la lista**.
 - Dentro de la ventana:
   - **filtro por estado**: pendientes + por reimprimir (así abre), pendientes, por reimprimir, impresas o todas;
-  - **filtro por destino**: PRO, GYE, UIO, GPS o todos;
+  - **destinos con casillas**: PRO, GYE, UIO y GPS se **combinan**. Para un lote mezclado se dejan marcados los
+    que toque (p. ej. GYE + UIO y PRO fuera) y la lista queda solo con esos. Abre con los cuatro marcados;
   - **búsqueda** por pedido, destinatario, parroquia o destino, mientras se escribe;
-  - **Quitar filtros** vuelve a la lista completa;
+  - **Quitar filtros** vuelve a la lista completa con los cuatro destinos marcados;
+  - la lista sale **agrupada por destino y, dentro de cada destino, por número de pedido**, así el lote se imprime
+    ordenado y es fácil separarlo después;
+  - **selección opcional**: sin seleccionar nada se imprime **toda la lista**; si se seleccionan filas
+    (Ctrl + clic o Shift + clic, o **Seleccionar todo** / **Quitar selección**) se imprime **solo lo
+    seleccionado**. El contador y el botón lo dicen en todo momento: *Imprimir las 23 de la lista* o
+    *Imprimir las 5 seleccionada(s)*;
   - vista previa de la etiqueta del pedido en el que se hace clic;
-  - el botón dice cuántas van: *Imprimir las 23 etiqueta(s) de la lista*, y antes de imprimir se confirma con el
-    detalle de los filtros aplicados.
-- Ya no hay casillas que marcar ni "imprimir seleccionadas": era el paso donde la ventana abría sin nada marcado.
+  - antes de imprimir se confirma con los filtros aplicados y si va la lista entera o solo lo seleccionado.
+- Sigue habiendo **un solo botón para abrir**: no hay que marcar nada antes en el panel.
 - La impresora se elige **una vez** y queda guardada; la próxima vez ya aparece seleccionada.
 - **Cierre de Excel al elegir la impresora:** venía del gancho de la rueda del mouse, que seguía activo mientras se
   abría el cuadro de diálogo. Ahora el gancho se quita antes de cualquier acción, y la lista de impresoras se lee de
@@ -427,10 +433,34 @@ justamente lo que vuelve a funcionar bien al devolver cada ítem con su caja:
 
 | Dónde | Qué calcula | Estado |
 |---|---|---|
-| `EMPAQUETADO` H (PESO CAJA), I (VOL. CAJA) | peso y volumen del tipo de caja, desde DATA_CAJAS | sin cambios |
+| `EMPAQUETADO` H (PESO CAJA), I (VOL. CAJA) | peso y volumen del tipo de caja, desde DATA_CAJAS | ahora dicen `Verificar` si el tipo de caja no está en DATA_CAJAS |
 | `EMPAQUETADO` J (VOL. ÍTEMS) | volumen de los ítems **de esa contenedora**, desde TABLAS DINAMICAS | vuelve a ser correcto |
 | `EMPAQUETADO` K (PORCENTAJE) | VOL. ÍTEMS ÷ VOL. CAJA = **% de ocupación** | vuelve a ser correcto |
 | `ITEMS DEPOT` PESO, VOLUMEN, PRECIO | unitario × cantidad de la fila | correcto: la cantidad ya no se repite |
+
+### Las columnas F:K de EMPAQUETADO se vuelven a escribir en cada actualización
+
+**Síntoma:** después de actualizar, PESO CAJA y VOL. CAJA salían **vacías**, PORCENTAJE daba **#¡DIV/0!** y más
+abajo, fuera de la tabla, quedaban colgados los valores del día anterior.
+
+**Causa:** la consulta devuelve muchas menos filas que antes (de ~145 cajas a 6). Al encogerse la tabla, Excel
+conserva las fórmulas solo de las columnas que son *columnas calculadas* de verdad; las que en algún momento
+quedaron como fórmulas sueltas se pierden. Con `VOL. CAJA` vacía, `PORCENTAJE` divide entre cero.
+
+**Solución:** `ActualizarTodo` vuelve a escribir **F:K** al terminar de refrescar, siempre, dentro de un
+envoltorio que ante cualquier fallo solo anota en el registro. También se puede forzar desde **Reparar fórmulas**
+o con Alt + F8 › `RestaurarColumnasEmpaquetado`.
+
+Además las fórmulas ya no devuelven errores, sino el aviso que el operario entiende:
+
+| Columna | Antes | Ahora |
+|---|---|---|
+| H (PESO CAJA) | `#N/A` si el tipo de caja no está en DATA_CAJAS | `Verificar` |
+| I (VOL. CAJA) | `#N/A` | `Verificar` |
+| K (PORCENTAJE) | `#¡DIV/0!` si VOL. CAJA está vacía o en 0 | `Verificar` |
+
+> Un tipo de caja nuevo, como `CAJA ORIGINAL WF1400`, sale en `Verificar` hasta que se agregue en
+> **DATA CODIGO Y CAJAS** (botón **Cajas** del panel). *Avance empaque* los lista en el registro.
 
 ### "Verificar" en EMPAQUETADO: las dos fuentes tienen que mirar el mismo día
 

@@ -278,6 +278,12 @@ Sub ActualizarTodo()
     On Error GoTo 0
     DoEvents
   Next
+  ' 4) EMPAQUETADO cambia de tamaño en cada refresco y Excel pierde las fórmulas de F:K.
+  '    Se vuelven a escribir siempre. Si algo fallara, queda en el registro y no interrumpe.
+  On Error Resume Next
+  AplicarColumnasEmpaquetado False
+  Err.Clear
+  On Error GoTo 0
   Application.Calculate
   Liberar
   gOcupadoE = False
@@ -392,6 +398,74 @@ Public Sub RefrescarPanel()
   Next
 End Sub
 
+' =====================================================================================
+'  COLUMNAS CALCULADAS DE EMPAQUETADO (F:K)
+'  Al refrescar, la consulta puede dejar la tabla con muchas menos filas y Excel pierde
+'  las fórmulas de las columnas que no son columnas calculadas de verdad: por eso PESO
+'  CAJA y VOL. CAJA salían vacías y PORCENTAJE daba #¡DIV/0!.
+'  Estas fórmulas se vuelven a escribir después de cada actualización.
+' =====================================================================================
+Public Function NombresEmpaquetado() As Variant
+  NombresEmpaquetado = Array("NRO. DE CONTENEDORA", "BULTOS", "PESO CAJA", "VOL. CAJA", "VOL. ITEMS", "PORCENTAJE")
+End Function
+
+Public Function FormulasEmpaquetado() As Variant
+  FormulasEmpaquetado = Array( _
+    "=IF($C2="""","""",IF($E2<>"""",$E2,XLOOKUP(TEXT($C2,""@""),Estado[DOC_EXT],Estado[NRO_CONTENEDORA_EMPAQUE],IF(COUNTIF(ITEMS_API[DOC_EXT],TEXT($C2,""@""))>0,""validar"",""sin pedido""),0)))", _
+    "=IF($C2="""","""",COUNTIF(EMPAQUETADO!$C:$C,$C2))", _
+    "=IF($C2="""","""",IFERROR(VLOOKUP($D2,DATA_CAJAS,5,FALSE)+0.1,""Verificar""))", _
+    "=IF($C2="""","""",IFERROR(VLOOKUP($D2,DATA_CAJAS,6,FALSE),""Verificar""))", _
+    "=IF($C2="""","""",IF($F2="""",""Verificar"",IF(SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N)>0,SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N),""Verificar"")))", _
+    "=IF($C2="""","""",IF(OR($D2=""F1"",$D2=""F5"",$D2=""F11"",$D2=""F10"",$D2=""SOBRE 1""),1,IF(OR(NOT(ISNUMBER($I2)),NOT(ISNUMBER($J2)),$I2=0),""Verificar"",IF($J2/$I2>1,1,IF($J2/$I2<0.3,0.3,$J2/$I2)))))")
+End Function
+
+' Reescribe F:K en la tabla EMPAQUETADO. Devuelve cuántas columnas se pudieron escribir.
+' Nunca interrumpe: lo que falle queda en el registro.
+Public Function AplicarColumnasEmpaquetado(Optional ByVal avisar As Boolean = False) As Long
+  Dim lo As ListObject, nom, frm, i As Long, lc As ListColumn, n As Long, falla As String
+  On Error Resume Next
+  Set lo = ThisWorkbook.Worksheets("EMPAQUETADO").ListObjects("EMPAQUETADO")
+  On Error GoTo 0
+  If lo Is Nothing Then
+    LogE "EMPAQUETADO: no existe la tabla 'EMPAQUETADO'. Usa 'Restaurar columnas' (Alt+F8 > RestaurarColumnasEmpaquetado).", "AVISO"
+    If avisar Then MsgBox "No se encontró la tabla EMPAQUETADO.", vbExclamation
+    Exit Function
+  End If
+  If lo.ListRows.Count = 0 Then
+    LogE "EMPAQUETADO: la tabla quedó sin filas; no hay fórmulas que escribir.", "AVISO"
+    Exit Function
+  End If
+  nom = NombresEmpaquetado(): frm = FormulasEmpaquetado()
+  For i = 0 To UBound(nom)
+    Set lc = Nothing
+    On Error Resume Next
+    Set lc = lo.ListColumns(nom(i))
+    If lc Is Nothing Then
+      falla = falla & IIf(Len(falla) > 0, ", ", "") & nom(i) & " (no existe)"
+    Else
+      Err.Clear
+      lc.DataBodyRange.Formula2 = frm(i)
+      If Err.Number <> 0 Then
+        falla = falla & IIf(Len(falla) > 0, ", ", "") & nom(i) & " (" & Err.Description & ")"
+      Else
+        n = n + 1
+      End If
+    End If
+    Err.Clear
+    On Error GoTo 0
+  Next
+  On Error Resume Next
+  lo.ListColumns("PORCENTAJE").DataBodyRange.NumberFormat = "0%"
+  On Error GoTo 0
+  If Len(falla) > 0 Then
+    LogE "EMPAQUETADO: no se pudieron escribir estas columnas: " & falla, "AVISO"
+    If avisar Then MsgBox "Algunas columnas de EMPAQUETADO no se pudieron escribir:" & vbCrLf & falla, vbExclamation
+  Else
+    LogE "EMPAQUETADO: columnas F:K recalculadas (" & lo.ListRows.Count & " caja/s)"
+  End If
+  AplicarColumnasEmpaquetado = n
+End Function
+
 ' Después de cambiar la carga de EMPAQUETADO a "solo tabla" (sin modelo de datos), Excel crea la tabla de nuevo
 ' solo con B:E. Esta macro le devuelve el nombre EMPAQUETADO y las columnas calculadas F:K.
 Sub RestaurarColumnasEmpaquetado()
@@ -410,15 +484,8 @@ Sub RestaurarColumnasEmpaquetado()
   If lo.Name <> "EMPAQUETADO" Then lo.Name = "EMPAQUETADO"
   If Err.Number <> 0 Then LogE "EMPAQUETADO: no se pudo renombrar la tabla " & lo.Name & ": " & Err.Description, "AVISO": Err.Clear
   On Error GoTo 0
-  nom = Array("NRO. DE CONTENEDORA", "BULTOS", "PESO CAJA", "VOL. CAJA", "VOL. ITEMS", "PORCENTAJE")
-  frm = Array( _
-    "=IF($C2="""","""",IF($E2<>"""",$E2,XLOOKUP(TEXT($C2,""@""),Estado[DOC_EXT],Estado[NRO_CONTENEDORA_EMPAQUE],IF(COUNTIF(ITEMS_API[DOC_EXT],TEXT($C2,""@""))>0,""validar"",""sin pedido""),0)))", _
-    "=IF($C2="""","""",COUNTIF(EMPAQUETADO!$C:$C,$C2))", _
-    "=IF($C2="""","""",VLOOKUP($D2,DATA_CAJAS,5,FALSE)+0.1)", _
-    "=IF($C2="""","""",VLOOKUP($D2,DATA_CAJAS,6,FALSE))", _
-    "=IF($C2="""","""",IF($F2="""",""Verificar"",IF(SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N)>0,SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N),""Verificar"")))", _
-    "=IF($C2="""","""",IF(OR($D2=""F1"",$D2=""F5"",$D2=""F11"",$D2=""F10"",$D2=""SOBRE 1""),1,IF($J2=""Verificar"",""Verificar"",IF($J2/$I2>1,1,IF($J2/$I2<0.3,0.3,$J2/$I2)))))")
-  For i = 0 To 5
+  nom = NombresEmpaquetado(): frm = FormulasEmpaquetado()
+  For i = 0 To UBound(nom)
     Set lc = Nothing
     On Error Resume Next
     Set lc = lo.ListColumns(nom(i))
@@ -427,9 +494,8 @@ Sub RestaurarColumnasEmpaquetado()
       Set lc = lo.ListColumns.Add(Position:=5 + i)
       lc.Name = nom(i)
     End If
-    If lo.ListRows.Count > 0 Then lc.DataBodyRange.Formula2 = frm(i)
   Next
-  If lo.ListRows.Count > 0 Then lo.ListColumns("PORCENTAJE").DataBodyRange.NumberFormat = "0%"
+  AplicarColumnasEmpaquetado True
   LogE "EMPAQUETADO: tabla lista (nombre EMPAQUETADO, columnas calculadas F:K restauradas)"
   MsgBox "Tabla EMPAQUETADO lista: nombre y columnas F:K restaurados.", vbInformation
 End Sub
@@ -485,22 +551,7 @@ Sub RepararFormulasEGR()
   ws.Range("R2:R" & MAXF).Formula2 = _
     "=IF($B2="""","""",IFERROR(MAX(1,COUNTIF(EMPAQUETADO!$C:$C,TEXT($B2,""0""))),1))"
   LogE "REPARAR: DATOS!R (BULTOS) = contenedoras del pedido en la hoja EMPAQUETADO (1 contenedora = 1 caja). Si el pedido todavía no está empacado, queda en 1"
-  Set lo = Nothing
-  On Error Resume Next
-  Set lo = ThisWorkbook.Worksheets("EMPAQUETADO").ListObjects("EMPAQUETADO")
-  If Not lo Is Nothing Then
-    lo.ListColumns("NRO. DE CONTENEDORA").DataBodyRange.Formula2 = _
-      "=IF($C2="""","""",IF($E2<>"""",$E2,XLOOKUP(TEXT($C2,""@""),Estado[DOC_EXT],Estado[NRO_CONTENEDORA_EMPAQUE],IF(COUNTIF(ITEMS_API[DOC_EXT],TEXT($C2,""@""))>0,""validar"",""sin pedido""),0)))"
-    If Err.Number <> 0 Then LogE "REPARAR: EMPAQUETADO!F no se pudo corregir: " & Err.Description, "ERROR": Err.Clear Else LogE "REPARAR: EMPAQUETADO!F sin #REF! (validar = pedido del día sin contenedora)"
-    ' G (BULTOS): el total de cajas del PEDIDO, no 1 por fila. Así el dato queda en la hoja
-    ' sin tener que agregar una columna a ITEMS DEPOT.
-    lo.ListColumns("BULTOS").DataBodyRange.Formula2 = "=IF($C2="""","""",COUNTIF(EMPAQUETADO!$C:$C,$C2))"
-    If Err.Number <> 0 Then LogE "REPARAR: EMPAQUETADO!G no se pudo corregir: " & Err.Description, "ERROR": Err.Clear Else LogE "REPARAR: EMPAQUETADO!G (BULTOS) = total de contenedoras del pedido (antes 1 por fila)"
-    ' J (VOL. ITEMS): SOLO el volumen de los items de ESA contenedora. Se quita el respaldo
-    ' por pedido, que le cargaba a una sola caja el volumen de todo el pedido y daba 100% falsos.
-    lo.ListColumns("VOL. ITEMS").DataBodyRange.Formula2 = "=IF($C2="""","""",IF($F2="""",""Verificar"",IF(SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N)>0,SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N),""Verificar"")))"
-    If Err.Number <> 0 Then LogE "REPARAR: EMPAQUETADO!J no se pudo corregir: " & Err.Description, "ERROR": Err.Clear Else LogE "REPARAR: EMPAQUETADO!J (VOL. ITEMS) solo suma los items de esa contenedora; si no los tiene dice Verificar en vez de usar el volumen de todo el pedido"
-  End If
+  AplicarColumnasEmpaquetado False
   On Error GoTo fallo
   ThisWorkbook.Worksheets("DESPACHOS").Range("P2:P501").Formula = _
     "=IF($B2="""","""",IF(IFERROR(INDEX(DATOS!$A$2:$A$500,MATCH($B2,DATOS!$B$2:$B$500,0)),"""")=""PRO"",""TRAMACO"",""FLEXNET""))"
@@ -1032,7 +1083,11 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
       a = lo.DataBodyRange.Value
       For i = 1 To UBound(a, 1)
         doc = TXE(a(i, 2)): If Len(doc) > 0 Then emp(doc) = emp(doc) + 1
-        If IsError(a(i, 7)) Or IsError(a(i, 8)) Then cajaSin(TXE(a(i, 3))) = 1
+        If IsError(a(i, 7)) Or IsError(a(i, 8)) Then
+          cajaSin(TXE(a(i, 3))) = 1
+        ElseIf UCase$(TXE(a(i, 7))) = "VERIFICAR" Or UCase$(TXE(a(i, 8))) = "VERIFICAR" Then
+          cajaSin(TXE(a(i, 3))) = 1
+        End If
       Next
     End If
   End If
