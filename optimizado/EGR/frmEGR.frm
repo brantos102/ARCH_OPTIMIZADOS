@@ -645,13 +645,18 @@ End Function
 ' mayúsculas, y las celdas vacías siempre al final de la lista ascendente.
 Private Function Comparar(a As Variant, b As Variant) As Long
   Dim sa As String, sb As String, na As Double, nb As Double
-  sa = Trim$(CStr(a & "")): sb = Trim$(CStr(b & ""))
+  If IsError(a) Then sa = "" Else sa = Trim$(CStr(a & ""))
+  If IsError(b) Then sb = "" Else sb = Trim$(CStr(b & ""))
   If Len(sa) = 0 And Len(sb) = 0 Then Exit Function
   If Len(sa) = 0 Then Comparar = 1: Exit Function
   If Len(sb) = 0 Then Comparar = -1: Exit Function
   If IsNumeric(sa) And IsNumeric(sb) Then
     na = Val(sa): nb = Val(sb)
-    If na < nb Then Comparar = -1 ElseIf na > nb Then Comparar = 1
+    If na < nb Then
+      Comparar = -1
+    ElseIf na > nb Then
+      Comparar = 1
+    End If
   Else
     Comparar = StrComp(sa, sb, vbTextCompare)
   End If
