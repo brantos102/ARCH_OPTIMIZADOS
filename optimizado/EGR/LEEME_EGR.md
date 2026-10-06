@@ -391,6 +391,20 @@ Para aplicarla:
 > El archivo no lleva comentarios, `WITH`, `ORDER BY` ni punto y coma final, y no anida tablas derivadas: con
 > cualquiera de esas cosas el servidor devolvía *"Sintaxis incorrecta cerca de 'd'"* (error 102).
 
+**Solo el día de hoy.** El filtro de fecha es:
+
+```sql
+AND syd_AD.FECHA_CREACION >= CAST(GETDATE() AS DATE)
+AND syd_AD.FECHA_CREACION <  DATEADD(DAY, 1, CAST(GETDATE() AS DATE))
+```
+
+Antes era `DATEADD(DAY, -1, ...)`, o sea **desde ayer**, y por eso en ITEMS DEPOT aparecían mezclados los pedidos de
+ayer y los de hoy. Ahora la hoja trae únicamente los del día, que es lo que se despacha y lo que se factura.
+
+> Consecuencia a tener presente: un pedido **creado ayer** que se despache hoy ya **no** aparece en ITEMS DEPOT. Si
+> alguna vez hace falta arrastrar los de ayer, se vuelve a poner `DATEADD(DAY, -1, CAST(GETDATE() AS DATE))` en la
+> primera línea del filtro y se quita la segunda.
+
 **Las fórmulas que calculan el box density no se tocan.** Siguen agrupando ITEMS DEPOT por contenedora, que es
 justamente lo que vuelve a funcionar bien al devolver cada ítem con su caja:
 
