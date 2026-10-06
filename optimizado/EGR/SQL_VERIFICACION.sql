@@ -6,7 +6,8 @@
    - cada ítem va en la contenedora en la que REALMENTE se empacó: eso es lo que
      permite calcular el box density (volumen de los ítems de esa caja / volumen
      de la caja);
-   - el número de cajas del pedido es el TOTAL de contenedoras;
+   - el número de cajas del pedido es el TOTAL de contenedoras, y ese total se calcula
+     en la hoja EMPAQUETADO, no en ITEMS DEPOT (ahi no se puede agregar una columna);
    - las cantidades no se repiten: el total de unidades, el peso y el costo del
      pedido tienen que seguir siendo los reales.
 

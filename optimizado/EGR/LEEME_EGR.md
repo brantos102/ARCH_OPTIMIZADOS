@@ -318,7 +318,9 @@ datos.
 | Nombres definidos | 12 nombres con `#REF!` o apuntando a otra copia del archivo | Eliminados |
 | Vínculos externos | Carpeta de red y la propia copia del archivo | Rotos (quedan como valores) |
 | DATA CODIGO Y CAJAS | 185 reglas de formato "duplicados", varias de columna completa | 1 regla (B2:B1000) |
-| DATOS!R (BULTOS) | Siempre la tabla dinámica del Google Sheets | `Estado[CAJAS]` (contenedoras del pedido); si no está, la tabla dinámica y en último caso 1 |
+| DATOS!R (BULTOS) | `VLOOKUP` a la dinámica "Suma de BULTOS" | `COUNTIF` de las contenedoras del pedido en la hoja EMPAQUETADO; mínimo 1 |
+| EMPAQUETADO!G (BULTOS) | `1` en cada fila | Total de contenedoras del pedido |
+| EMPAQUETADO!J (VOL. ITEMS) | Volumen de la contenedora o, si no estaba, el de TODO el pedido | Solo el volumen de esa contenedora; si no lo tiene, `Verificar` |
 
 Las demás fórmulas de cada columna se revisaron: son iguales en todas sus filas y dan resultado.
 
@@ -353,11 +355,12 @@ cada caja. El `SELECT DISTINCT` no lo evitaba, porque las filas sí eran distint
 - Si una línea todavía no está empacada, la contenedora queda **vacía**; y si el pedido tiene **una sola**
   contenedora, se le asigna esa (no hay ambigüedad posible). Con dos o más, no se adivina: queda vacía hasta que se
   empaque.
-- Se agrega **una sola** columna nueva al final, `CAJAS`: el total de contenedoras distintas del pedido
-  (`COUNT(DISTINCT NRO_CONTENEDORA_EMPAQUE)` de `VIEW_TIEMPO_EMPAQUETADO`). Ese valor sí es del pedido entero, por eso
-  se repite en sus filas.
-- **No se usa una columna con la lista de contenedoras.** Se probó y estaba mal: ponía las 3 contenedoras en las 15
-  filas del pedido, y con eso el box density no se puede calcular. Se quitó.
+- La consulta devuelve **exactamente las 7 columnas de siempre**, con los mismos nombres y en el mismo orden. En
+  ITEMS DEPOT no se agrega ninguna columna: sus columnas calculadas H:K (PEDIDO, PESO, VOLUMEN, PRECIO) siguen en su
+  sitio. El total de cajas del pedido se resuelve en EMPAQUETADO (ver más abajo), no aquí.
+- **Dos intentos que se descartaron**, por si vuelven a aparecer: poner la misma contenedora (`MIN`) en todas las
+  filas del pedido, y agregar una columna con la lista de contenedoras. Las dos rompen el box density, porque el
+  volumen del pedido entero se le carga a una sola caja.
 
 Ejemplo con el pedido 102344955 (4 productos, 2 cajas):
 
@@ -394,20 +397,40 @@ justamente lo que vuelve a funcionar bien al devolver cada ítem con su caja:
 | `EMPAQUETADO` K (PORCENTAJE) | VOL. ÍTEMS ÷ VOL. CAJA = **% de ocupación** | vuelve a ser correcto |
 | `ITEMS DEPOT` PESO, VOLUMEN, PRECIO | unitario × cantidad de la fila | correcto: la cantidad ya no se repite |
 
-### Número de cajas (BULTOS)
+### Número de cajas (BULTOS) y box density
 
-**Regla:** una contenedora = una caja.
+**Regla:** una contenedora = una caja, sin importar cuántos ítems lleve.
 
-- `DATOS!R` (BULTOS) ahora toma el valor de **`Estado[CAJAS]`** por número de pedido (`MAXIFS`, porque el pedido
-  tiene varias filas y todas llevan el mismo total). Si el pedido todavía no está en
-  la consulta, usa la tabla dinámica del Google Sheets como antes, y en último caso 1. Nunca queda en 0.
-- La fórmula la aplica **Reparar fórmulas**, y solo si la consulta `Estado` ya trae la columna `CAJAS`. Si no la trae,
-  no toca nada y lo avisa en el registro: así no se rompe lo que ya funciona mientras no se actualice el SQL.
-- De `DATOS!R` el número pasa solo a **DESPACHOS!L**, **TRAMACO!W** y a ETIQUETAS ZEBRA.
-- En el panel, la vista **EMPAQUE** muestra las cajas de DEPOT (contenedoras). El Google Sheets de empaquetado queda
-  como respaldo, para los pedidos que todavía no tienen contenedora en DEPOT.
-- El código lee la tabla `Estado` **por nombre de encabezado**, no por posición. Por eso agregar columnas nuevas a la
-  consulta ya no descuadra el panel ni el avance de empaque.
+Como en **ITEMS DEPOT no se puede agregar una columna**, el total de cajas se resuelve en la hoja EMPAQUETADO, que ya
+tiene **una fila por contenedora**:
+
+| Columna | Qué hace ahora |
+|---|---|
+| `EMPAQUETADO!G` (BULTOS) | `COUNTIF` de las filas con el mismo **# ORDEN** = **total de contenedoras del pedido**. Antes era `1` fijo, que era el bulto de esa fila, no el del pedido |
+| `DATOS!R` (BULTOS) | El mismo `COUNTIF` sobre EMPAQUETADO, con mínimo 1. De ahí pasa solo a **DESPACHOS!L**, **TRAMACO!W** y a la etiqueta |
+| `EMPAQUETADO!J` (VOL. ITEMS) | Solo el volumen de los ítems **de esa contenedora** (dinámica por contenedora). Si esa contenedora no tiene ítems en ITEMS DEPOT, dice **Verificar** |
+| `EMPAQUETADO!K` (PORCENTAJE) | Sin cambios: J ÷ I, con el tope de 100 % y el piso de 30 % de siempre |
+| `EMPAQUETADO!H`, `I` | Sin cambios: peso y volumen del tipo de caja, desde DATA_CAJAS |
+
+**Por qué `DATOS!R` dejó de usar la tabla dinámica.** Antes hacía `VLOOKUP` a la dinámica *Suma de BULTOS*
+(`TABLAS DINAMICAS` H:K). Con `G = 1` esa suma daba el número de cajas, pero ahora que `G` trae el total del pedido
+en cada una de sus filas, la suma daría el total **al cuadrado** (3 cajas → 9). Por eso `DATOS!R` cuenta las
+contenedoras directamente y ya no depende de esa dinámica.
+
+> La dinámica *Suma de BULTOS* queda solo informativa y mostrará ese número al cuadrado. Si molesta, se arregla en
+> dos clics: clic derecho sobre ella › **Configuración de campo de valor** › **Cuenta**. Ninguna fórmula la usa.
+
+**Por qué `VOL. ITEMS` ya no se respalda con el volumen del pedido.** El respaldo anterior era
+`SUMIF(por contenedora)` y, si fallaba, `SUMIF(por pedido)`. Cuando ITEMS DEPOT tenía todos los ítems colgados de la
+primera contenedora, la segunda y la tercera caían al respaldo y se llevaban **el volumen de todo el pedido**: de ahí
+salían los `100 %` falsos de la hoja, mezclados con los `Verificar`. Para facturar es peor un 100 % inventado que un
+`Verificar`, así que el respaldo se quitó.
+
+Con la consulta nueva, cada contenedora tiene sus propios ítems en ITEMS DEPOT, la dinámica por contenedora los ve y
+los `Verificar` deberían desaparecer salvo en un caso legítimo: la contenedora todavía no tiene ítems empacados.
+
+**El código lee la tabla `Estado` por nombre de encabezado**, no por posición, así que si algún día la consulta
+cambia de columnas, el panel y el avance de empaque no se descuadran.
 
 ## 7. Exportación
 
@@ -415,6 +438,9 @@ justamente lo que vuelve a funcionar bien al devolver cada ítem con su caja:
 - Se exportan **solo las filas con datos de esa hoja**, con **las mismas columnas y en el mismo orden**, porque son
   plantillas de carga. Las hojas no se modifican.
   - **TRAMACO** lleva solo los pedidos PRO: toma las filas con nombre (C) y pedido (AD). En los datos actuales son 70.
+    En el archivo que sale, la columna auxiliar **FILA_DATOS** (el número de fila, que al courier no le sirve) se
+    reemplaza por **ZONA**: la zona peligrosa que viene de PEDIDOS HCE (DATOS!AM). Mismo número de columnas, mismo
+    orden, y **la hoja TRAMACO no se modifica**: el cambio es solo en el archivo exportado.
   - **TMS** lleva **todos** los pedidos del día (152), porque así está armada la hoja TMS: una fila por cada pedido de
     DATOS.
   - **DESPACHOS** lleva todos los pedidos (152).

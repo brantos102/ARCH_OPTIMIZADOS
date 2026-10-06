@@ -27,6 +27,7 @@ Public Const D_PROV As Long = 15, D_CANT As Long = 16, D_PARR As Long = 17
 Public Const D_BUL As Long = 18, D_PESO As Long = 19, D_VAL As Long = 22, D_COUR As Long = 25
 Public Const D_PARRSP As Long = 26, D_CPTMS As Long = 28, D_DIAG As Long = 30, D_SUG As Long = 31
 Public Const D_RDEST As Long = 32, D_RPED As Long = 33, D_RMOT As Long = 34   ' AF, AG, AH (reglas confirmadas)
+Public Const D_ZONA As Long = 39                                              ' AM zona peligrosa (la escribe PEDIDOS HCE)
 
 Public gOcupadoE As Boolean
 Public gLogE As Collection
@@ -411,10 +412,10 @@ Sub RestaurarColumnasEmpaquetado()
   nom = Array("NRO. DE CONTENEDORA", "BULTOS", "PESO CAJA", "VOL. CAJA", "VOL. ITEMS", "PORCENTAJE")
   frm = Array( _
     "=IF($C2="""","""",IF($E2<>"""",$E2,XLOOKUP(TEXT($C2,""@""),Estado[DOC_EXT],Estado[NRO_CONTENEDORA_EMPAQUE],IF(COUNTIF(ITEMS_API[DOC_EXT],TEXT($C2,""@""))>0,""validar"",""sin pedido""),0)))", _
-    "=IF($C2="""","""",1)", _
+    "=IF($C2="""","""",COUNTIF(EMPAQUETADO!$C:$C,$C2))", _
     "=IF($C2="""","""",VLOOKUP($D2,DATA_CAJAS,5,FALSE)+0.1)", _
     "=IF($C2="""","""",VLOOKUP($D2,DATA_CAJAS,6,FALSE))", _
-    "=IF($C2="""","""",IF(SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N)>0,SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N),IF(SUMIF('TABLAS DINAMICAS'!$A:$A,$C2,'TABLAS DINAMICAS'!$E:$E)>0,SUMIF('TABLAS DINAMICAS'!$A:$A,$C2,'TABLAS DINAMICAS'!$E:$E),""Verificar"")))", _
+    "=IF($C2="""","""",IF($F2="""",""Verificar"",IF(SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N)>0,SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N),""Verificar"")))", _
     "=IF($C2="""","""",IF(OR($D2=""F1"",$D2=""F5"",$D2=""F11"",$D2=""F10"",$D2=""SOBRE 1""),1,IF($J2=""Verificar"",""Verificar"",IF($J2/$I2>1,1,IF($J2/$I2<0.3,0.3,$J2/$I2)))))")
   For i = 0 To 5
     Set lc = Nothing
@@ -459,6 +460,7 @@ Sub RepararFormulasEGR()
             "  - DATOS!A: destino con reglas confirmadas (AF:AH)" & vbCrLf & _
             "  - DATOS!Y: courier (antes INDEX(#REF!) = vacío en todos)" & vbCrLf & _
             "  - DATOS!R: bultos = contenedoras del pedido (1 contenedora = 1 caja)" & vbCrLf & _
+            "  - EMPAQUETADO!G: bultos totales del pedido;  EMPAQUETADO!J: volumen solo de esa caja" & vbCrLf & _
             "  - EMPAQUETADO!F: COUNTIF(#REF!) -> pedidos del día (ITEMS API)" & vbCrLf & _
             "  - DESPACHOS!P: búsqueda sin columnas completas" & vbCrLf & _
             "  - COD POS I:J (vínculo externo roto), nombres #REF!, vínculos externos" & vbCrLf & _
@@ -476,17 +478,12 @@ Sub RepararFormulasEGR()
       "INDEX('COBERTURAS Y TARIFAS'!$F$2:$F$1804,MATCH(TEXTJOIN(""_"",TRUE,$H2,$I2,$J2),COBERT_KEY,0)))),""ITSANET"",IF($A2=""GPS"",""TRAMACO"",""LAAR COURIER"")),""ITSANET"")))"
   LogE "REPARAR: DATOS!Y (COURIER): PRO = TRAMACO; UIO/GYE = ITSANET o LAAR según COBERTURA (misma regla que PEDIDOS HCE)"
   ' BULTOS (DATOS!R): la regla es una contenedora = una caja, sin importar cuántos items lleve.
-  ' Las contenedoras las cuenta la consulta Estado en su columna CAJAS. Si esa columna todavía
-  ' no existe (consulta sin actualizar con SQL_ITEMS_DEPOT.sql), no se toca la fórmula anterior.
-  If TieneColumnaEstado("CAJAS") Then
-    ws.Range("R2:R" & MAXF).Formula2 = _
-      "=IF($B2="""","""",IFERROR(MAX(1,IF(MAXIFS(Estado[CAJAS],Estado[DOC_EXT],TEXT($B2,""0""))>0," & _
-      "MAXIFS(Estado[CAJAS],Estado[DOC_EXT],TEXT($B2,""0""))," & _
-      "IFERROR(VLOOKUP(TEXT($B2,""0""),'TABLAS DINAMICAS'!$H:$K,2,FALSE),1))),1))"
-    LogE "REPARAR: DATOS!R (BULTOS) = contenedoras del pedido en Estado[CAJAS] (1 contenedora = 1 caja); si el pedido no está, se usa la tabla dinámica y en último caso 1"
-  Else
-    LogE "REPARAR: DATOS!R (BULTOS) sin cambios: la consulta Estado todavía no trae la columna CAJAS. Actualiza la consulta con SQL_ITEMS_DEPOT.sql y vuelve a ejecutar Reparar fórmulas.", "AVISO"
-  End If
+  ' Se cuentan directamente las contenedoras del pedido en la hoja EMPAQUETADO (una fila por
+  ' contenedora). No se usa la tabla dinámica "Suma de BULTOS": como ahora EMPAQUETADO!G trae el
+  ' total del pedido en cada una de sus filas, esa suma daría el total al cuadrado.
+  ws.Range("R2:R" & MAXF).Formula2 = _
+    "=IF($B2="""","""",IFERROR(MAX(1,COUNTIF(EMPAQUETADO!$C:$C,TEXT($B2,""0""))),1))"
+  LogE "REPARAR: DATOS!R (BULTOS) = contenedoras del pedido en la hoja EMPAQUETADO (1 contenedora = 1 caja). Si el pedido todavía no está empacado, queda en 1"
   Set lo = Nothing
   On Error Resume Next
   Set lo = ThisWorkbook.Worksheets("EMPAQUETADO").ListObjects("EMPAQUETADO")
@@ -494,6 +491,14 @@ Sub RepararFormulasEGR()
     lo.ListColumns("NRO. DE CONTENEDORA").DataBodyRange.Formula2 = _
       "=IF($C2="""","""",IF($E2<>"""",$E2,XLOOKUP(TEXT($C2,""@""),Estado[DOC_EXT],Estado[NRO_CONTENEDORA_EMPAQUE],IF(COUNTIF(ITEMS_API[DOC_EXT],TEXT($C2,""@""))>0,""validar"",""sin pedido""),0)))"
     If Err.Number <> 0 Then LogE "REPARAR: EMPAQUETADO!F no se pudo corregir: " & Err.Description, "ERROR": Err.Clear Else LogE "REPARAR: EMPAQUETADO!F sin #REF! (validar = pedido del día sin contenedora)"
+    ' G (BULTOS): el total de cajas del PEDIDO, no 1 por fila. Así el dato queda en la hoja
+    ' sin tener que agregar una columna a ITEMS DEPOT.
+    lo.ListColumns("BULTOS").DataBodyRange.Formula2 = "=IF($C2="""","""",COUNTIF(EMPAQUETADO!$C:$C,$C2))"
+    If Err.Number <> 0 Then LogE "REPARAR: EMPAQUETADO!G no se pudo corregir: " & Err.Description, "ERROR": Err.Clear Else LogE "REPARAR: EMPAQUETADO!G (BULTOS) = total de contenedoras del pedido (antes 1 por fila)"
+    ' J (VOL. ITEMS): SOLO el volumen de los items de ESA contenedora. Se quita el respaldo
+    ' por pedido, que le cargaba a una sola caja el volumen de todo el pedido y daba 100% falsos.
+    lo.ListColumns("VOL. ITEMS").DataBodyRange.Formula2 = "=IF($C2="""","""",IF($F2="""",""Verificar"",IF(SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N)>0,SUMIF('TABLAS DINAMICAS'!$M:$M,$F2,'TABLAS DINAMICAS'!$N:$N),""Verificar"")))"
+    If Err.Number <> 0 Then LogE "REPARAR: EMPAQUETADO!J no se pudo corregir: " & Err.Description, "ERROR": Err.Clear Else LogE "REPARAR: EMPAQUETADO!J (VOL. ITEMS) solo suma los items de esa contenedora; si no los tiene dice Verificar en vez de usar el volumen de todo el pedido"
   End If
   On Error GoTo fallo
   ThisWorkbook.Worksheets("DESPACHOS").Range("P2:P501").Formula = _
@@ -821,7 +826,7 @@ Public Function ClaveTMS(ByVal h As String, ByVal i As String, ByVal j As String
 End Function
 
 ' Índice de una columna de una tabla buscándola por el nombre del encabezado.
-' Así, si la consulta cambia de columnas (p. ej. ahora trae CAJAS al final),
+' Así, si algún día la consulta cambia de columnas, el panel no se descuadra.
 ' el código sigue leyendo el dato correcto. Si no está, devuelve 'predet'.
 Public Function ColIdx(lo As ListObject, ByVal nombre As String, Optional ByVal predet As Long = 0) As Long
   Dim lc As ListColumn
@@ -832,21 +837,12 @@ Public Function ColIdx(lo As ListObject, ByVal nombre As String, Optional ByVal 
   Next
 End Function
 
-' ¿La consulta Estado (ITEMS DEPOT) ya trae esta columna?
-Public Function TieneColumnaEstado(ByVal nombre As String) As Boolean
-  Dim lo As ListObject
-  On Error Resume Next
-  Set lo = ThisWorkbook.Worksheets("ITEMS DEPOT").ListObjects("Estado")
-  On Error GoTo 0
-  TieneColumnaEstado = (ColIdx(lo, nombre, 0) > 0)
-End Function
-
 ' Empaque y picking por pedido -> Array(estado, cajas, peso cajas, volumen %, unidades conf, unidades sol)
 Public Function DictEmpaque() As Object
   Dim d As Object, sol As Object, conf As Object, cont1 As Object, cajas As Object, pesoC As Object, dPct As Object
   Dim cajasD As Object, nCajD As Object
   Dim lo As ListObject, a, i As Long, doc As String, k
-  Dim cDoc As Long, cProd As Long, cConf As Long, cCont As Long, cCaj As Long, nCajas As Long
+  Dim cDoc As Long, cProd As Long, cConf As Long, cCont As Long
   Set d = CreateObject("Scripting.Dictionary"): Set sol = CreateObject("Scripting.Dictionary")
   Set conf = CreateObject("Scripting.Dictionary"): Set cont1 = CreateObject("Scripting.Dictionary")
   Set cajasD = CreateObject("Scripting.Dictionary"): Set nCajD = CreateObject("Scripting.Dictionary")
@@ -864,15 +860,13 @@ Public Function DictEmpaque() As Object
     ' las columnas se buscan por nombre: la consulta puede traer columnas nuevas
     cDoc = ColIdx(lo, "DOC_EXT", 3): cProd = ColIdx(lo, "PRODUCTO_ID", 4)
     cConf = ColIdx(lo, "Cantidad_Confirmada", 6): cCont = ColIdx(lo, "NRO_CONTENEDORA_EMPAQUE", 7)
-    cCaj = ColIdx(lo, "CAJAS", 0)
     If lo.ListRows.Count > 0 Then
       a = lo.DataBodyRange.Value
       ' Una fila por pedido + producto + contenedora: un producto repartido en dos
       ' cajas suma las dos, pero la misma combinación nunca se cuenta dos veces
       ' (pesos y costos correctos para facturar).
-      ' Las cajas = contenedoras distintas del pedido, sin importar cuántos items
-      ' lleve cada una: las da la columna CAJAS; si la consulta todavía no la trae,
-      ' se cuentan las contenedoras que aparecen en las filas.
+      ' Las cajas del pedido = contenedoras distintas que aparecen en sus filas,
+      ' sin importar cuántos items lleve cada una.
       For i = 1 To UBound(a, 1)
         doc = TXE(a(i, cDoc))
         If Len(doc) > 0 Then
@@ -881,16 +875,7 @@ Public Function DictEmpaque() As Object
             cont1(k) = 1
             conf(doc) = conf(doc) + Val(TXE(a(i, cConf)))
           End If
-          If cCaj > 0 Then
-            nCajas = Val(TXE(a(i, cCaj)))
-            If nCajas > 0 Then
-              If Not nCajD.Exists(doc) Then
-                nCajD(doc) = nCajas
-              ElseIf nCajas > nCajD(doc) Then
-                nCajD(doc) = nCajas
-              End If
-            End If
-          ElseIf Len(TXE(a(i, cCont))) > 0 Then
+          If Len(TXE(a(i, cCont))) > 0 Then
             If Not cajasD.Exists(doc & Chr(1) & TXE(a(i, cCont))) Then
               cajasD(doc & Chr(1) & TXE(a(i, cCont))) = 1
               nCajD(doc) = nCajD(doc) + 1
@@ -1165,6 +1150,32 @@ Public Function ValidarHojaExport(ByVal hojaN As String, filas As Collection) As
 End Function
 
 ' formato: "CSV", "XLSX" o "PDF". Devuelve la ruta del archivo creado ("" si no se creó)
+' Cambia, SOLO en el bloque que se va a exportar, la columna auxiliar FILA_DATOS por la zona
+' peligrosa del pedido. FILA_DATOS es la posición dentro de DATOS!A2:A500 (la misma que usan las
+' fórmulas INDEX de la hoja), así que la fila de DATOS es esa posición + 1.
+Private Sub FilaPorZona(ByRef vv As Variant, ByVal k As Long, ByVal lc As Long)
+  Dim j As Long, cFila As Long, i As Long, f As Long, lr As Long, z, ws As Worksheet, n As Long
+  For j = 1 To lc
+    If UCase$(Replace(TXE(vv(1, j)), " ", "")) = "FILA_DATOS" Then cFila = j: Exit For
+  Next
+  If cFila = 0 Then Exit Sub
+  Set ws = ThisWorkbook.Worksheets(HDAT)
+  lr = UltimaFilaDatos()
+  If lr >= 2 Then z = ws.Range(ws.Cells(2, D_ZONA), ws.Cells(lr, D_ZONA)).Value
+  vv(1, cFila) = "ZONA"
+  For i = 2 To k
+    f = Val(TXE(vv(i, cFila)))
+    vv(i, cFila) = ""
+    If f >= 1 And IsArray(z) Then
+      If f <= UBound(z, 1) Then
+        If Not IsError(z(f, 1)) Then vv(i, cFila) = TXE(z(f, 1))
+      End If
+    End If
+    If Len(TXE(vv(i, cFila))) > 0 Then n = n + 1
+  Next
+  LogE "EXPORTAR TRAMACO: la columna FILA_DATOS sale como ZONA (zona peligrosa); " & n & " de " & (k - 1) & " fila(s) con zona. La hoja TRAMACO no se modifica."
+End Sub
+
 Public Function ExportarHoja(ByVal hojaN As String, ByVal formato As String, Optional ByVal preguntar As Boolean = True) As String
   Dim ws As Worksheet, lc As Long, j As Long, nProb As Long, filas As Collection, r, k As Long
   Dim wbN As Workbook, wsN As Worksheet, ruta As String, rutaBase As String, src, vv(), i As Long, esTxt As Boolean
@@ -1192,6 +1203,9 @@ Public Function ExportarHoja(ByVal hojaN As String, ByVal formato As String, Opt
       If IsError(src(r, j)) Then vv(k, j) = "" Else vv(k, j) = src(r, j)
     Next
   Next
+  ' TRAMACO: la columna auxiliar FILA_DATOS no le sirve al courier. En el archivo que sale
+  ' se reemplaza por la ZONA (zona peligrosa que viene de PEDIDOS HCE). La hoja no se toca.
+  If UCase$(hojaN) = "TRAMACO" Then FilaPorZona vv, k, lc
   Application.ScreenUpdating = False: Application.DisplayAlerts = False
   Set wbN = Workbooks.Add(xlWBATWorksheet)
   Set wsN = wbN.Worksheets(1)
