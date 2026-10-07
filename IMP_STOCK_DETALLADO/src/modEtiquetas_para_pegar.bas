@@ -85,13 +85,14 @@ Private Const MARGEN_BARRAS      As Double = 0.97 ' holgura para que nunca se re
 ' barra fina quedaría por debajo de PUNTOS_BARRA_MIN puntos de impresora, el código se
 ' DIBUJA en Code 128, que ocupa un 30 % menos con el mismo dato y permite fijar el ancho
 ' de barra en puntos enteros. El texto legible de la etiqueta no cambia.
-' IMPORTANTE: las dos opciones de abajo vienen DESACTIVADAS. Así el código de barras sale
-' exactamente como lo venía sacando la plantilla, que es lo único verificado en la Zebra.
-' Use la macro EtiquetasPruebaCodigo para imprimir una hoja con las tres variantes, vea
-' cuál lee su pistola y active esa.
+' Los códigos que entran con holgura en Code 39 se siguen imprimiendo con la fuente de la
+' plantilla, con sus asteriscos de inicio y fin: es lo que ya se lee en planta y no se toca.
+' Los que no entran (la barra fina quedaría por debajo de PUNTOS_BARRA_MIN puntos de
+' impresora) se dibujan en Code 128, que ocupa un 30 % menos con el mismo dato.
+' EtiquetasPruebaCodigo imprime una hoja con las tres variantes para comprobarlo.
 Private Const PUNTOS_BARRA_MIN   As Long = 2      ' puntos de impresora por barra fina
 Private Const AJUSTAR_FUENTE_BARRAS As Boolean = False  ' True = calcular el tamaño de fuente
-Private Const BARRAS_DIBUJADAS   As Long = 0      ' 0 = nunca, 1 = automático, 2 = siempre
+Private Const BARRAS_DIBUJADAS   As Long = 1      ' 0 = nunca, 1 = automático, 2 = siempre
 Private Const EXTENDER_BARRAS    As Boolean = True ' usar el ancho de la derecha si está libre
 Private Const CELDA_DERECHA      As String = "H5"  ' recuadro que quedaría tapado al extender
 Private Const PREFIJO_BARRAS     As String = "ETQBC_" 
@@ -135,6 +136,7 @@ Private mAltoMm          As Double
 Private mRatioFuente     As Double
 Private mAnchoBarrasPt   As Double
 Private mNumBarras       As Long
+Private mNumCode128      As Long
 
 
 '==============================================================================================
@@ -159,7 +161,8 @@ Public Sub ImprimirEtiquetas()
     Dim t0 As Single
     Dim nError As Long, sError As String
 
-    mZoom = 0: mAnchoMm = 0: mAltoMm = 0: mRatioFuente = 0: mAnchoBarrasPt = 0: mNumBarras = 0
+    mZoom = 0: mAnchoMm = 0: mAltoMm = 0: mRatioFuente = 0
+    mAnchoBarrasPt = 0: mNumBarras = 0: mNumCode128 = 0
 
     '--- 1. Contexto ---------------------------------------------------------------------
     If Not ValidarEntorno(wsOrigen, wsPlantilla) Then Exit Sub
@@ -384,6 +387,9 @@ Limpieza:
               "Escala .......: " & mZoom & " %   para " & Format$(ANCHO_ETIQUETA_MM, "0") & " x " & _
                                     Format$(ALTO_ETIQUETA_MM, "0") & " mm" & vbCrLf & _
               "Filas omitidas: " & omitidas & vbCrLf & _
+              "Códigos ......: " & IIf(mNumCode128 > 0, _
+                                        mNumCode128 & " en Code 128 (códigos largos), el resto en Code 39", _
+                                        "todos en Code 39") & vbCrLf & _
               "Filas origen .: " & filas(desde) & " a " & filas(hasta) & _
                                    IIf(soloSeleccion, "   (seleccionadas)", "   (del filtro)") & vbCrLf & _
               "Tiempo .......: " & Format$(Timer - t0, "0.0") & " s" & _
@@ -1371,6 +1377,7 @@ Private Sub ResolverBarrasBloque(ByVal wsLote As Worksheet, ByVal wsOrigen As Wo
                     ' una etiqueta nunca sale sin código
                     If DibujarBarras(celda, texto, AnchoExtraBarras(wsLote, off, celda)) Then
                         celda.Value = ""
+                        mNumCode128 = mNumCode128 + 1
                     End If
                 End If
             End If

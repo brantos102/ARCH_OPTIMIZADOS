@@ -102,12 +102,32 @@ Tres cosas hacen que esto sí se lea:
 Lo que cambia es la simbología, no el contenido: el lector devuelve el mismo texto que está
 impreso debajo del código.
 
-> **Viene desactivado.** `BARRAS_DIBUJADAS = 0` y `AJUSTAR_FUENTE_BARRAS = False`: el código
-> sale tal como lo venía sacando la plantilla, que es lo único verificado contra la Zebra.
-> Para decidir con datos, ejecute **`EtiquetasPruebaCodigo`**: arma una hoja con la misma
-> fila impresa de tres maneras —fuente de la plantilla, fuente con tamaño calculado, y
-> Code 128 dibujado—, se imprime con Ctrl+P y se prueba cuál lee la pistola. Después se
-> activa esa en el módulo. El lector tiene que tener Code 128 habilitado (viene de fábrica).
+### Medición real sobre la plantilla
+
+`EtiquetasPruebaCodigo` midió en la máquina el ancho de carácter de la fuente:
+**0,375 em**. Con eso, a los 80 pt de la plantilla:
+
+| | |
+|---|---|
+| Ancho que ocupa un código de 9 caracteres | 53 % del recuadro |
+| Barra fina resultante | **1,53 puntos de impresora** (0,19 mm) |
+
+Esa es la razón de fondo: a 80 pt la fuente no llega a llenar el recuadro, y subir el
+tamaño no es opción porque el alto de la celda combinada (82,5 pt) recortaría las barras.
+Por eso los códigos cortos se leen justo y los largos no se leen.
+
+| Caracteres | Code 39 (fuente) | Code 128 (dibujado) |
+|---|---|---|
+| 9 | 1,53 puntos | 3,55 puntos |
+| 12 | 1,53 puntos | 2,72 puntos |
+| 16 | 1,53 puntos | 2,20 puntos |
+| 29 | 0,99 puntos | 1,40 · **2,04 a ancho completo** |
+
+> **Qué hace por defecto** (`BARRAS_DIBUJADAS = 1`): los códigos que entran con holgura en
+> Code 39 se siguen imprimiendo con la fuente de la plantilla y sus asteriscos, que es lo
+> que ya se lee en planta. Los que no entran se dibujan en Code 128. El cambio ocurre
+> alrededor de los 13 caracteres. El lector tiene que tener Code 128 habilitado (viene de
+> fábrica); si no, `BARRAS_DIBUJADAS = 0` vuelve a Code 39 siempre.
 
 El codificador de Code 128 se verificó decodificando **20.026 cadenas de ida y vuelta**,
 sin un solo fallo, y su tabla de patrones coincide byte a byte con la de referencia.
