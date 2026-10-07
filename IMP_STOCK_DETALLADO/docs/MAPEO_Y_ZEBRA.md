@@ -100,9 +100,14 @@ Tres cosas hacen que esto sí se lea:
    se extiende hasta el borde (`EXTENDER_BARRAS`).
 
 Lo que cambia es la simbología, no el contenido: el lector devuelve el mismo texto que está
-impreso debajo del código. Cualquier lector de los últimos 20 años lee Code 128; si el suyo
-está configurado para aceptar sólo Code 39, hay que habilitarlo (o poner
-`BARRAS_DIBUJADAS = 0` para volver a Code 39 siempre).
+impreso debajo del código.
+
+> **Viene desactivado.** `BARRAS_DIBUJADAS = 0` y `AJUSTAR_FUENTE_BARRAS = False`: el código
+> sale tal como lo venía sacando la plantilla, que es lo único verificado contra la Zebra.
+> Para decidir con datos, ejecute **`EtiquetasPruebaCodigo`**: arma una hoja con la misma
+> fila impresa de tres maneras —fuente de la plantilla, fuente con tamaño calculado, y
+> Code 128 dibujado—, se imprime con Ctrl+P y se prueba cuál lee la pistola. Después se
+> activa esa en el módulo. El lector tiene que tener Code 128 habilitado (viene de fábrica).
 
 El codificador de Code 128 se verificó decodificando **20.026 cadenas de ida y vuelta**,
 sin un solo fallo, y su tabla de patrones coincide byte a byte con la de referencia.

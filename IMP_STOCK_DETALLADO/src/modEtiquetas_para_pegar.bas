@@ -19,6 +19,8 @@ Option Explicit
 ' UNA SOLA ENTRADA
 '     ImprimirEtiquetas ....... imprime las filas seleccionadas (o las del filtro)
 '     EtiquetasDiagnostico .... herramienta de verificación, no imprime
+'     EtiquetasPruebaCodigo ... arma una hoja con 3 variantes del código de barras, para
+'                               ver cuál lee la pistola antes de activarla
 '
 ' La combinación de teclas se asigna en Vista > Macros > ImprimirEtiquetas > Opciones...
 ' (a propósito no se guarda en el código: una línea Attribute pegada en el editor da
@@ -44,6 +46,7 @@ Option Explicit
 ' Hojas
 Private Const HOJA_PLANTILLA     As String = "ETQ"
 Private Const HOJA_LOTE          As String = "ETQ_LOTE"
+Private Const HOJA_PRUEBA        As String = "ETQ_PRUEBA"
 Private Const HOJA_ORIGEN_1      As String = "Consolidado"
 Private Const HOJA_ORIGEN_2      As String = "IMPRIMIR"
 
@@ -82,8 +85,13 @@ Private Const MARGEN_BARRAS      As Double = 0.97 ' holgura para que nunca se re
 ' barra fina quedaría por debajo de PUNTOS_BARRA_MIN puntos de impresora, el código se
 ' DIBUJA en Code 128, que ocupa un 30 % menos con el mismo dato y permite fijar el ancho
 ' de barra en puntos enteros. El texto legible de la etiqueta no cambia.
+' IMPORTANTE: las dos opciones de abajo vienen DESACTIVADAS. Así el código de barras sale
+' exactamente como lo venía sacando la plantilla, que es lo único verificado en la Zebra.
+' Use la macro EtiquetasPruebaCodigo para imprimir una hoja con las tres variantes, vea
+' cuál lee su pistola y active esa.
 Private Const PUNTOS_BARRA_MIN   As Long = 2      ' puntos de impresora por barra fina
-Private Const BARRAS_DIBUJADAS   As Long = 1      ' 0 = nunca, 1 = automático, 2 = siempre
+Private Const AJUSTAR_FUENTE_BARRAS As Boolean = False  ' True = calcular el tamaño de fuente
+Private Const BARRAS_DIBUJADAS   As Long = 0      ' 0 = nunca, 1 = automático, 2 = siempre
 Private Const EXTENDER_BARRAS    As Boolean = True ' usar el ancho de la derecha si está libre
 Private Const CELDA_DERECHA      As String = "H5"  ' recuadro que quedaría tapado al extender
 Private Const PREFIJO_BARRAS     As String = "ETQBC_" 
@@ -903,7 +911,7 @@ Private Sub EscribirCampo(ByVal destino As Range, ByVal origen As Range, ByRef c
     If campo.Barras Then
         s = CodigoBarras(s)
         destino.Value = s
-        If ajustarBarras And Len(s) > 0 Then
+        If ajustarBarras And AJUSTAR_FUENTE_BARRAS And Len(s) > 0 Then
             tam = TamanoFuenteBarras(Len(s), campo.AnchoPt)
             If tam > 0 Then destino.Font.Size = tam
         End If
@@ -1552,6 +1560,137 @@ End Sub
 Private Function MinL(ByVal a As Long, ByVal b As Long) As Long
     If a < b Then MinL = a Else MinL = b
 End Function
+
+
+
+'==============================================================================================
+' PRUEBA DEL CODIGO DE BARRAS
+'
+' Arma la hoja "ETQ_PRUEBA" con TRES etiquetas de la misma fila, cada una con el código de
+' barras hecho de una manera distinta, y la deja abierta. Se imprime con Ctrl+P (salen 3
+' etiquetas) y se mira cuál se lee con la pistola:
+'
+'   PRUEBA 1 - fuente Code 39 tal como está en la plantilla  (lo de siempre)
+'   PRUEBA 2 - fuente Code 39 con el tamaño calculado para llenar el ancho
+'   PRUEBA 3 - Code 128 dibujado con rectángulos
+'
+' Con ese dato se deja activada la que funcione, en la constante BARRAS_DIBUJADAS /
+' AJUSTAR_FUENTE_BARRAS. La hoja no se borra: se puede revisar en pantalla antes de imprimir.
+'==============================================================================================
+Public Sub EtiquetasPruebaCodigo()
+
+    Dim wsOrigen As Worksheet, wsPlantilla As Worksheet, ws As Worksheet
+    Dim campos() As tCampo
+    Dim filas() As Long
+    Dim n As Long, fila As Long, i As Long, b As Long, off As Long
+    Dim colProducto As Long
+    Dim celda As Range
+    Dim texto As String, tam As Double
+    Dim dibujo As Boolean
+
+    If Not ValidarEntorno(wsOrigen, wsPlantilla) Then Exit Sub
+
+    ResolverCampos wsOrigen, campos
+    colProducto = ResolverColumna(wsOrigen, "producto_id", 3)
+
+    n = 0
+    If TypeName(Selection) = "Range" Then
+        n = RecolectarVisibles(RangoCandidato(wsOrigen, colProducto, True), TOPE_FILAS, filas)
+    End If
+    If n = 0 Then n = RecolectarVisibles(RangoCandidato(wsOrigen, colProducto, False), TOPE_FILAS, filas)
+
+    If n = 0 Then
+        MsgBox "No hay filas visibles para la prueba.", vbExclamation, "Etiquetas"
+        Exit Sub
+    End If
+    fila = filas(1)
+
+    GuardarEstado
+
+    On Error Resume Next
+    Application.DisplayAlerts = False
+    ThisWorkbook.Worksheets(HOJA_PRUEBA).Delete
+    On Error GoTo 0
+
+    wsPlantilla.Copy After:=wsPlantilla
+    Set ws = wsPlantilla.Parent.Sheets(wsPlantilla.Index + 1)
+
+    On Error Resume Next
+    ws.Name = HOJA_PRUEBA
+    ws.Visible = xlSheetVisible
+    ws.Unprotect
+    ws.DisplayPageBreaks = False
+    On Error GoTo 0
+
+    ws.Rows((FILAS_ETIQUETA + 1) & ":" & (FILAS_ETIQUETA + 400)).Clear
+
+    MedirAreaImprimible ws
+    mZoom = DeterminarZoom(ws)
+    CalibrarBarras ws, campos
+    ReplicarBloques ws, 3
+    MarcarSaltos ws, 3
+
+    ' las tres etiquetas con los mismos datos
+    For b = 1 To 3
+        off = (b - 1) * FILAS_ETIQUETA
+        For i = LBound(campos) To UBound(campos)
+            EscribirCampo ws.Range(campos(i).Celda).Offset(off, 0), _
+                          wsOrigen.Cells(fila, campos(i).Col), campos(i), False
+        Next i
+    Next b
+
+    ' PRUEBA 2: tamaño de fuente calculado
+    off = FILAS_ETIQUETA
+    For i = LBound(campos) To UBound(campos)
+        If campos(i).Barras Then
+            Set celda = ws.Range(campos(i).Celda).Offset(off, 0)
+            If Len(CStr(celda.Value & "")) > 0 Then
+                tam = TamanoFuenteBarras(Len(CStr(celda.Value & "")), campos(i).AnchoPt)
+                If tam > 0 Then celda.Font.Size = tam
+            End If
+        End If
+    Next i
+
+    ' PRUEBA 3: Code 128 dibujado
+    off = 2 * FILAS_ETIQUETA
+    For i = LBound(campos) To UBound(campos)
+        If campos(i).Barras Then
+            texto = UCase$(TextoCelda(wsOrigen.Cells(fila, campos(i).Col)))
+            If Len(texto) > 0 Then
+                Set celda = ws.Range(campos(i).Celda).Offset(off, 0)
+                If DibujarBarras(celda, texto, AnchoExtraBarras(ws, off, celda)) Then
+                    celda.Value = ""
+                    dibujo = True
+                End If
+            End If
+        End If
+    Next i
+
+    ' marcar cada etiqueta en la línea de la serie
+    ws.Range("A17").Value = "PRUEBA 1 - fuente de la plantilla"
+    ws.Range("A17").Offset(FILAS_ETIQUETA, 0).Value = "PRUEBA 2 - fuente con tamano calculado"
+    ws.Range("A17").Offset(2 * FILAS_ETIQUETA, 0).Value = "PRUEBA 3 - Code 128 dibujado"
+
+    AjustarPagina ws, 3
+
+    RestaurarEstado
+    ws.Activate
+    ws.Range("A1").Select
+
+    MsgBox "Hoja """ & HOJA_PRUEBA & """ preparada con 3 etiquetas de la fila " & fila & "." & vbCrLf & _
+           String$(52, "-") & vbCrLf & _
+           "Código .............: " & TextoCelda(wsOrigen.Cells(fila, colProducto)) & vbCrLf & _
+           "Escala .............: " & mZoom & " %" & vbCrLf & _
+           "Ancho de fuente ....: " & IIf(mRatioFuente > 0, Format$(mRatioFuente, "0.000"), "no medido") & vbCrLf & _
+           "Code 128 dibujado ..: " & IIf(dibujo, "sí", "no") & vbCrLf & _
+           String$(52, "-") & vbCrLf & vbCrLf & _
+           "Imprímala con Ctrl+P (salen 3 etiquetas) y pruebe cuál lee la pistola:" & vbCrLf & vbCrLf & _
+           "   PRUEBA 1  fuente Code 39 como está en la plantilla" & vbCrLf & _
+           "   PRUEBA 2  fuente Code 39 con el tamaño calculado" & vbCrLf & _
+           "   PRUEBA 3  Code 128 dibujado con rectángulos" & vbCrLf & vbCrLf & _
+           "La hoja queda abierta para revisarla en pantalla. Bórrela cuando termine.", _
+           vbInformation, "Etiquetas - prueba de código"
+End Sub
 
 
 '==============================================================================================

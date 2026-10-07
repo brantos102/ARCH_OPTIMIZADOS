@@ -101,6 +101,7 @@ e imprima esa sola etiqueta.
 | Macro | Para qué |
 |---|---|
 | `ImprimirEtiquetas` | **la única entrada**: imprime las filas seleccionadas o las del filtro |
+| `EtiquetasPruebaCodigo` | arma una hoja con 3 variantes del código de barras, para ver cuál lee la pistola |
 | `EtiquetasDiagnostico` | informe de verificación: no imprime |
 | `ValidarDato` | función auxiliar heredada (`Módulo1`), por si alguna fórmula la usa |
 
@@ -113,7 +114,8 @@ e imprima esa sola etiqueta.
 | `TOPE_ETIQUETAS` | `10000` | tope de seguridad por corrida |
 | `AVISO_DESDE` | `300` | desde cuántas etiquetas se pide confirmación extra |
 | `ESCALA_FIJA` | `0` | `0` = calcular la escala; `1`-`100` = forzar ese porcentaje |
-| `BARRAS_DIBUJADAS` | `1` | `1` = Code 128 dibujado cuando el código no entra en Code 39; `0` = siempre Code 39; `2` = siempre Code 128 |
+| `AJUSTAR_FUENTE_BARRAS` | `False` | `True` = calcular el tamaño de fuente del código para que llene el ancho |
+| `BARRAS_DIBUJADAS` | `0` | `0` = siempre la fuente Code 39; `1` = Code 128 dibujado cuando el código no entra; `2` = siempre Code 128 |
 | `PUNTOS_BARRA_MIN` | `2` | puntos de impresora por barra fina a partir de los cuales se cambia a Code 128 |
 | `EXTENDER_BARRAS` | `True` | permitir que un código largo use el ancho de la derecha si ese recuadro está vacío |
 | `IMPRESORA_CONTIENE` | `"ZD421"` | texto que identifica a la Zebra |
@@ -142,6 +144,6 @@ en el armado y entre trabajos. `Esc` cancela de forma limpia.
 | "No hay filas visibles para imprimir" | el filtro no deja ninguna fila, o la selección está toda oculta |
 | Las etiquetas salen **muy pequeñas** o descolocadas | ejecute `EtiquetasDiagnostico`: muestra el área imprimible real, la escala calculada y si un lote de 2 ocupa 2 páginas |
 | Las etiquetas salen **cortadas** | el papel del driver es más chico que 100 × 50 mm: corríjalo en las preferencias de la impresora (tamaño definido por el usuario) |
-| El código de barras no se lee | los códigos largos salen en **Code 128**: compruebe que el lector lo tenga habilitado (viene de fábrica). `EtiquetasDiagnostico` informa a partir de cuántos caracteres se cambia de simbología |
+| El código de barras no se lee | ejecute `EtiquetasPruebaCodigo`: imprime 3 etiquetas de la misma fila con el código hecho de 3 maneras. Active en el módulo la que lea su pistola |
 | Salen etiquetas de filas que no seleccionó | compare con la hoja `ETQ_LOG`: si `ETQ_LOG` es correcto, lo que imprimió es un trabajo anterior encolado — vacíe la cola de impresión y repita |
 | Quedó una hoja `ETQ_LOTE` | se interrumpió el proceso: se puede borrar a mano, la siguiente corrida la borra sola |
