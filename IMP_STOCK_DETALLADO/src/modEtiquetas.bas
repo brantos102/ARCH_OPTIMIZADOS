@@ -656,16 +656,10 @@ Private Sub PrepararFormatos(ByVal ws As Worksheet, ByRef campos() As tCampo)
     On Error Resume Next
     For i = LBound(campos) To UBound(campos)
         If Not campos(i).Numero Then ws.Range(campos(i).Celda).NumberFormat = "@"
-        If campos(i).Barras And mRatioFuente > 0 Then
-            ' el tamaño de la fuente lo fija el módulo para cada código: sin esto Excel
-            ' encoge las barras hasta volverlas ilegibles.
-            ' Si la medición de la fuente hubiera fallado (mRatioFuente = 0) se deja el
-            ' "reducir hasta ajustar" de la plantilla, para no recortar nunca el código.
-            With ws.Range(campos(i).Celda)
-                .ShrinkToFit = False
-                .WrapText = False
-            End With
-        End If
+        ' El "reducir hasta ajustar" de la plantilla se deja puesto a propósito: el módulo
+        ' calcula el tamaño de fuente para que el código entre justo, y si ese cálculo se
+        ' quedara corto Excel lo encoge en lugar de recortarlo. Así una etiqueta nunca
+        ' puede salir sin código de barras.
         ws.Range(campos(i).Celda).ClearContents
     Next i
     On Error GoTo 0
@@ -1010,12 +1004,19 @@ End Function
 '----------------------------------------------------------------------------------------------
 Private Sub CalibrarBarras(ByVal ws As Worksheet, ByRef campos() As tCampo)
 
+    ' Las cadenas de prueba tienen que ser CORTAS: Excel topa el ancho de columna en
+    ' 255 caracteres (unos 1.342 puntos) y, pasado ese tope, AutoFit devuelve un valor
+    ' recortado. En una fuente de códigos de barras, donde cada carácter mide casi un
+    ' cuadratín, 20 caracteres a 100 pt ya se pasaban: la medición salía corta, el tamaño
+    ' calculado salía grande y la celda combinada recortaba el código.
     Const COL_PRUEBA As Long = 60       ' columna auxiliar, fuera del área de impresión
     Const FILA_PRUEBA As Long = 20
-    Const TAM_PRUEBA As Double = 100
+    Const TAM_PRUEBA As Double = 40
+    Const CAR_CORTO As Long = 4
+    Const CAR_LARGO As Long = 8
 
     Dim celda As Range
-    Dim w10 As Double, w20 As Double
+    Dim w10 As Double, w20 As Double, ratio As Double
     Dim i As Long
 
     mRatioFuente = 0
@@ -1036,19 +1037,22 @@ Private Sub CalibrarBarras(ByVal ws As Worksheet, ByRef campos() As tCampo)
     celda.Font.Name = ws.Range(campos(PrimerCampoBarras(campos)).Celda).Font.Name
     celda.Font.Size = TAM_PRUEBA
 
-    celda.Value = String$(10, "A")
+    celda.Value = String$(CAR_CORTO, "A")
     ws.Columns(COL_PRUEBA).AutoFit
     w10 = ws.Columns(COL_PRUEBA).Width
 
-    celda.Value = String$(20, "A")
+    celda.Value = String$(CAR_LARGO, "A")
     ws.Columns(COL_PRUEBA).AutoFit
     w20 = ws.Columns(COL_PRUEBA).Width
 
     celda.Clear
     ws.Columns(COL_PRUEBA).ColumnWidth = 11
 
-    ' la diferencia entre 20 y 10 caracteres elimina el relleno que agrega AutoFit
-    If w20 > w10 Then mRatioFuente = (w20 - w10) / (10 * TAM_PRUEBA)
+    ' la diferencia entre las dos longitudes elimina el relleno que agrega AutoFit
+    If w20 > w10 Then ratio = (w20 - w10) / ((CAR_LARGO - CAR_CORTO) * TAM_PRUEBA)
+
+    ' si la medición da algo inverosímil se descarta, y sigue mandando la plantilla
+    If ratio >= 0.2 And ratio <= 3 Then mRatioFuente = ratio
 
     On Error GoTo 0
 End Sub
@@ -1067,24 +1071,15 @@ End Function
 
 Private Function TamanoFuenteBarras(ByVal caracteres As Long, ByVal anchoPt As Double) As Double
 
-    Dim fuente As Double, xPt As Double, xPuntos As Double
-    Dim enteros As Long
+    Dim fuente As Double
 
     If caracteres <= 0 Or anchoPt <= 0 Or mRatioFuente <= 0 Or mZoom <= 0 Then Exit Function
 
-    ' tamaño que llena el ancho disponible
+    ' el mayor tamaño que entra en el ancho disponible, sin pasar del de la plantilla
     fuente = (anchoPt * MARGEN_BARRAS) / (caracteres * mRatioFuente)
     If fuente > FUENTE_BARRAS_MAX Then fuente = FUENTE_BARRAS_MAX
-
-    ' ancho de la barra fina, en puntos de impresora, ya con la escala de impresión aplicada
-    xPt = fuente * mRatioFuente / MODULOS_CARACTER
-    xPuntos = xPt * (mZoom / 100#) / 72# * DPI_IMPRESORA
-
-    ' ajustar a un número entero de puntos de impresora (hacia abajo: nunca recortar)
-    enteros = Int(xPuntos)
-    If enteros >= 1 And xPuntos > 0 Then fuente = fuente * enteros / xPuntos
-
     If fuente < 4 Then fuente = 4
+
     TamanoFuenteBarras = Int(fuente * 2) / 2       ' Excel trabaja en medios puntos
 End Function
 
@@ -1238,7 +1233,8 @@ Private Function PuntosImpresora(ByVal puntosHoja As Double) As Double
     PuntosImpresora = puntosHoja * (mZoom / 100#) / 72# * DPI_IMPRESORA
 End Function
 
-Private Sub DibujarBarras(ByVal celda As Range, ByVal texto As String, ByVal anchoExtraPt As Double)
+Private Function DibujarBarras(ByVal celda As Range, ByVal texto As String, _
+                               ByVal anchoExtraPt As Double) As Boolean
 
     Const QUIET As Long = 10          ' zona muda de Code 128, en modulos
 
@@ -1246,11 +1242,11 @@ Private Sub DibujarBarras(ByVal celda As Range, ByVal texto As String, ByVal anc
     Dim modulos As String
     Dim anchoPt As Double, altoPt As Double, topePt As Double
     Dim puntosMod As Long, anchoMod As Double, anchoTotal As Double
-    Dim x0 As Double, i As Long, largo As Long, seguidas As Long
+    Dim x0 As Double, i As Long, largo As Long, seguidas As Long, dibujadas As Long
 
     modulos = Code128Modulos(texto)
     largo = Len(modulos)
-    If largo = 0 Then Exit Sub
+    If largo = 0 Then Exit Function
 
     Set ws = celda.Worksheet
     Set area = celda.MergeArea
@@ -1281,9 +1277,19 @@ Private Sub DibujarBarras(ByVal celda As Range, ByVal texto As String, ByVal anc
             Do While Mid$(modulos, i + seguidas, 1) = "1"
                 seguidas = seguidas + 1
             Loop
+            Set fig = Nothing
+            On Error Resume Next
             Set fig = ws.Shapes.AddShape(msoShapeRectangle, _
                         x0 + (i - 1) * anchoMod, topePt, seguidas * anchoMod, altoPt)
+            On Error GoTo 0
+
+            ' si el dibujo no sale, se deja el código de la fuente Code 39
+            If fig Is Nothing Then Exit Function
+
             mNumBarras = mNumBarras + 1
+            dibujadas = dibujadas + 1
+
+            On Error Resume Next
             With fig
                 .Name = PREFIJO_BARRAS & mNumBarras
                 .Fill.Visible = msoTrue
@@ -1291,16 +1297,18 @@ Private Sub DibujarBarras(ByVal celda As Range, ByVal texto As String, ByVal anc
                 .Fill.ForeColor.RGB = RGB(0, 0, 0)
                 .Line.Visible = msoFalse
                 .Placement = xlMoveAndSize
-                On Error Resume Next
                 .Shadow.Visible = msoFalse
-                On Error GoTo 0
             End With
+            On Error GoTo 0
+
             i = i + seguidas
         Else
             i = i + 1
         End If
     Loop
-End Sub
+
+    DibujarBarras = (dibujadas > 0)
+End Function
 
 Private Sub BorrarBarrasDibujadas(ByVal ws As Worksheet)
     Dim i As Long
@@ -1343,8 +1351,11 @@ Private Sub ResolverBarrasBloque(ByVal wsLote As Worksheet, ByVal wsOrigen As Wo
             If Len(texto) > 0 Then
                 If DebeDibujar(texto, campos(i).AnchoPt) Then
                     Set celda = wsLote.Range(campos(i).Celda).Offset(off, 0)
-                    celda.Value = ""
-                    DibujarBarras celda, texto, AnchoExtraBarras(wsLote, off, celda)
+                    ' el texto Code 39 sólo se borra si las barras llegaron a dibujarse:
+                    ' una etiqueta nunca sale sin código
+                    If DibujarBarras(celda, texto, AnchoExtraBarras(wsLote, off, celda)) Then
+                        celda.Value = ""
+                    End If
                 End If
             End If
         End If
