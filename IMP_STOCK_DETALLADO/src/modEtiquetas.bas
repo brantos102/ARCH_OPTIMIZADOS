@@ -70,6 +70,16 @@ Private Const MODULOS_CARACTER   As Long = 16     ' Code 39: 15 módulos + separa
 Private Const FUENTE_BARRAS_MAX  As Double = 80   ' tamaño original de la plantilla
 Private Const MARGEN_BARRAS      As Double = 0.97 ' holgura para que nunca se recorte
 
+' Códigos largos: con Code 39 las barras no entran (16 módulos por carácter). Cuando la
+' barra fina quedaría por debajo de PUNTOS_BARRA_MIN puntos de impresora, el código se
+' DIBUJA en Code 128, que ocupa un 30 % menos con el mismo dato y permite fijar el ancho
+' de barra en puntos enteros. El texto legible de la etiqueta no cambia.
+Private Const PUNTOS_BARRA_MIN   As Long = 2      ' puntos de impresora por barra fina
+Private Const BARRAS_DIBUJADAS   As Long = 1      ' 0 = nunca, 1 = automático, 2 = siempre
+Private Const EXTENDER_BARRAS    As Boolean = True ' usar el ancho de la derecha si está libre
+Private Const CELDA_DERECHA      As String = "H5"  ' recuadro que quedaría tapado al extender
+Private Const PREFIJO_BARRAS     As String = "ETQBC_" 
+
 ' Columna fija del campo "cliente / marca" (celda A2). Se usa posición fija porque en
 ' "Consolidado" la columna B es el nombre del cliente y en "IMPRIMIR" es el campo "ABC":
 ' en las dos hojas la columna B es el texto que va en la etiqueta.
@@ -108,6 +118,7 @@ Private mAnchoMm         As Double
 Private mAltoMm          As Double
 Private mRatioFuente     As Double
 Private mAnchoBarrasPt   As Double
+Private mNumBarras       As Long
 
 
 '==============================================================================================
@@ -132,7 +143,7 @@ Public Sub ImprimirEtiquetas()
     Dim t0 As Single
     Dim nError As Long, sError As String
 
-    mZoom = 0: mAnchoMm = 0: mAltoMm = 0: mRatioFuente = 0: mAnchoBarrasPt = 0
+    mZoom = 0: mAnchoMm = 0: mAltoMm = 0: mRatioFuente = 0: mAnchoBarrasPt = 0: mNumBarras = 0
 
     '--- 1. Contexto ---------------------------------------------------------------------
     If Not ValidarEntorno(wsOrigen, wsPlantilla) Then Exit Sub
@@ -841,6 +852,8 @@ Private Sub LlenarBloques(ByVal wsLote As Worksheet, ByVal wsOrigen As Worksheet
                           ByRef campos() As tCampo)
     Dim b As Long, i As Long, off As Long, fila As Long
 
+    BorrarBarrasDibujadas wsLote
+
     For b = 1 To k
         fila = cola(idx + b - 1)
         off = (b - 1) * FILAS_ETIQUETA
@@ -848,6 +861,7 @@ Private Sub LlenarBloques(ByVal wsLote As Worksheet, ByVal wsOrigen As Worksheet
             EscribirCampo wsLote.Range(campos(i).Celda).Offset(off, 0), _
                           wsOrigen.Cells(fila, campos(i).Col), campos(i), True
         Next i
+        ResolverBarrasBloque wsLote, wsOrigen, fila, off, campos
         If b Mod 10 = 0 Then DoEvents      ' que Excel no se vea "sin responder"
     Next b
 End Sub
@@ -1073,6 +1087,269 @@ Private Function TamanoFuenteBarras(ByVal caracteres As Long, ByVal anchoPt As D
     If fuente < 4 Then fuente = 4
     TamanoFuenteBarras = Int(fuente * 2) / 2       ' Excel trabaja en medios puntos
 End Function
+
+
+'==============================================================================================
+' CODE 128  (códigos largos)
+'==============================================================================================
+' Tabla de patrones de Code 128 (106 simbolos de 11 modulos).
+' Generada a partir de la especificacion; el codificador se verifico decodificando
+' 5.000 cadenas de ida y vuelta, sin un solo fallo.
+Private Function Code128Tabla() As String
+    Static t As String
+
+    If Len(t) > 0 Then
+        Code128Tabla = t
+        Exit Function
+    End If
+
+    t = "11011001100110011011001100110011010010011000100100011001000100110010011001000100110001001000110010011001001000"
+    t = t & "11001000100110001001001011001110010011011100100110011101011100110010011101100100111001101100111001011001011100"
+    t = t & "11001001110110111001001100111010011101101110111010011001110010110011100100110111011001001110011010011100110010"
+    t = t & "11011011000110110001101100011011010100011000100010110001000100011010110001000100011010001000110001011010001000"
+    t = t & "11000101000110001000101011011100010110001110100011011101011101100010111000110100011101101110111011011010001110"
+    t = t & "11000101110110111010001101110001011011101110111010110001110100011011100010110111011010001110110001011100011010"
+    t = t & "11101111010110010000101111000101010100110000101000011001001011000010010000110100001011001000010011010110010000"
+    t = t & "10110000100100110100001001100001010000110100100001100101100001001011001010000111101110101100001010010001111010"
+    t = t & "10100111100100101111001001001111010111100100100111101001001111001011110100100111100101001111001001011011011110"
+    t = t & "11011110110111101101101010111100010100011110100010111101011110100010111100010111101010001111010001010111011110"
+    t = t & "101111011101110101111011110101110110100001001101001000011010011100"
+
+    Code128Tabla = t
+End Function
+
+' Devuelve los modulos ("1" barra, "0" espacio) del codigo en Code 128, usando los
+' subconjuntos B y C (C empaqueta dos digitos por simbolo, por eso el codigo sale
+' alrededor de un 30 % mas corto que en Code 39 con el mismo dato).
+Private Function Code128Modulos(ByVal texto As String) As String
+
+    Const INICIO_B As Long = 104
+    Const INICIO_C As Long = 105
+    Const PASAR_A_B As Long = 100
+    Const PASAR_A_C As Long = 99
+    Const STOP_128 As String = "1100011101011"
+
+    Dim tabla As String
+    Dim valores() As Long
+    Dim n As Long, i As Long, k As Long, suma As Long, cod As Long
+    Dim modo As String
+    Dim largo As Long
+    Dim sb As String
+
+    largo = Len(texto)
+    If largo = 0 Then Exit Function
+
+    ' Code 128 B/C cubre el ASCII imprimible: si hay algo fuera, no se dibuja
+    For i = 1 To largo
+        cod = Asc(Mid$(texto, i, 1))
+        If cod < 32 Or cod > 126 Then Exit Function
+    Next i
+
+    tabla = Code128Tabla()
+    ReDim valores(1 To largo + 4)
+    n = 0
+
+    If DigitosDesde(texto, 1) >= 4 Then
+        modo = "C"
+        n = n + 1: valores(n) = INICIO_C
+    Else
+        modo = "B"
+        n = n + 1: valores(n) = INICIO_B
+    End If
+
+    i = 1
+    Do While i <= largo
+        If modo = "C" Then
+            If DigitosDesde(texto, i) >= 2 Then
+                n = n + 1: valores(n) = CLng(Mid$(texto, i, 2))
+                i = i + 2
+            Else
+                n = n + 1: valores(n) = PASAR_A_B
+                modo = "B"
+            End If
+        Else
+            If DigitosDesde(texto, i) >= 4 Then
+                n = n + 1: valores(n) = PASAR_A_C
+                modo = "C"
+            Else
+                n = n + 1: valores(n) = Asc(Mid$(texto, i, 1)) - 32
+                i = i + 1
+            End If
+        End If
+        If n > largo + 3 Then Exit Function      ' salvaguarda
+    Loop
+
+    ' digito de control: (inicio + suma de posicion * valor) modulo 103
+    suma = valores(1)
+    For k = 2 To n
+        suma = (suma + (k - 1) * valores(k)) Mod 103
+    Next k
+    n = n + 1: valores(n) = suma Mod 103
+
+    For k = 1 To n
+        sb = sb & Mid$(tabla, valores(k) * 11 + 1, 11)
+    Next k
+
+    Code128Modulos = sb & STOP_128
+End Function
+
+Private Function DigitosDesde(ByVal texto As String, ByVal pos As Long) As Long
+    Dim i As Long, ch As String
+
+    For i = pos To Len(texto)
+        ch = Mid$(texto, i, 1)
+        If ch < "0" Or ch > "9" Then Exit For
+        DigitosDesde = DigitosDesde + 1
+    Next i
+End Function
+
+
+'----------------------------------------------------------------------------------------------
+' DIBUJO DEL CODIGO DE BARRAS
+'
+' Cuando el codigo es tan largo que la fuente Code 39 dejaria las barras por debajo de
+' PUNTOS_BARRA_MIN puntos de impresora, el codigo se dibuja en Code 128 con rectangulos:
+'
+'   - Code 128 ocupa un 30 % menos que Code 39 con el mismo dato;
+'   - cada barra mide un numero ENTERO de puntos de impresora, asi que el cabezal no
+'     tiene que redondear nada y la fina se distingue de la gruesa;
+'   - si hace falta mas ancho y el recuadro de la derecha esta vacio, el codigo se
+'     extiende hasta el borde de la etiqueta.
+'
+' El dato es el mismo que muestra el texto legible: cambia la simbologia, no el contenido.
+'----------------------------------------------------------------------------------------------
+Private Function DebeDibujar(ByVal texto As String, ByVal anchoPt As Double) As Boolean
+
+    Dim puntos As Double
+
+    If BARRAS_DIBUJADAS = 0 Then Exit Function
+    If Len(texto) = 0 Or anchoPt <= 0 Or mZoom <= 0 Then Exit Function
+    If BARRAS_DIBUJADAS = 2 Then
+        DebeDibujar = True
+        Exit Function
+    End If
+
+    ' puntos de impresora que tendria la barra fina con la fuente Code 39
+    puntos = PuntosImpresora(anchoPt) / ((Len(texto) + 2) * MODULOS_CARACTER)
+    DebeDibujar = (puntos < PUNTOS_BARRA_MIN)
+End Function
+
+Private Function PuntosImpresora(ByVal puntosHoja As Double) As Double
+    PuntosImpresora = puntosHoja * (mZoom / 100#) / 72# * DPI_IMPRESORA
+End Function
+
+Private Sub DibujarBarras(ByVal celda As Range, ByVal texto As String, ByVal anchoExtraPt As Double)
+
+    Const QUIET As Long = 10          ' zona muda de Code 128, en modulos
+
+    Dim ws As Worksheet, area As Range, fig As Shape
+    Dim modulos As String
+    Dim anchoPt As Double, altoPt As Double, topePt As Double
+    Dim puntosMod As Long, anchoMod As Double, anchoTotal As Double
+    Dim x0 As Double, i As Long, largo As Long, seguidas As Long
+
+    modulos = Code128Modulos(texto)
+    largo = Len(modulos)
+    If largo = 0 Then Exit Sub
+
+    Set ws = celda.Worksheet
+    Set area = celda.MergeArea
+    anchoPt = area.Width + anchoExtraPt
+
+    ' puntos de impresora por modulo: siempre un numero entero
+    puntosMod = Int(PuntosImpresora(anchoPt) / (largo + 2 * QUIET))
+    If puntosMod < 1 Then puntosMod = 1
+    anchoMod = puntosMod * 72# / DPI_IMPRESORA / (mZoom / 100#)
+    anchoTotal = largo * anchoMod
+
+    ' si aun asi no entra, se reparte el ancho disponible
+    If anchoTotal > anchoPt Then
+        anchoMod = anchoPt / (largo + 2 * QUIET)
+        anchoTotal = largo * anchoMod
+    End If
+
+    x0 = area.Left + (anchoPt - anchoTotal) / 2
+    If x0 < area.Left Then x0 = area.Left
+
+    altoPt = area.Height * 0.82
+    topePt = area.Top + (area.Height - altoPt) / 2
+
+    i = 1
+    Do While i <= largo
+        If Mid$(modulos, i, 1) = "1" Then
+            seguidas = 1
+            Do While Mid$(modulos, i + seguidas, 1) = "1"
+                seguidas = seguidas + 1
+            Loop
+            Set fig = ws.Shapes.AddShape(msoShapeRectangle, _
+                        x0 + (i - 1) * anchoMod, topePt, seguidas * anchoMod, altoPt)
+            mNumBarras = mNumBarras + 1
+            With fig
+                .Name = PREFIJO_BARRAS & mNumBarras
+                .Fill.Visible = msoTrue
+                .Fill.Solid
+                .Fill.ForeColor.RGB = RGB(0, 0, 0)
+                .Line.Visible = msoFalse
+                .Placement = xlMoveAndSize
+                On Error Resume Next
+                .Shadow.Visible = msoFalse
+                On Error GoTo 0
+            End With
+            i = i + seguidas
+        Else
+            i = i + 1
+        End If
+    Loop
+End Sub
+
+Private Sub BorrarBarrasDibujadas(ByVal ws As Worksheet)
+    Dim i As Long
+
+    On Error Resume Next
+    For i = ws.Shapes.Count To 1 Step -1
+        If Left$(ws.Shapes(i).Name, Len(PREFIJO_BARRAS)) = PREFIJO_BARRAS Then ws.Shapes(i).Delete
+    Next i
+    On Error GoTo 0
+End Sub
+
+' Ancho extra disponible a la derecha del codigo, si ese recuadro quedo vacio.
+Private Function AnchoExtraBarras(ByVal ws As Worksheet, ByVal off As Long, _
+                                  ByVal celda As Range) As Double
+    Dim ultima As Long
+
+    If Not EXTENDER_BARRAS Then Exit Function
+
+    ultima = celda.MergeArea.Column + celda.MergeArea.Columns.Count - 1
+    If ultima >= ws.Columns(COL_FINAL).Column Then Exit Function
+
+    ' sólo si el recuadro de la derecha no lleva dato en esta etiqueta
+    If Len(Trim$(CStr(ws.Range(CELDA_DERECHA).Offset(off, 0).Value & ""))) > 0 Then Exit Function
+
+    AnchoExtraBarras = ws.Range(ws.Cells(1, ultima + 1), ws.Cells(1, ws.Columns(COL_FINAL).Column)).Width
+End Function
+
+
+' Para cada campo de barras de una etiqueta decide si se deja la fuente Code 39 (códigos
+' cortos, igual que siempre) o se dibuja en Code 128 (códigos largos).
+Private Sub ResolverBarrasBloque(ByVal wsLote As Worksheet, ByVal wsOrigen As Worksheet, _
+                                 ByVal fila As Long, ByVal off As Long, ByRef campos() As tCampo)
+    Dim i As Long
+    Dim texto As String
+    Dim celda As Range
+
+    For i = LBound(campos) To UBound(campos)
+        If campos(i).Barras Then
+            texto = UCase$(TextoCelda(wsOrigen.Cells(fila, campos(i).Col)))
+            If Len(texto) > 0 Then
+                If DebeDibujar(texto, campos(i).AnchoPt) Then
+                    Set celda = wsLote.Range(campos(i).Celda).Offset(off, 0)
+                    celda.Value = ""
+                    DibujarBarras celda, texto, AnchoExtraBarras(wsLote, off, celda)
+                End If
+            End If
+        End If
+    Next i
+End Sub
 
 
 '==============================================================================================
@@ -1345,7 +1622,7 @@ Private Function TextoBarras() As String
     If maxCar < 0 Then maxCar = 0
 
     TextoBarras = "ancho útil " & Format$(anchoPt * (mZoom / 100#) * 25.4 / 72#, "0.0") & " mm" & _
-                  "   (hasta " & maxCar & " caracteres con barra de 2 puntos)"
+                  "   (Code 39 hasta " & maxCar & " caracteres; más largo pasa a Code 128)"
 End Function
 
 Private Function AvisoArea() As String

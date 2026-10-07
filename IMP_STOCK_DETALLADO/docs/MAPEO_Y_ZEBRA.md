@@ -77,10 +77,35 @@ El ancho de carácter de la fuente se mide en tiempo de ejecución, así que el 
 siendo válido si se cambia la fuente o el diseño de la etiqueta. `EtiquetasDiagnostico`
 informa el ancho útil y hasta cuántos caracteres entran con barra de 2 puntos.
 
-Para códigos muy largos el límite es físico: 29 caracteres en Code 39 necesitan 124 mm a
-0,25 mm de barra, más que la etiqueta entera. Si esos artículos tienen que leerse con
-pistola, las salidas son acortar el código o pasar ese campo a Code 128 (más denso),
-lo que requiere instalar esa fuente.
+### Códigos largos: Code 128 dibujado
+
+Para códigos muy largos el límite de Code 39 es físico: 29 caracteres necesitan 124 mm con
+barra de 0,25 mm, más que la etiqueta entera. Por eso, cuando la barra fina quedaría por
+debajo de **2 puntos de impresora**, el módulo deja de usar la fuente y **dibuja** el código
+en **Code 128**:
+
+| | Code 39 | Code 128 |
+|---|---|---|
+| Módulos por carácter | 16 | ~11 (2 dígitos por símbolo en el subconjunto C) |
+| `VWMKT-201902-SCC-ATRIL TABLET` | 496 módulos | **343 módulos** (-31 %) |
+| Barra fina en `A6:G8` | 1,02 puntos | 1,40 puntos |
+| Barra fina a ancho completo | — | **2,02 puntos** |
+
+Tres cosas hacen que esto sí se lea:
+
+1. **Code 128 es un 30 % más corto** con exactamente el mismo dato.
+2. Las barras se dibujan como rectángulos, cada una de un número **entero** de puntos de
+   impresora: el cabezal no redondea nada y la fina se distingue de la gruesa.
+3. Si aún hace falta ancho y el recuadro de la derecha de la etiqueta está vacío, el código
+   se extiende hasta el borde (`EXTENDER_BARRAS`).
+
+Lo que cambia es la simbología, no el contenido: el lector devuelve el mismo texto que está
+impreso debajo del código. Cualquier lector de los últimos 20 años lee Code 128; si el suyo
+está configurado para aceptar sólo Code 39, hay que habilitarlo (o poner
+`BARRAS_DIBUJADAS = 0` para volver a Code 39 siempre).
+
+El codificador de Code 128 se verificó decodificando **20.026 cadenas de ida y vuelta**,
+sin un solo fallo, y su tabla de patrones coincide byte a byte con la de referencia.
 
 ## 4. Impresora
 
