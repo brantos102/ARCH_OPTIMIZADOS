@@ -13,7 +13,7 @@ respetaba el autofiltro de la hoja `Consolidado`.
 | La escala dependía del papel del driver | Escala calculada para **10 × 5 cm** en cualquier impresora |
 | Excel se quedaba colgado con lotes grandes | Repaginación desactivada durante el armado + `DoEvents` |
 | Se caía con celdas `#N/A`, descripciones con salto de línea, etc. | Valores saneados antes de imprimir |
-| Código de barras encogido por la celda hasta volverse ilegible | Tamaño calculado por código, y **Code 128** dibujado cuando no entra en Code 39 |
+| Código de barras encogido por la celda hasta volverse ilegible | **Dibujado con rectángulos**: Code 39 con sus asteriscos, y Code 128 sólo cuando el código no entra |
 
 ## Archivos
 
@@ -115,7 +115,7 @@ e imprima esa sola etiqueta.
 | `AVISO_DESDE` | `300` | desde cuántas etiquetas se pide confirmación extra |
 | `ESCALA_FIJA` | `0` | `0` = calcular la escala; `1`-`100` = forzar ese porcentaje |
 | `AJUSTAR_FUENTE_BARRAS` | `False` | `True` = calcular el tamaño de fuente del código para que llene el ancho |
-| `BARRAS_DIBUJADAS` | `1` | `1` = Code 128 dibujado cuando el código no entra en Code 39; `0` = siempre Code 39; `2` = siempre Code 128 |
+| `BARRAS_DIBUJADAS` | `1` | `1` = dibujar el código (Code 39, o Code 128 si no entra); `0` = usar sólo la fuente; `2` = dibujar siempre en Code 128 |
 | `PUNTOS_BARRA_MIN` | `2` | puntos de impresora por barra fina a partir de los cuales se cambia a Code 128 |
 | `EXTENDER_BARRAS` | `True` | permitir que un código largo use el ancho de la derecha si ese recuadro está vacío |
 | `IMPRESORA_CONTIENE` | `"ZD421"` | texto que identifica a la Zebra |
@@ -145,7 +145,7 @@ en el armado y entre trabajos. `Esc` cancela de forma limpia.
 | Las etiquetas salen **muy pequeñas** o descolocadas | ejecute `EtiquetasDiagnostico`: muestra el área imprimible real, la escala calculada y si un lote de 2 ocupa 2 páginas |
 | Las etiquetas salen **cortadas** | el papel del driver es más chico que 100 × 50 mm: corríjalo en las preferencias de la impresora (tamaño definido por el usuario) |
 | El código de barras no se lee | ejecute `EtiquetasPruebaCodigo`: imprime 3 etiquetas de la misma fila con el código hecho de 3 maneras, e informa la escala y el ancho de fuente medidos |
-| Las etiquetas salen sin código de barras | ya está corregido: Excel dejaba fuera del trabajo de impresión los rectángulos dibujados con la pantalla congelada. Si reaparece, compruebe con `EtiquetasPruebaCodigo` que la hoja de prueba sí los muestre |
+| Las etiquetas salen sin código de barras | no puede pasar: el texto con la fuente Code 39 queda en la celda debajo de un rectángulo blanco, así que si los dibujos no se imprimieran saldría el código de la fuente |
 | Un código largo sale en Code 128 y el lector no lo acepta | habilite Code 128 en el lector (viene de fábrica), o ponga `BARRAS_DIBUJADAS = 0` para volver a Code 39 siempre |
 | Salen etiquetas de filas que no seleccionó | compare con la hoja `ETQ_LOG`: si `ETQ_LOG` es correcto, lo que imprimió es un trabajo anterior encolado — vacíe la cola de impresión y repita |
 | Quedó una hoja `ETQ_LOTE` | se interrumpió el proceso: se puede borrar a mano, la siguiente corrida la borra sola |

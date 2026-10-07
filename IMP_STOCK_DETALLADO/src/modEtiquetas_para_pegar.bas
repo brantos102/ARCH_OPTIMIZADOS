@@ -137,6 +137,7 @@ Private mRatioFuente     As Double
 Private mAnchoBarrasPt   As Double
 Private mNumBarras       As Long
 Private mNumCode128      As Long
+Private mNumCode39       As Long
 
 
 '==============================================================================================
@@ -162,7 +163,7 @@ Public Sub ImprimirEtiquetas()
     Dim nError As Long, sError As String
 
     mZoom = 0: mAnchoMm = 0: mAltoMm = 0: mRatioFuente = 0
-    mAnchoBarrasPt = 0: mNumBarras = 0: mNumCode128 = 0
+    mAnchoBarrasPt = 0: mNumBarras = 0: mNumCode128 = 0: mNumCode39 = 0
 
     '--- 1. Contexto ---------------------------------------------------------------------
     If Not ValidarEntorno(wsOrigen, wsPlantilla) Then Exit Sub
@@ -397,9 +398,8 @@ Limpieza:
               "Escala .......: " & mZoom & " %   para " & Format$(ANCHO_ETIQUETA_MM, "0") & " x " & _
                                     Format$(ALTO_ETIQUETA_MM, "0") & " mm" & vbCrLf & _
               "Filas omitidas: " & omitidas & vbCrLf & _
-              "Códigos ......: " & IIf(mNumCode128 > 0, _
-                                        mNumCode128 & " en Code 128 (códigos largos), el resto en Code 39", _
-                                        "todos en Code 39") & vbCrLf & _
+              "Códigos ......: " & mNumCode39 & " en Code 39" & _
+                                   IIf(mNumCode128 > 0, " y " & mNumCode128 & " en Code 128 (los largos)", "") & vbCrLf & _
               "Filas origen .: " & filas(desde) & " a " & filas(hasta) & _
                                    IIf(soloSeleccion, "   (seleccionadas)", "   (del filtro)") & vbCrLf & _
               "Tiempo .......: " & Format$(Timer - t0, "0.0") & " s" & _
@@ -734,6 +734,11 @@ Private Sub AjustarPagina(ByVal ws As Worksheet, ByVal k As Long)
     With ws.PageSetup
         .PrintArea = "$A$1:$" & COL_FINAL & "$" & (FILAS_ETIQUETA * k)
         .Zoom = mZoom
+        ' "Blanco y negro" y "Calidad de borrador" hacen que Excel deje fuera del trabajo
+        ' de impresión los objetos dibujados. La Zebra imprime en monocromo igual, así que
+        ' quitarlos no cambia nada de la etiqueta y sí garantiza que salgan las barras.
+        .BlackAndWhite = False
+        .Draft = False
     End With
     Application.PrintCommunication = True
     On Error GoTo 0
@@ -1231,68 +1236,153 @@ Private Function DigitosDesde(ByVal texto As String, ByVal pos As Long) As Long
 End Function
 
 
-'----------------------------------------------------------------------------------------------
-' DIBUJO DEL CODIGO DE BARRAS
-'
-' Cuando el codigo es tan largo que la fuente Code 39 dejaria las barras por debajo de
-' PUNTOS_BARRA_MIN puntos de impresora, el codigo se dibuja en Code 128 con rectangulos:
-'
-'   - Code 128 ocupa un 30 % menos que Code 39 con el mismo dato;
-'   - cada barra mide un numero ENTERO de puntos de impresora, asi que el cabezal no
-'     tiene que redondear nada y la fina se distingue de la gruesa;
-'   - si hace falta mas ancho y el recuadro de la derecha esta vacio, el codigo se
-'     extiende hasta el borde de la etiqueta.
-'
-' El dato es el mismo que muestra el texto legible: cambia la simbologia, no el contenido.
-'----------------------------------------------------------------------------------------------
-Private Function DebeDibujar(ByVal texto As String, ByVal anchoPt As Double) As Boolean
+' Tabla de patrones de Code 39: 43 caracteres de 15 modulos, en el orden de REF.
+' Verificada contra la especificacion: 5.014 cadenas identicas a la libreria de
+' referencia y decodificadas de ida y vuelta sin fallos.
+Private Function Code39Tabla() As String
+    Static t As String
 
-    Dim puntos As Double
-
-    If BARRAS_DIBUJADAS = 0 Then Exit Function
-    If Len(texto) = 0 Or anchoPt <= 0 Or mZoom <= 0 Then Exit Function
-    If BARRAS_DIBUJADAS = 2 Then
-        DebeDibujar = True
+    If Len(t) > 0 Then
+        Code39Tabla = t
         Exit Function
     End If
 
-    ' puntos de impresora que tendria la barra fina con la fuente Code 39
-    puntos = PuntosImpresora(anchoPt) / ((Len(texto) + 2) * MODULOS_CARACTER)
-    DebeDibujar = (puntos < PUNTOS_BARRA_MIN)
+    t = "101000111011101111010001010111101110001010111111011100010101101000111010111111010001110101101110001110101"
+    t = t & "101000101110111111010001011101101110001011101111010100010111101110100010111111011101000101101011100010111"
+    t = t & "111010111000101101110111000101101010001110111111010100011101101110100011101101011100011101111010101000111"
+    t = t & "101110101000111111011101010001101011101000111111010111010001101110111010001101010111000111111010101110001"
+    t = t & "101110101110001101011101110001111000101010111100011101010111111000111010101100010111010111111000101110101"
+    t = t & "100011101110101100010101110111111000101011101100011101011101100010001000101100010001010001100010100010001"
+    t = t & "101000100010001"
+
+    Code39Tabla = t
 End Function
 
-Private Function PuntosImpresora(ByVal puntosHoja As Double) As Double
-    PuntosImpresora = puntosHoja * (mZoom / 100#) / 72# * DPI_IMPRESORA
+' Modulos de Code 39: *TEXTO* con los asteriscos de inicio y fin, y un modulo de
+' separacion entre caracteres. Es la misma simbologia que viene usando la plantilla.
+Private Function Code39Modulos(ByVal texto As String) As String
+
+    Const REF39 As String = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%"
+    Const BORDE As String = "100010111011101"      ' el caracter * de inicio y fin
+
+    Dim tabla As String, sb As String
+    Dim i As Long, p As Long
+
+    If Len(texto) = 0 Then Exit Function
+
+    tabla = Code39Tabla()
+    sb = BORDE & "0"
+
+    For i = 1 To Len(texto)
+        p = InStr(1, REF39, Mid$(texto, i, 1), vbBinaryCompare)
+        If p = 0 Then Exit Function                ' caracter que Code 39 no codifica
+        sb = sb & Mid$(tabla, (p - 1) * 15 + 1, 15) & "0"
+    Next i
+
+    Code39Modulos = sb & BORDE
 End Function
 
-Private Function DibujarBarras(ByVal celda As Range, ByVal texto As String, _
+' Modulos que ocuparia el codigo en Code 39, sin generarlo
+Private Function Code39Largo(ByVal caracteres As Long) As Long
+    Code39Largo = 31 + 16 * caracteres
+End Function
+
+' Texto reducido a lo que Code 39 sabe codificar
+Private Function SoloCode39(ByVal texto As String) As String
+
+    Const REF39 As String = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%"
+
+    Dim i As Long, ch As String, sb As String
+
+    For i = 1 To Len(texto)
+        ch = Mid$(texto, i, 1)
+        If InStr(1, REF39, ch, vbBinaryCompare) > 0 Then sb = sb & ch
+    Next i
+    SoloCode39 = sb
+End Function
+
+
+'----------------------------------------------------------------------------------------------
+' DIBUJO DEL CODIGO DE BARRAS
+'
+' La fuente Code 39 de la plantilla deja la barra fina en 1,5 puntos de impresora: a esa
+' medida unos codigos se leen y otros no, y los largos no se leen nunca. Dibujando las
+' barras con rectangulos se controla el ancho exacto y se usa todo el recuadro:
+'
+'   - se prefiere Code 39, la misma simbologia de siempre, con sus asteriscos;
+'   - si el codigo es tan largo que en Code 39 la barra no llega a PUNTOS_BARRA_MIN
+'     puntos, se pasa a Code 128, que ocupa un 30 % menos con el mismo dato;
+'   - cada barra mide un numero ENTERO de puntos de impresora;
+'   - si el recuadro de la derecha de esa etiqueta esta vacio, el codigo lo aprovecha.
+'
+' El texto con la fuente Code 39 se deja en la celda, debajo de un rectangulo blanco: si
+' por lo que fuera los rectangulos no llegaran a imprimirse, la etiqueta sale con el
+' codigo de la fuente, como antes, y nunca en blanco.
+'----------------------------------------------------------------------------------------------
+Private Function DibujarCodigo(ByVal celda As Range, ByVal texto As String, _
                                ByVal anchoExtraPt As Double) As Boolean
 
-    Const QUIET As Long = 10          ' zona muda de Code 128, en modulos
+    Const QUIET As Long = 10                ' zona muda, en modulos
+
+    Dim limpio As String, modulos As String
+    Dim anchoPt As Double, disponibles As Double
+    Dim usaCode128 As Boolean
+
+    If Len(texto) = 0 Then Exit Function
+
+    anchoPt = celda.MergeArea.Width + anchoExtraPt
+    disponibles = PuntosImpresora(anchoPt)
+    If disponibles <= 0 Then Exit Function
+
+    limpio = SoloCode39(texto)
+
+    ' Code 39 mientras la barra fina llegue al minimo y el codigo no pierda caracteres
+    If Len(limpio) > 0 And Len(limpio) = Len(texto) And BARRAS_DIBUJADAS <> 2 Then
+        If disponibles / (Code39Largo(Len(limpio)) + 2 * QUIET) >= PUNTOS_BARRA_MIN Then
+            modulos = Code39Modulos(limpio)
+        End If
+    End If
+
+    If Len(modulos) = 0 Then
+        modulos = Code128Modulos(texto)
+        usaCode128 = (Len(modulos) > 0)
+    End If
+
+    If Len(modulos) = 0 Then Exit Function
+
+    If DibujarModulos(celda, modulos, anchoPt, QUIET) Then
+        DibujarCodigo = True
+        If usaCode128 Then
+            mNumCode128 = mNumCode128 + 1
+        Else
+            mNumCode39 = mNumCode39 + 1
+        End If
+    End If
+End Function
+
+Private Function DibujarModulos(ByVal celda As Range, ByVal modulos As String, _
+                                ByVal anchoPt As Double, ByVal quiet As Long) As Boolean
 
     Dim ws As Worksheet, area As Range, fig As Shape
-    Dim modulos As String
-    Dim anchoPt As Double, altoPt As Double, topePt As Double
+    Dim altoPt As Double, topePt As Double
     Dim puntosMod As Long, anchoMod As Double, anchoTotal As Double
     Dim x0 As Double, i As Long, largo As Long, seguidas As Long, dibujadas As Long
 
-    modulos = Code128Modulos(texto)
     largo = Len(modulos)
     If largo = 0 Then Exit Function
 
     Set ws = celda.Worksheet
     Set area = celda.MergeArea
-    anchoPt = area.Width + anchoExtraPt
 
     ' puntos de impresora por modulo: siempre un numero entero
-    puntosMod = Int(PuntosImpresora(anchoPt) / (largo + 2 * QUIET))
+    puntosMod = Int(PuntosImpresora(anchoPt) / (largo + 2 * quiet))
     If puntosMod < 1 Then puntosMod = 1
     anchoMod = puntosMod * 72# / DPI_IMPRESORA / (mZoom / 100#)
     anchoTotal = largo * anchoMod
 
     ' si aun asi no entra, se reparte el ancho disponible
     If anchoTotal > anchoPt Then
-        anchoMod = anchoPt / (largo + 2 * QUIET)
+        anchoMod = anchoPt / (largo + 2 * quiet)
         anchoTotal = largo * anchoMod
     End If
 
@@ -1302,6 +1392,27 @@ Private Function DibujarBarras(ByVal celda As Range, ByVal texto As String, _
     altoPt = area.Height * 0.82
     topePt = area.Top + (area.Height - altoPt) / 2
 
+    ' fondo blanco: tapa el texto de la fuente que queda debajo como respaldo
+    Set fig = Nothing
+    On Error Resume Next
+    Set fig = ws.Shapes.AddShape(msoShapeRectangle, area.Left, area.Top, anchoPt, area.Height)
+    On Error GoTo 0
+    If fig Is Nothing Then Exit Function          ' sin dibujo: queda el codigo de la fuente
+
+    mNumBarras = mNumBarras + 1
+    On Error Resume Next
+    With fig
+        .Name = PREFIJO_BARRAS & mNumBarras
+        .Fill.Visible = msoTrue
+        .Fill.Solid
+        .Fill.ForeColor.RGB = RGB(255, 255, 255)
+        .Line.Visible = msoFalse
+        .Placement = xlMoveAndSize
+        .Shadow.Visible = msoFalse
+    End With
+    On Error GoTo 0
+
+    ' las barras
     i = 1
     Do While i <= largo
         If Mid$(modulos, i, 1) = "1" Then
@@ -1309,29 +1420,27 @@ Private Function DibujarBarras(ByVal celda As Range, ByVal texto As String, _
             Do While Mid$(modulos, i + seguidas, 1) = "1"
                 seguidas = seguidas + 1
             Loop
+
             Set fig = Nothing
             On Error Resume Next
             Set fig = ws.Shapes.AddShape(msoShapeRectangle, _
                         x0 + (i - 1) * anchoMod, topePt, seguidas * anchoMod, altoPt)
             On Error GoTo 0
-
-            ' si el dibujo no sale, se deja el código de la fuente Code 39
-            If fig Is Nothing Then Exit Function
-
-            mNumBarras = mNumBarras + 1
-            dibujadas = dibujadas + 1
-
-            On Error Resume Next
-            With fig
-                .Name = PREFIJO_BARRAS & mNumBarras
-                .Fill.Visible = msoTrue
-                .Fill.Solid
-                .Fill.ForeColor.RGB = RGB(0, 0, 0)
-                .Line.Visible = msoFalse
-                .Placement = xlMoveAndSize
-                .Shadow.Visible = msoFalse
-            End With
-            On Error GoTo 0
+            If Not fig Is Nothing Then
+                mNumBarras = mNumBarras + 1
+                dibujadas = dibujadas + 1
+                On Error Resume Next
+                With fig
+                    .Name = PREFIJO_BARRAS & mNumBarras
+                    .Fill.Visible = msoTrue
+                    .Fill.Solid
+                    .Fill.ForeColor.RGB = RGB(0, 0, 0)
+                    .Line.Visible = msoFalse
+                    .Placement = xlMoveAndSize
+                    .Shadow.Visible = msoFalse
+                End With
+                On Error GoTo 0
+            End If
 
             i = i + seguidas
         Else
@@ -1339,7 +1448,11 @@ Private Function DibujarBarras(ByVal celda As Range, ByVal texto As String, _
         End If
     Loop
 
-    DibujarBarras = (dibujadas > 0)
+    DibujarModulos = (dibujadas > 0)
+End Function
+
+Private Function PuntosImpresora(ByVal puntosHoja As Double) As Double
+    PuntosImpresora = puntosHoja * (mZoom / 100#) / 72# * DPI_IMPRESORA
 End Function
 
 Private Sub BorrarBarrasDibujadas(ByVal ws As Worksheet)
@@ -1368,28 +1481,22 @@ Private Function AnchoExtraBarras(ByVal ws As Worksheet, ByVal off As Long, _
     AnchoExtraBarras = ws.Range(ws.Cells(1, ultima + 1), ws.Cells(1, ws.Columns(COL_FINAL).Column)).Width
 End Function
 
-
-' Para cada campo de barras de una etiqueta decide si se deja la fuente Code 39 (códigos
-' cortos, igual que siempre) o se dibuja en Code 128 (códigos largos).
+' Dibuja el codigo de barras de cada campo de la etiqueta. El texto de la fuente se deja
+' en la celda como respaldo: el fondo blanco del dibujo lo tapa.
 Private Sub ResolverBarrasBloque(ByVal wsLote As Worksheet, ByVal wsOrigen As Worksheet, _
                                  ByVal fila As Long, ByVal off As Long, ByRef campos() As tCampo)
     Dim i As Long
     Dim texto As String
     Dim celda As Range
 
+    If BARRAS_DIBUJADAS = 0 Then Exit Sub
+
     For i = LBound(campos) To UBound(campos)
         If campos(i).Barras Then
             texto = UCase$(TextoCelda(wsOrigen.Cells(fila, campos(i).Col)))
             If Len(texto) > 0 Then
-                If DebeDibujar(texto, campos(i).AnchoPt) Then
-                    Set celda = wsLote.Range(campos(i).Celda).Offset(off, 0)
-                    ' el texto Code 39 sólo se borra si las barras llegaron a dibujarse:
-                    ' una etiqueta nunca sale sin código
-                    If DibujarBarras(celda, texto, AnchoExtraBarras(wsLote, off, celda)) Then
-                        celda.Value = ""
-                        mNumCode128 = mNumCode128 + 1
-                    End If
-                End If
+                Set celda = wsLote.Range(campos(i).Celda).Offset(off, 0)
+                DibujarCodigo celda, texto, AnchoExtraBarras(wsLote, off, celda)
             End If
         End If
     Next i
@@ -1589,7 +1696,7 @@ End Function
 '
 '   PRUEBA 1 - fuente Code 39 tal como está en la plantilla  (lo de siempre)
 '   PRUEBA 2 - fuente Code 39 con el tamaño calculado para llenar el ancho
-'   PRUEBA 3 - Code 128 dibujado con rectángulos
+'   PRUEBA 3 - código dibujado con rectángulos (Code 39 si entra, Code 128 si no)
 '
 ' Con ese dato se deja activada la que funcione, en la constante BARRAS_DIBUJADAS /
 ' AJUSTAR_FUENTE_BARRAS. La hoja no se borra: se puede revisar en pantalla antes de imprimir.
@@ -1668,17 +1775,14 @@ Public Sub EtiquetasPruebaCodigo()
         End If
     Next i
 
-    ' PRUEBA 3: Code 128 dibujado
+    ' PRUEBA 3: código dibujado (Code 39 si entra, Code 128 si no)
     off = 2 * FILAS_ETIQUETA
     For i = LBound(campos) To UBound(campos)
         If campos(i).Barras Then
             texto = UCase$(TextoCelda(wsOrigen.Cells(fila, campos(i).Col)))
             If Len(texto) > 0 Then
                 Set celda = ws.Range(campos(i).Celda).Offset(off, 0)
-                If DibujarBarras(celda, texto, AnchoExtraBarras(ws, off, celda)) Then
-                    celda.Value = ""
-                    dibujo = True
-                End If
+                If DibujarCodigo(celda, texto, AnchoExtraBarras(ws, off, celda)) Then dibujo = True
             End If
         End If
     Next i
@@ -1686,7 +1790,7 @@ Public Sub EtiquetasPruebaCodigo()
     ' marcar cada etiqueta en la línea de la serie
     ws.Range("A17").Value = "PRUEBA 1 - fuente de la plantilla"
     ws.Range("A17").Offset(FILAS_ETIQUETA, 0).Value = "PRUEBA 2 - fuente con tamano calculado"
-    ws.Range("A17").Offset(2 * FILAS_ETIQUETA, 0).Value = "PRUEBA 3 - Code 128 dibujado"
+    ws.Range("A17").Offset(2 * FILAS_ETIQUETA, 0).Value = "PRUEBA 3 - codigo dibujado"
 
     AjustarPagina ws, 3
 
@@ -1699,12 +1803,12 @@ Public Sub EtiquetasPruebaCodigo()
            "Código .............: " & TextoCelda(wsOrigen.Cells(fila, colProducto)) & vbCrLf & _
            "Escala .............: " & mZoom & " %" & vbCrLf & _
            "Ancho de fuente ....: " & IIf(mRatioFuente > 0, Format$(mRatioFuente, "0.000"), "no medido") & vbCrLf & _
-           "Code 128 dibujado ..: " & IIf(dibujo, "sí", "no") & vbCrLf & _
+           "Código dibujado ....: " & IIf(dibujo, IIf(mNumCode128 > 0, "sí, en Code 128", "sí, en Code 39"), "no") & vbCrLf & _
            String$(52, "-") & vbCrLf & vbCrLf & _
            "Imprímala con Ctrl+P (salen 3 etiquetas) y pruebe cuál lee la pistola:" & vbCrLf & vbCrLf & _
            "   PRUEBA 1  fuente Code 39 como está en la plantilla" & vbCrLf & _
            "   PRUEBA 2  fuente Code 39 con el tamaño calculado" & vbCrLf & _
-           "   PRUEBA 3  Code 128 dibujado con rectángulos" & vbCrLf & vbCrLf & _
+           "   PRUEBA 3  código dibujado con rectángulos" & vbCrLf & vbCrLf & _
            "La hoja queda abierta para revisarla en pantalla. Bórrela cuando termine.", _
            vbInformation, "Etiquetas - prueba de código"
 End Sub

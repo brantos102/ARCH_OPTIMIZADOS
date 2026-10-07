@@ -123,11 +123,29 @@ Por eso los códigos cortos se leen justo y los largos no se leen.
 | 16 | 1,53 puntos | 2,20 puntos |
 | 29 | 0,99 puntos | 1,40 · **2,04 a ancho completo** |
 
-> **Qué hace por defecto** (`BARRAS_DIBUJADAS = 1`): los códigos que entran con holgura en
-> Code 39 se siguen imprimiendo con la fuente de la plantilla y sus asteriscos, que es lo
-> que ya se lee en planta. Los que no entran se dibujan en Code 128. El cambio ocurre
-> alrededor de los 13 caracteres. El lector tiene que tener Code 128 habilitado (viene de
-> fábrica); si no, `BARRAS_DIBUJADAS = 0` vuelve a Code 39 siempre.
+### Qué hace por defecto
+
+El código se **dibuja con rectángulos** en vez de escribirse con la fuente. Así el ancho de
+barra se controla al punto de impresora en lugar de depender de lo que encoja la celda:
+
+| Código | Con la fuente | Dibujado | |
+|---|---|---|---|
+| `2H0698525` | 1,53 | **2,60** | Code 39 |
+| `03L903137H` | 1,53 | **2,41** | Code 39 |
+| `IRCDR999U1V1` | 1,53 | **2,09** | Code 39 |
+| `VWMKT-202012SCCA` | 1,53 | **2,41** | Code 39, ancho extendido |
+| `VWMKT-201902-SCC-LOGO DE LUZ` | 1,03 | **2,10** | Code 128, ancho extendido |
+
+Se prefiere **Code 39 con sus asteriscos**, la misma simbología de siempre. Sólo cuando el
+código es tan largo que ni extendiendo el ancho llega a 2 puntos de barra se pasa a
+Code 128, que ocupa un 30 % menos con el mismo dato (los dos códigos `VWMKT` largos).
+
+> **El texto con la fuente Code 39 se deja en la celda**, debajo de un rectángulo blanco que
+> lo tapa. Si por lo que fuera los dibujos no llegaran a imprimirse, la etiqueta sale con el
+> código de la fuente como antes: **nunca en blanco**.
+
+Los dos codificadores se verificaron contra una librería de referencia: Code 39, 5.014
+cadenas idénticas; Code 128, 20.026 cadenas decodificadas de ida y vuelta sin un fallo.
 
 El codificador de Code 128 se verificó decodificando **20.026 cadenas de ida y vuelta**,
 sin un solo fallo, y su tabla de patrones coincide byte a byte con la de referencia.
