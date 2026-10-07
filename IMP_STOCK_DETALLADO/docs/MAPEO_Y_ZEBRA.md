@@ -1,0 +1,220 @@
+# Mapeo de la etiqueta y configuración de la Zebra ZD421
+
+## 1. La plantilla `ETQ`
+
+Área de impresión `A1:J17` = **una etiqueta**. Celdas combinadas y su contenido:
+
+```
+ A2:F4   cliente / marca                       H3:J4   categoría lógica (DISPONIBLE...)
+ A5:B5   "CODIGO:"                             H5:J7   nro_despacho
+ A6:G8   *CODIGO*  <- código de barras (Code 39, fuente Free 3 of 9 Extended 80 pt)
+ A9:G9   código legible                        H8      "QTY"      J8   "ESTADO"
+ A10:D10 "DESCRIPCION:"                        H10:H11 cantidad   I10:I11 unidad   J10:J11 estado
+ A11:G13 descripción                           H13:J13 "RESPONSABLE"
+ A14:B14 "SERIE:"                              H14:J14 nro_partida  <- responsable
+ A15:G16 *SERIE*   <- código de barras
+ A17:G17 serie legible
+```
+
+## 2. Mapeo celda ← columna de origen
+
+| Celda `ETQ` | Encabezado buscado | Columna fija (respaldo) | Notas |
+|---|---|---|---|
+| `A2`  | — (posición fija) | **2** (`B`) | `Consolidado`: `cliente_id`; `IMPRIMIR`: `ABC` |
+| `H3`  | `categoria_logica` | 9 (`I`) | |
+| `H5`  | `nro_despacho` | 7 (`G`) | |
+| `A6`  | `producto_id` | 3 (`C`) | **código de barras** `*VALOR*`, en mayúsculas |
+| `A9`  | `producto_id` | 3 (`C`) | texto legible |
+| `H10` | `cantidad` | 13 (`M`) | QTY, se conserva como número |
+| `I10` | `unidad_medida` | 12 (`L`) | |
+| `J10` | `estado_mercaderia` | 10 (`J`) | |
+| `A11` | `descripcion` | 4 (`D`) | se eliminan saltos de línea |
+| `H14` | `nro_partida` | 8 (`H`) | recuadro RESPONSABLE |
+| `A15` | `nro_serie` | 5 (`E`) | **código de barras** `*VALOR*` |
+| `A17` | `nro_serie` | 5 (`E`) | texto legible |
+
+El mapeo es idéntico al de la macro original cuando se imprime desde `Consolidado`.
+Desde `IMPRIMIR`, la búsqueda por encabezado corrige el cruce entre `nro_partida` y
+`nro_despacho` que tenía la versión anterior.
+
+Para ver el mapeo que se está aplicando en la hoja activa: macro
+**`EtiquetasDiagnostico`**.
+
+## 3. Código de barras (Code 39)
+
+La fuente `Free 3 of 9 Extended` sólo codifica:
+
+```
+0-9   A-Z   -   .   espacio   $   /   +   %
+```
+
+El módulo pasa el valor a **mayúsculas** y descarta lo que la fuente no sabe dibujar, para
+que no queden barras basura en medio del código. El valor completo y sin tocar se imprime
+igual en texto legible debajo (`A9` / `A17`) y queda registrado en `ETQ_LOG`.
+
+### Ancho de la barra fina
+
+Es lo que decide si el lector puede leer el código. En Code 39 cada carácter ocupa 16
+módulos (15 + separación), y el área `A6:G8` mide **63,5 mm** impresos, o sea 508 puntos a
+203 ppp:
+
+| Caracteres | Módulos | Barra fina | Lectura |
+|---|---|---|---|
+| 9 | 176 | 2,9 puntos · 0,36 mm | holgada |
+| 12 | 224 | 2,3 puntos · 0,28 mm | holgada |
+| 14 | 256 | 2,0 puntos · 0,25 mm | correcta |
+| 18 | 320 | 1,6 puntos · 0,20 mm | justa |
+| 29 | 496 | 1,0 punto · 0,13 mm | al límite del cabezal |
+
+Con el "Reducir hasta ajustar" de la celda, Excel encogía la fuente sin mirar nada de esto
+y las barras terminaban pegadas unas a otras. Ahora el módulo **calcula el tamaño de fuente
+de cada código**: lo agranda hasta ocupar todo el ancho disponible (sin pasarse del tamaño
+original de la plantilla, para que los códigos cortos salgan igual que siempre) y lo ajusta
+para que la barra fina caiga en un número **entero** de puntos de impresora, que es lo que
+permite al lector distinguir barra fina de barra gruesa.
+
+El ancho de carácter de la fuente se mide en tiempo de ejecución, así que el cálculo sigue
+siendo válido si se cambia la fuente o el diseño de la etiqueta. `EtiquetasDiagnostico`
+informa el ancho útil y hasta cuántos caracteres entran con barra de 2 puntos.
+
+### Códigos largos: Code 128 dibujado
+
+Para códigos muy largos el límite de Code 39 es físico: 29 caracteres necesitan 124 mm con
+barra de 0,25 mm, más que la etiqueta entera. Por eso, cuando la barra fina quedaría por
+debajo de **2 puntos de impresora**, el módulo deja de usar la fuente y **dibuja** el código
+en **Code 128**:
+
+| | Code 39 | Code 128 |
+|---|---|---|
+| Módulos por carácter | 16 | ~11 (2 dígitos por símbolo en el subconjunto C) |
+| `VWMKT-201902-SCC-ATRIL TABLET` | 496 módulos | **343 módulos** (-31 %) |
+| Barra fina en `A6:G8` | 1,02 puntos | 1,40 puntos |
+| Barra fina a ancho completo | — | **2,02 puntos** |
+
+Tres cosas hacen que esto sí se lea:
+
+1. **Code 128 es un 30 % más corto** con exactamente el mismo dato.
+2. Las barras se dibujan como rectángulos, cada una de un número **entero** de puntos de
+   impresora: el cabezal no redondea nada y la fina se distingue de la gruesa.
+3. Si aún hace falta ancho y el recuadro de la derecha de la etiqueta está vacío, el código
+   se extiende hasta el borde (`EXTENDER_BARRAS`).
+
+Lo que cambia es la simbología, no el contenido: el lector devuelve el mismo texto que está
+impreso debajo del código.
+
+### Medición real sobre la plantilla
+
+`EtiquetasPruebaCodigo` midió en la máquina el ancho de carácter de la fuente:
+**0,375 em**. Con eso, a los 80 pt de la plantilla:
+
+| | |
+|---|---|
+| Ancho que ocupa un código de 9 caracteres | 53 % del recuadro |
+| Barra fina resultante | **1,53 puntos de impresora** (0,19 mm) |
+
+Esa es la razón de fondo: a 80 pt la fuente no llega a llenar el recuadro, y subir el
+tamaño no es opción porque el alto de la celda combinada (82,5 pt) recortaría las barras.
+Por eso los códigos cortos se leen justo y los largos no se leen.
+
+| Caracteres | Code 39 (fuente) | Code 128 (dibujado) |
+|---|---|---|
+| 9 | 1,53 puntos | 3,55 puntos |
+| 12 | 1,53 puntos | 2,72 puntos |
+| 16 | 1,53 puntos | 2,20 puntos |
+| 29 | 0,99 puntos | 1,40 · **2,04 a ancho completo** |
+
+### Qué hace por defecto
+
+El código se **dibuja con rectángulos** en vez de escribirse con la fuente. Así el ancho de
+barra se controla al punto de impresora en lugar de depender de lo que encoja la celda:
+
+El código **nunca sale del recuadro `A6:G8`** que le asigna la hoja `ETQ`: no invade el
+espacio de la cantidad, el estado ni el responsable.
+
+| Código | Simbología | Barra fina |
+|---|---|---|
+| `2H0698525` | Code 39 | **2 puntos** · 0,25 mm |
+| `03L903137H` | Code 39 | **2 puntos** · 0,25 mm |
+| `IRCDR999U1V1` | Code 39 | **2 puntos** · 0,25 mm |
+| `2HH857508AS9B9` | Code 128 | **2 puntos** · 0,25 mm |
+| `VWMKT-202012SCCA` | Code 128 | **2 puntos** · 0,25 mm |
+| `VWMKT-201902-SCC-LOGO DE LUZ` | Code 128 | 1 punto (máximo posible en el recuadro) |
+
+Se prefiere **Code 39 con sus asteriscos**, la misma simbología de siempre. Sólo cuando el
+código no llega a 2 puntos de barra se pasa a Code 128, que ocupa un 30 % menos con el
+mismo dato. Del ancho se reserva la zona muda izquierda; la derecha sale del blanco que
+queda en la etiqueta, que es donde sobra espacio.
+
+Para los tres códigos `VWMKT` más largos, 1 punto es el máximo físico dentro del recuadro:
+caben 28 caracteres sólo a 0,125 mm de barra. Si esos artículos tienen que leerse con
+pistola, la salida es acortar el código en el maestro de productos.
+
+> **El texto con la fuente Code 39 se deja en la celda**, debajo de un rectángulo blanco que
+> lo tapa. Si por lo que fuera los dibujos no llegaran a imprimirse, la etiqueta sale con el
+> código de la fuente como antes: **nunca en blanco**.
+
+Los dos codificadores se verificaron contra una librería de referencia: Code 39, 5.014
+cadenas idénticas; Code 128, 20.026 cadenas decodificadas de ida y vuelta sin un fallo.
+
+El codificador de Code 128 se verificó decodificando **20.026 cadenas de ida y vuelta**,
+sin un solo fallo, y su tabla de patrones coincide byte a byte con la de referencia.
+
+## 4. Impresora
+
+El libro ya trae guardada la configuración de `ZDesigner ZD421-203dpi ZPL`:
+
+| Parámetro | Valor |
+|---|---|
+| Papel | definido por el usuario, **100 x 50 mm** (3,94 x 1,97 pulg.) |
+| Resolución | 203 x 203 ppp |
+| Orientación | vertical |
+| Márgenes | 0 en los cuatro lados |
+| Color | blanco y negro |
+| Escala | ajustar a 1 página de ancho |
+
+El módulo comprueba que la impresora activa contenga el texto `ZD421`
+(constante `IMPRESORA_CONTIENE`). Si no, intenta seleccionarla automáticamente (consulta
+`Win32_Printer`) y, si tampoco la encuentra, pregunta antes de imprimir en otra impresora.
+Al terminar deja la impresora activa como estaba.
+
+### Recomendaciones del lado de la impresora
+
+1. **Calibrar el medio** antes de un lote grande (botón de alimentación o utilidad de Zebra),
+   para que el sensor de espacio detecte bien la etiqueta de 50 mm.
+2. En el driver, `Propiedades de impresora > Preferencias`: tamaño **100 x 50 mm**,
+   `Darkness` entre 15 y 20 para barras nítidas en papel térmico, velocidad 4 ips o menor.
+3. Desactivar `Spool`/`Imprimir directamente en la impresora` sólo si la cola se traba:
+   lo normal con lotes de 100 páginas es dejar el spooler activo.
+4. Si al imprimir aparecen etiquetas en blanco intercaladas, es paginación: use la vista
+   previa del paso 4 y revise con `EtiquetasDiagnostico` la escala medida.
+
+## 5. Cómo se calcula la escala de impresión  (10 x 5 cm en cualquier impresora)
+
+La hoja `ETQ` imprime con "ajustar a 1 página": Excel calcula solo el porcentaje con el que
+las columnas `A:J` y las 17 filas entran en la etiqueta de 100 x 50 mm. Ese ajuste **no se
+puede trasladar tal cual** a una hoja con muchas etiquetas, porque se aplicaría al lote
+completo en vez de a cada etiqueta.
+
+Y además la etiqueta mide siempre 10 x 5 cm, use la Zebra u otra impresora. Por eso la
+escala se **calcula** para que el bloque `A1:J17` ocupe exactamente ese tamaño:
+
+```
+escala = el menor de    ancho etiqueta / ancho del bloque
+                        alto  etiqueta / alto  del bloque
+```
+
+`Range.Width` y `Range.Height` devuelven puntos, así que el cálculo es exacto y no depende
+del driver. Con la plantilla actual:
+
+| | |
+|---|---|
+| Bloque `A1:J17` | 904,5 x 524,2 pt |
+| Etiqueta 10 x 5 cm | 283,5 x 141,7 pt |
+| Escala | **27 %** (limita el alto: 524,2 x 0,27 = 49,9 mm) |
+
+Aparte se **mide el área imprimible real**: al 100 % se mira dónde corta Excel la página y
+se suman los anchos de columna y los altos de fila que entraron. Si el papel configurado en
+el driver es más chico que la etiqueta, el módulo avisa antes de imprimir en vez de sacar
+etiquetas cortadas. El dato aparece en `EtiquetasDiagnostico`.
+
+Con `ESCALA_FIJA` se puede forzar un porcentaje concreto y saltarse el cálculo.

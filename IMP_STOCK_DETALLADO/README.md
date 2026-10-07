@@ -1,0 +1,151 @@
+# IMP_STOCK_DETALLADO — impresión de etiquetas en lote (Zebra ZD421)
+
+Código VBA optimizado para la impresión de etiquetas de `IMP_STOCK_DETALLADO.xlsm`.
+Sustituye a la macro `VistaPreviaEImpresion`, que imprimía etiqueta por etiqueta y no
+respetaba el autofiltro de la hoja `Consolidado`.
+
+| Antes | Ahora |
+|---|---|
+| Imprimía también las filas ocultas por el filtro | Sólo filas **visibles**; si hay selección, manda la selección |
+| 1 trabajo de impresión por etiqueta (200 etiquetas = 200 trabajos, cola saturada) | **1 trabajo por cada 100 etiquetas**, una página = una etiqueta |
+| La primera etiqueta se perdía en la vista previa | Se imprimen todas, exactamente una vez |
+| 1 copia por fila, sin opción | **Copias a elegir**: número fijo o la columna `CANTIDAD` |
+| La escala dependía del papel del driver | Escala calculada para **10 × 5 cm** en cualquier impresora |
+| Excel se quedaba colgado con lotes grandes | Repaginación desactivada durante el armado + `DoEvents` |
+| Se caía con celdas `#N/A`, descripciones con salto de línea, etc. | Valores saneados antes de imprimir |
+| Código de barras encogido por la celda hasta volverse ilegible | **Dibujado con rectángulos**: Code 39 con sus asteriscos, y Code 128 sólo cuando el código no entra |
+
+## Archivos
+
+```
+src/modEtiquetas.bas              módulo del motor de impresión (para IMPORTAR)
+src/Modulo1.bas                   reemplazo de Módulo1: sólo queda ValidarDato
+src/*_para_pegar.bas              los mismos módulos para COPIAR Y PEGAR
+src/_original/                    código tal como estaba en el .xlsm (respaldo)
+docs/ANALISIS.md                  análisis del VBA original y defectos corregidos
+docs/MAPEO_Y_ZEBRA.md             mapeo celda <- columna y configuración de la ZD421
+```
+
+> **Importar o pegar, pero no mezclar.** Los `.bas` empiezan con líneas `Attribute ...` que
+> el editor de VBA sólo acepta al **importar** el archivo. Si copia y pega ese contenido,
+> al compilar aparece **"Atributo no válido en Sub o Function"**: para pegar use los
+> archivos `*_para_pegar.bas`.
+
+## Instalación
+
+1. Abrir `IMP_STOCK_DETALLADO.xlsm` y **guardar una copia de respaldo**.
+2. `Alt + F11` para abrir el editor de VBA.
+3. Si ya tenía una versión anterior: clic derecho sobre `modEtiquetas` > `Quitar modEtiquetas...` > *No*.
+4. `Archivo > Importar archivo...` y elegir `src/modEtiquetas.bas`.
+5. **Reemplazar `Módulo1`**: clic derecho > `Quitar Módulo1...` > *No*, y después
+   `Archivo > Importar archivo...` con `src/Modulo1.bas`.
+   Este paso es obligatorio: el `Módulo1` viejo llama a una macro que ya no existe y el
+   proyecto no compilaría.
+6. `Depuración > Compilar VBAProject` para verificar que no hay errores.
+7. Guardar como `.xlsm`.
+
+### Combinación de teclas
+
+`Vista > Macros > ImprimirEtiquetas > Opciones...` y escribir la letra deseada.
+
+El atajo **no** viene guardado en el código a propósito: se guardaría con una línea
+`Attribute`, y esa línea pegada en el editor produce *Error de sintaxis*. Así los dos
+archivos (`.bas` para importar y `*_para_pegar.bas` para pegar) funcionan igual.
+
+## Uso
+
+1. En `Consolidado`, aplicar los filtros de siempre.
+2. **Seleccionar las filas** que se quieren etiquetar (una, dos, las que sean; con `Ctrl`
+   se eligen salteadas).
+3. Lanzar `ImprimirEtiquetas` con la combinación de teclas.
+4. Responder **una sola pregunta**: cuántas copias de cada fila.
+
+```
+ETIQUETAS
+--------------------------------------------
+Filas a imprimir: 2   (seleccionadas)
+Impresora: ZDesigner ZD421-203dpi ZPL
+--------------------------------------------
+
+Copias de CADA fila:
+
+     1        una etiqueta por fila
+     2, 3 ... ese número de copias de cada fila
+     C        usar la columna CANTIDAD de cada fila
+```
+
+Aceptar e imprime. Nada más.
+
+- **Sin filas seleccionadas**, antes pregunta cuántas filas del filtro imprimir
+  (`TODAS`, `100`, `101-300`).
+- A partir de **300 etiquetas** pide una confirmación extra.
+- Al terminar informa cuántas etiquetas se enviaron, en cuántos trabajos, la escala
+  aplicada, el rango de filas de origen usado y los avisos de código de barras.
+
+### Comprobar qué se imprimió
+
+Cada envío escribe la hoja **`ETQ_LOG`** con una línea por fila de origen: número de fila,
+cliente, `producto_id`, descripción, serie y cuántas etiquetas generó. Sirve para contrastar
+el papel que salió de la impresora con lo que se mandó. Se sobrescribe en cada corrida.
+
+> Si lo que sale de la Zebra no coincide con `ETQ_LOG`, lo que está saliendo es un trabajo
+> anterior que seguía en la cola: vacíela (`Configuración > Impresoras > ZD421 > Abrir cola`,
+> `Impresora > Cancelar todos los documentos`) y repita.
+
+No hay vista previa: la ventana de vista previa de Excel tiene su propio botón *Imprimir*
+y usarlo duplicaba el lote. Para verificar antes de un lote grande, seleccione **una fila**
+e imprima esa sola etiqueta.
+
+### Macros
+
+| Macro | Para qué |
+|---|---|
+| `ImprimirEtiquetas` | **la única entrada**: imprime las filas seleccionadas o las del filtro |
+| `EtiquetasPruebaCodigo` | arma una hoja con 3 variantes del código de barras, para ver cuál lee la pistola |
+| `EtiquetasDiagnostico` | informe de verificación: no imprime |
+| `ValidarDato` | función auxiliar heredada (`Módulo1`), por si alguna fórmula la usa |
+
+## Ajustes (parte superior de `modEtiquetas.bas`)
+
+| Constante | Valor | Para qué |
+|---|---|---|
+| `ANCHO_ETIQUETA_MM` / `ALTO_ETIQUETA_MM` | `100` / `50` | tamaño físico de la etiqueta. La escala se calcula para que el bloque `A1:J17` mida exactamente esto |
+| `PAGINAS_POR_TRABAJO` | `100` | etiquetas por trabajo de impresión. Si la cola del driver se atasca, bajar a `50` |
+| `TOPE_ETIQUETAS` | `10000` | tope de seguridad por corrida |
+| `AVISO_DESDE` | `300` | desde cuántas etiquetas se pide confirmación extra |
+| `ESCALA_FIJA` | `0` | `0` = calcular la escala; `1`-`100` = forzar ese porcentaje |
+| `AJUSTAR_FUENTE_BARRAS` | `False` | `True` = calcular el tamaño de fuente del código para que llene el ancho |
+| `BARRAS_DIBUJADAS` | `1` | `1` = dibujar el código (Code 39, o Code 128 si no entra); `0` = usar sólo la fuente; `2` = dibujar siempre en Code 128 |
+| `PUNTOS_BARRA_MIN` | `2` | puntos de impresora por barra fina a partir de los cuales se cambia a Code 128 |
+| `EXTENDER_BARRAS` | `False` | `False` = el código nunca sale de su recuadro (respeta el formato de `ETQ`) |
+| `IMPRESORA_CONTIENE` | `"ZD421"` | texto que identifica a la Zebra |
+| `REGISTRO_LOTE` | `True` | escribe la hoja `ETQ_LOG` con qué fila generó cada etiqueta |
+| `ACTUALIZAR_ETQ` | `True` | deja cargada en `ETQ` la primera etiqueta del lote |
+| `CONSERVAR_LOTE` | `False` | `True` = no borra `ETQ_LOTE` (para revisar el lote armado) |
+
+## Rendimiento
+
+La tabla `Consolidado` tiene 130.180 filas. Un lote de 100 etiquetas se arma con 7
+operaciones de copiado y se envía en **1 solo trabajo de impresión**; el tiempo que tarda
+después es el del driver rasterizando las páginas, no el de Excel.
+
+Para que Excel no se quede "sin responder" durante el armado: la repaginación automática de
+la hoja temporal se desactiva (`DisplayPageBreaks = False`, era la causa principal del
+cuelgue), los formatos se aplican una vez antes de replicar los bloques, y hay `DoEvents`
+en el armado y entre trabajos. `Esc` cancela de forma limpia.
+
+## Si algo sale mal
+
+| Síntoma | Causa / solución |
+|---|---|
+| `Atributo no válido en Sub o Function` o `Error de sintaxis` en una línea `Attribute` | se pegó un `.bas` en vez de importarlo: borre esa línea, o use los `*_para_pegar.bas` |
+| `Sub o Function no definida` al compilar | falta reemplazar `Módulo1` por el nuevo (paso 5 de la instalación) |
+| "Debe estar en la hoja Consolidado o IMPRIMIR" | ejecutar la macro con esa hoja activa |
+| "No hay filas visibles para imprimir" | el filtro no deja ninguna fila, o la selección está toda oculta |
+| Las etiquetas salen **muy pequeñas** o descolocadas | ejecute `EtiquetasDiagnostico`: muestra el área imprimible real, la escala calculada y si un lote de 2 ocupa 2 páginas |
+| Las etiquetas salen **cortadas** | el papel del driver es más chico que 100 × 50 mm: corríjalo en las preferencias de la impresora (tamaño definido por el usuario) |
+| El código de barras no se lee | ejecute `EtiquetasPruebaCodigo`: imprime 3 etiquetas de la misma fila con el código hecho de 3 maneras, e informa la escala y el ancho de fuente medidos |
+| Las etiquetas salen sin código de barras | no puede pasar: el texto con la fuente Code 39 queda en la celda debajo de un rectángulo blanco, así que si los dibujos no se imprimieran saldría el código de la fuente |
+| Un código largo sale en Code 128 y el lector no lo acepta | habilite Code 128 en el lector (viene de fábrica), o ponga `BARRAS_DIBUJADAS = 0` para volver a Code 39 siempre |
+| Salen etiquetas de filas que no seleccionó | compare con la hoja `ETQ_LOG`: si `ETQ_LOG` es correcto, lo que imprimió es un trabajo anterior encolado — vacíe la cola de impresión y repita |
+| Quedó una hoja `ETQ_LOTE` | se interrumpió el proceso: se puede borrar a mano, la siguiente corrida la borra sola |
