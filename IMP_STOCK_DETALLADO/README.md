@@ -145,6 +145,7 @@ en el armado y entre trabajos. `Esc` cancela de forma limpia.
 | Las etiquetas salen **muy pequeñas** o descolocadas | ejecute `EtiquetasDiagnostico`: muestra el área imprimible real, la escala calculada y si un lote de 2 ocupa 2 páginas |
 | Las etiquetas salen **cortadas** | el papel del driver es más chico que 100 × 50 mm: corríjalo en las preferencias de la impresora (tamaño definido por el usuario) |
 | El código de barras no se lee | ejecute `EtiquetasPruebaCodigo`: imprime 3 etiquetas de la misma fila con el código hecho de 3 maneras, e informa la escala y el ancho de fuente medidos |
+| Las etiquetas salen sin código de barras | ya está corregido: Excel dejaba fuera del trabajo de impresión los rectángulos dibujados con la pantalla congelada. Si reaparece, compruebe con `EtiquetasPruebaCodigo` que la hoja de prueba sí los muestre |
 | Un código largo sale en Code 128 y el lector no lo acepta | habilite Code 128 en el lector (viene de fábrica), o ponga `BARRAS_DIBUJADAS = 0` para volver a Code 39 siempre |
 | Salen etiquetas de filas que no seleccionó | compare con la hoja `ETQ_LOG`: si `ETQ_LOG` es correcto, lo que imprimió es un trabajo anterior encolado — vacíe la cola de impresión y repita |
 | Quedó una hoja `ETQ_LOTE` | se interrumpió el proceso: se puede borrar a mano, la siguiente corrida la borra sola |

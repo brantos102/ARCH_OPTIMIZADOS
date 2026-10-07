@@ -332,9 +332,19 @@ Public Sub ImprimirEtiquetas()
 
         Application.StatusBar = "Enviando a imprimir: etiquetas " & idx & " a " & (idx + k - 1) & _
                                " de " & nCola & "  (" & impresoraUsada & ")"
+
+        ' IMPORTANTE: los rectángulos del código de barras se acaban de dibujar con la
+        ' pantalla congelada, y en ese estado Excel puede dejarlos fuera del trabajo de
+        ' impresión. Se refresca la pantalla y se activa la hoja antes de imprimir, que es
+        ' exactamente lo que hace la hoja de prueba cuando se imprime a mano y sí sale.
+        Application.ScreenUpdating = True
+        wsLote.Activate
         DoEvents
+
         wsLote.PrintOut Copies:=1, Collate:=True
+
         DoEvents
+        Application.ScreenUpdating = False
 
         nTrabajos = nTrabajos + 1
         impresas = impresas + k
