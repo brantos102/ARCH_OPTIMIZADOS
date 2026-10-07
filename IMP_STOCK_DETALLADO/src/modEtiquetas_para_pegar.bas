@@ -93,7 +93,7 @@ Private Const MARGEN_BARRAS      As Double = 0.97 ' holgura para que nunca se re
 Private Const PUNTOS_BARRA_MIN   As Long = 2      ' puntos de impresora por barra fina
 Private Const AJUSTAR_FUENTE_BARRAS As Boolean = False  ' True = calcular el tamaño de fuente
 Private Const BARRAS_DIBUJADAS   As Long = 1      ' 0 = nunca, 1 = automático, 2 = siempre
-Private Const EXTENDER_BARRAS    As Boolean = True ' usar el ancho de la derecha si está libre
+Private Const EXTENDER_BARRAS    As Boolean = False ' False = el código no sale de su recuadro
 Private Const CELDA_DERECHA      As String = "H5"  ' recuadro que quedaría tapado al extender
 Private Const PREFIJO_BARRAS     As String = "ETQBC_" 
 
@@ -1313,7 +1313,8 @@ End Function
 '   - si el codigo es tan largo que en Code 39 la barra no llega a PUNTOS_BARRA_MIN
 '     puntos, se pasa a Code 128, que ocupa un 30 % menos con el mismo dato;
 '   - cada barra mide un numero ENTERO de puntos de impresora;
-'   - si el recuadro de la derecha de esa etiqueta esta vacio, el codigo lo aprovecha.
+'   - el codigo se queda SIEMPRE dentro del recuadro que le asigna la hoja ETQ: no invade
+'     el espacio de la cantidad, el estado ni el responsable.
 '
 ' El texto con la fuente Code 39 se deja en la celda, debajo de un rectangulo blanco: si
 ' por lo que fuera los rectangulos no llegaran a imprimirse, la etiqueta sale con el
@@ -1331,6 +1332,9 @@ Private Function DibujarCodigo(ByVal celda As Range, ByVal texto As String, _
     If Len(texto) = 0 Then Exit Function
 
     anchoPt = celda.MergeArea.Width + anchoExtraPt
+    If anchoPt > celda.MergeArea.Width And Not EXTENDER_BARRAS Then
+        anchoPt = celda.MergeArea.Width       ' el código no sale de su recuadro
+    End If
     disponibles = PuntosImpresora(anchoPt)
     If disponibles <= 0 Then Exit Function
 
@@ -1338,7 +1342,7 @@ Private Function DibujarCodigo(ByVal celda As Range, ByVal texto As String, _
 
     ' Code 39 mientras la barra fina llegue al minimo y el codigo no pierda caracteres
     If Len(limpio) > 0 And Len(limpio) = Len(texto) And BARRAS_DIBUJADAS <> 2 Then
-        If disponibles / (Code39Largo(Len(limpio)) + 2 * QUIET) >= PUNTOS_BARRA_MIN Then
+        If disponibles / (Code39Largo(Len(limpio)) + QUIET) >= PUNTOS_BARRA_MIN Then
             modulos = Code39Modulos(limpio)
         End If
     End If
@@ -1374,45 +1378,29 @@ Private Function DibujarModulos(ByVal celda As Range, ByVal modulos As String, _
     Set ws = celda.Worksheet
     Set area = celda.MergeArea
 
-    ' puntos de impresora por modulo: siempre un numero entero
-    puntosMod = Int(PuntosImpresora(anchoPt) / (largo + 2 * quiet))
+    ' Puntos de impresora por modulo: siempre un numero ENTERO, para que todas las barras
+    ' finas midan lo mismo y el lector pueda distinguirlas de las gruesas.
+    ' Del ancho se reserva la zona muda de la izquierda (quiet modulos); la de la derecha
+    ' sale del blanco que queda en la etiqueta, que es donde sobra espacio.
+    puntosMod = Int(PuntosImpresora(anchoPt) / (largo + quiet))
     If puntosMod < 1 Then puntosMod = 1
     anchoMod = puntosMod * 72# / DPI_IMPRESORA / (mZoom / 100#)
     anchoTotal = largo * anchoMod
 
     ' si aun asi no entra, se reparte el ancho disponible
-    If anchoTotal > anchoPt Then
-        anchoMod = anchoPt / (largo + 2 * quiet)
+    If anchoTotal + quiet * anchoMod > anchoPt Then
+        anchoMod = anchoPt / (largo + quiet)
         anchoTotal = largo * anchoMod
     End If
 
-    x0 = area.Left + (anchoPt - anchoTotal) / 2
-    If x0 < area.Left Then x0 = area.Left
+    x0 = area.Left + quiet * anchoMod
 
     altoPt = area.Height * 0.82
     topePt = area.Top + (area.Height - altoPt) / 2
 
-    ' fondo blanco: tapa el texto de la fuente que queda debajo como respaldo
-    Set fig = Nothing
-    On Error Resume Next
-    Set fig = ws.Shapes.AddShape(msoShapeRectangle, area.Left, area.Top, anchoPt, area.Height)
-    On Error GoTo 0
-    If fig Is Nothing Then Exit Function          ' sin dibujo: queda el codigo de la fuente
-
-    mNumBarras = mNumBarras + 1
-    On Error Resume Next
-    With fig
-        .Name = PREFIJO_BARRAS & mNumBarras
-        .Fill.Visible = msoTrue
-        .Fill.Solid
-        .Fill.ForeColor.RGB = RGB(255, 255, 255)
-        .Line.Visible = msoFalse
-        .Placement = xlMoveAndSize
-        .Shadow.Visible = msoFalse
-    End With
-    On Error GoTo 0
-
-    ' las barras
+    ' Primero las barras. El fondo blanco va DESPUÉS y sólo si se dibujó alguna: así, si
+    ' por lo que fuera no se pudieran crear los rectángulos, no queda un recuadro blanco
+    ' tapando el texto y la etiqueta sale con el código de la fuente, como antes.
     i = 1
     Do While i <= largo
         If Mid$(modulos, i, 1) = "1" Then
@@ -1448,7 +1436,29 @@ Private Function DibujarModulos(ByVal celda As Range, ByVal modulos As String, _
         End If
     Loop
 
-    DibujarModulos = (dibujadas > 0)
+    If dibujadas = 0 Then Exit Function
+
+    ' fondo blanco detrás de las barras: tapa el texto de la fuente que queda de respaldo
+    Set fig = Nothing
+    On Error Resume Next
+    Set fig = ws.Shapes.AddShape(msoShapeRectangle, area.Left, area.Top, _
+                                 area.Width, area.Height)
+    If Not fig Is Nothing Then
+        mNumBarras = mNumBarras + 1
+        With fig
+            .Name = PREFIJO_BARRAS & mNumBarras
+            .Fill.Visible = msoTrue
+            .Fill.Solid
+            .Fill.ForeColor.RGB = RGB(255, 255, 255)
+            .Line.Visible = msoFalse
+            .Placement = xlMoveAndSize
+            .Shadow.Visible = msoFalse
+            .ZOrder msoSendToBack
+        End With
+    End If
+    On Error GoTo 0
+
+    DibujarModulos = True
 End Function
 
 Private Function PuntosImpresora(ByVal puntosHoja As Double) As Double

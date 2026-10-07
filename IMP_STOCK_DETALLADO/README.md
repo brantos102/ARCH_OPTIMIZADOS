@@ -117,7 +117,7 @@ e imprima esa sola etiqueta.
 | `AJUSTAR_FUENTE_BARRAS` | `False` | `True` = calcular el tamaño de fuente del código para que llene el ancho |
 | `BARRAS_DIBUJADAS` | `1` | `1` = dibujar el código (Code 39, o Code 128 si no entra); `0` = usar sólo la fuente; `2` = dibujar siempre en Code 128 |
 | `PUNTOS_BARRA_MIN` | `2` | puntos de impresora por barra fina a partir de los cuales se cambia a Code 128 |
-| `EXTENDER_BARRAS` | `True` | permitir que un código largo use el ancho de la derecha si ese recuadro está vacío |
+| `EXTENDER_BARRAS` | `False` | `False` = el código nunca sale de su recuadro (respeta el formato de `ETQ`) |
 | `IMPRESORA_CONTIENE` | `"ZD421"` | texto que identifica a la Zebra |
 | `REGISTRO_LOTE` | `True` | escribe la hoja `ETQ_LOG` con qué fila generó cada etiqueta |
 | `ACTUALIZAR_ETQ` | `True` | deja cargada en `ETQ` la primera etiqueta del lote |

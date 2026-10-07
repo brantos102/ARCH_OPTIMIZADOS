@@ -128,17 +128,26 @@ Por eso los códigos cortos se leen justo y los largos no se leen.
 El código se **dibuja con rectángulos** en vez de escribirse con la fuente. Así el ancho de
 barra se controla al punto de impresora en lugar de depender de lo que encoja la celda:
 
-| Código | Con la fuente | Dibujado | |
-|---|---|---|---|
-| `2H0698525` | 1,53 | **2,60** | Code 39 |
-| `03L903137H` | 1,53 | **2,41** | Code 39 |
-| `IRCDR999U1V1` | 1,53 | **2,09** | Code 39 |
-| `VWMKT-202012SCCA` | 1,53 | **2,41** | Code 39, ancho extendido |
-| `VWMKT-201902-SCC-LOGO DE LUZ` | 1,03 | **2,10** | Code 128, ancho extendido |
+El código **nunca sale del recuadro `A6:G8`** que le asigna la hoja `ETQ`: no invade el
+espacio de la cantidad, el estado ni el responsable.
+
+| Código | Simbología | Barra fina |
+|---|---|---|
+| `2H0698525` | Code 39 | **2 puntos** · 0,25 mm |
+| `03L903137H` | Code 39 | **2 puntos** · 0,25 mm |
+| `IRCDR999U1V1` | Code 39 | **2 puntos** · 0,25 mm |
+| `2HH857508AS9B9` | Code 128 | **2 puntos** · 0,25 mm |
+| `VWMKT-202012SCCA` | Code 128 | **2 puntos** · 0,25 mm |
+| `VWMKT-201902-SCC-LOGO DE LUZ` | Code 128 | 1 punto (máximo posible en el recuadro) |
 
 Se prefiere **Code 39 con sus asteriscos**, la misma simbología de siempre. Sólo cuando el
-código es tan largo que ni extendiendo el ancho llega a 2 puntos de barra se pasa a
-Code 128, que ocupa un 30 % menos con el mismo dato (los dos códigos `VWMKT` largos).
+código no llega a 2 puntos de barra se pasa a Code 128, que ocupa un 30 % menos con el
+mismo dato. Del ancho se reserva la zona muda izquierda; la derecha sale del blanco que
+queda en la etiqueta, que es donde sobra espacio.
+
+Para los tres códigos `VWMKT` más largos, 1 punto es el máximo físico dentro del recuadro:
+caben 28 caracteres sólo a 0,125 mm de barra. Si esos artículos tienen que leerse con
+pistola, la salida es acortar el código en el maestro de productos.
 
 > **El texto con la fuente Code 39 se deja en la celda**, debajo de un rectángulo blanco que
 > lo tapa. Si por lo que fuera los dibujos no llegaran a imprimirse, la etiqueta sale con el
