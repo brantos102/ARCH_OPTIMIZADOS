@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>{{CODIGO_DOCUMENTO}}_{{CLIENTE}}_{{VERSION}}</title>
+<!--
+  PLANTILLA MAESTRA EN BLANCO - ITSA / Itsanet
+  Base visual: COT-2026-005_Impoventura_v1.pdf   |   Marca: ITSA_BRANDBOOK_V2
+  Campos: todo lo que va entre llaves dobles se reemplaza por un dato.
+  Bloques repetibles: delimitados por los marcadores INICIO_ITEMS / FIN_ITEMS y
+  INICIO_CONDICIONES / FIN_CONDICIONES. El bloque se repite una vez por registro,
+  de modo que la cotizacion admite cualquier numero de servicios.
+  Impresion: A4 vertical. Chrome - Imprimir - Guardar como PDF - activar "Graficos de fondo".
+-->
+<style>
+  @font-face{font-family:'Schibsted Grotesk';src:url('../assets/fonts/SchibstedGrotesk-400.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
+  @font-face{font-family:'Schibsted Grotesk';src:url('../assets/fonts/SchibstedGrotesk-500.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap}
+  @font-face{font-family:'Schibsted Grotesk';src:url('../assets/fonts/SchibstedGrotesk-600.woff2') format('woff2');font-weight:600;font-style:normal;font-display:swap}
+  @font-face{font-family:'Schibsted Grotesk';src:url('../assets/fonts/SchibstedGrotesk-700.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+
+  /* ---- Tokens de marca (Brandbook ITSA) ---- */
+  :root{
+    --azul:#1c58d7;          /* primario */
+    --azul-60:#1749B3; --azul-80:#0E2C6B;
+    --tint-10:#D2DEF7; --tint-20:#B3C7F2;
+    --gris-fondo:#F7F7F7; --gris-linea:#D6D6D6; --gris-num:#C2C2C2;
+    --gris-label:#858585; --gris-texto:#5C5D5D; --negro:#0C0C0C;
+    --fuente:'Schibsted Grotesk','Inter',Arial,Helvetica,sans-serif;
+  }
+
+  @page{ size:A4; margin:30mm 20mm 16mm 20mm; }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:var(--fuente);font-size:10pt;line-height:1.45;color:var(--negro);
+       -webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff}
+
+  /* ---- Encabezado: el thead de .hoja se repite en todas las páginas ---- */
+  table.hoja{width:100%;border-collapse:collapse;table-layout:auto}
+  table.hoja > thead > tr > th,
+  table.hoja > tbody > tr > td{border:0;padding:0;text-align:left;font-weight:400}
+  table.hoja > thead > tr > th{padding-bottom:7mm}
+  .encabezado{display:block}
+  .encabezado .fila{display:flex;align-items:center;justify-content:space-between}
+  .encabezado img{width:45mm;height:auto;display:block}
+  .etiqueta-doc{font-size:7.5pt;font-weight:700;color:var(--azul);
+                text-transform:uppercase;letter-spacing:.28em;white-space:nowrap}
+  .encabezado hr{border:0;border-top:.75px solid var(--gris-linea);margin:4mm 0 0}
+
+  /* ---- Bloque de apertura ---- */
+  h1{font-size:24pt;font-weight:700;color:var(--azul);margin:6mm 0 0;letter-spacing:-.01em}
+  .ciudad-fecha{text-align:right;color:var(--gris-texto);font-size:10.5pt;margin:5mm 0 9mm}
+  .saludo p{margin:0 0 4.5mm}
+  .saludo .destinatario{font-weight:700}
+
+  /* ---- Títulos de sección: 01 + nombre ---- */
+  h2{margin:9mm 0 3.5mm;font-size:13pt;font-weight:700;color:var(--azul);
+     display:flex;align-items:baseline;gap:2mm}
+  h2 .num{color:var(--gris-num);font-weight:700}
+
+  /* ---- Tablas ---- */
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  td,th{border:.75px solid var(--azul);padding:3mm 3.5mm;vertical-align:top;
+        word-wrap:break-word;overflow-wrap:break-word}
+  .t-datos td{width:50%}
+  .t-datos .label{display:block;font-size:6.5pt;font-weight:500;color:var(--gris-label);
+                  text-transform:uppercase;letter-spacing:.14em;margin-bottom:1.6mm}
+  .t-datos .valor{font-size:10pt;color:var(--negro)}
+  .t-economico th{background:var(--gris-fondo);color:var(--azul);font-weight:700;
+                  font-size:9.5pt;text-align:left}
+  .t-economico td{font-size:9.5pt;height:16mm}
+  .t-economico .num{text-align:right;font-variant-numeric:tabular-nums}
+  .t-economico .fila-nota td{height:auto}
+  .t-economico .nota-centro{text-align:center}
+  .t-economico .fila-total td{height:auto;font-weight:700;background:var(--gris-fondo)}
+  .t-economico .fila-total .etq{text-align:right;color:var(--azul)}
+  col.c1{width:38%} col.c2{width:22%} col.c3{width:20%} col.c4{width:20%}
+
+  /* ---- Condiciones ---- */
+  .condiciones{margin:0;padding-left:6mm}
+  .condiciones li{margin:0 0 2.5mm}
+  .condiciones ul{margin:2mm 0 0;padding-left:6mm;list-style:disc}
+  .condiciones strong{font-weight:700}
+
+  /* ---- Cierre ---- */
+  .cierre{margin:8mm 0 0}
+
+  /* ---- Pie de firma ---- */
+  .firma{margin-top:12mm;position:relative;display:flex;gap:7mm;align-items:flex-start;
+         page-break-inside:avoid;break-inside:avoid}
+  .firma .marca{width:62mm;flex:0 0 62mm}
+  .firma .marca .caja{width:62mm;height:auto;display:block;border-radius:0 0 10px 0}
+  .firma .marca .flexnet{width:36mm;height:auto;display:block;margin:5mm auto 0}
+  .firma .divisor{align-self:stretch;border-left:1.2px solid var(--azul);min-height:34mm}
+  .firma .datos{flex:1;font-size:9pt;color:var(--gris-texto);line-height:1.5}
+  .firma .datos .nombre{font-size:12pt;font-weight:700;color:var(--azul);margin:0}
+  .firma .datos .cargo{font-weight:700;color:#333434;margin:.5mm 0 3.5mm}
+  .firma .datos .dato{display:flex;gap:2.5mm;margin:0 0 2mm}
+  .firma .datos svg.ico{width:3.6mm;height:3.6mm;flex:0 0 3.6mm;fill:var(--azul);margin-top:.6mm}
+  .firma .flechas{position:absolute;right:0;bottom:0;width:36mm;opacity:.9;z-index:-1}
+
+  .pendiente{color:var(--azul-60)}
+  @media screen{ body{padding:18mm 20mm 16mm;max-width:210mm;margin:0 auto} }
+</style>
+</head>
+<body>
+<table class="hoja">
+<thead><tr><th>
+<!-- ======================= ENCABEZADO (se repite en todas las páginas) ======================= -->
+<header class="encabezado">
+  <div class="fila">
+    <img src="../assets/img/logo_itsanet_ecuador.png" alt="itsanet {{REGION}}">
+    <span class="etiqueta-doc">{{ETIQUETA_DOCUMENTO}}</span>
+  </div>
+  <hr>
+</header>
+</th></tr></thead>
+<tbody><tr><td>
+
+<!-- ======================= APERTURA ======================= -->
+<h1>{{TITULO_DOCUMENTO}}</h1>
+<p class="ciudad-fecha">{{CIUDAD_EMISION}}, {{FECHA_EMISION_LARGA}}</p>
+
+<div class="saludo">
+  <p>Atención a:</p>
+  <p class="destinatario">Equipo de {{CLIENTE_MAYUSCULAS}}</p>
+  <p>Presente.-</p>
+</div>
+
+<!-- ======================= 01 DATOS ======================= -->
+<h2><span class="num">01</span> Datos de la cotización</h2>
+<table class="t-datos">
+  <tr>
+    <td><span class="label">Cliente</span><span class="valor">{{CLIENTE}}</span></td>
+    <td><span class="label">Atención a</span><span class="valor">{{ATENCION_A}}</span></td>
+  </tr>
+  <tr>
+    <td><span class="label">N.º de cotización</span><span class="valor">{{CODIGO_DOCUMENTO}}</span></td>
+    <td><span class="label">Fecha de emisión</span><span class="valor">{{FECHA_EMISION_LARGA}}</span></td>
+  </tr>
+  <tr>
+    <td><span class="label">Validez de la oferta</span><span class="valor">{{VALIDEZ}}</span></td>
+    <td><span class="label">Gerente comercial</span><span class="valor">{{GERENTE_COMERCIAL}}</span></td>
+  </tr>
+  <tr>
+    <td><span class="label">Servicio cotizado</span><span class="valor">{{SERVICIO_COTIZADO}}</span></td>
+    <td><span class="label">Ciudad(es) de operación</span><span class="valor">{{CIUDADES_OPERACION}}</span></td>
+  </tr>
+</table>
+
+<!-- ======================= 02 DETALLE ECONÓMICO ======================= -->
+<h2><span class="num">02</span> Detalle económico</h2>
+<table class="t-economico">
+  <colgroup><col class="c1"><col class="c2"><col class="c3"><col class="c4"></colgroup>
+  <thead>
+    <tr>
+      <th>Servicio</th><th>Cant.</th><th>Tarifa ({{MONEDA}})</th><th>Costo total estimado</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- INICIO_ITEMS -->
+    <tr>
+      <td>{{ITEM_SERVICIO}}</td>
+      <td>{{ITEM_CANTIDAD}}</td>
+      <td>{{ITEM_TARIFA}}</td>
+      <td class="num">{{ITEM_TOTAL}}</td>
+    </tr>
+    <!-- FIN_ITEMS -->
+    <!-- INICIO_TOTALES -->
+    <tr class="fila-total">
+      <td colspan="3" class="etq">{{TOTAL_ETIQUETA}}</td>
+      <td class="num">{{TOTAL_VALOR}}</td>
+    </tr>
+    <!-- FIN_TOTALES -->
+    <tr class="fila-nota">
+      <td>Otros:</td>
+      <td colspan="3" class="nota-centro">{{NOTA_FISCAL}}</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ======================= 03 CONDICIONES ======================= -->
+<h2><span class="num">03</span> Condiciones</h2>
+<ul class="condiciones">
+  <!-- INICIO_CONDICIONES -->
+  <li>{{CONDICION}}</li>
+  <!-- FIN_CONDICIONES -->
+</ul>
+
+<p class="cierre">{{PARRAFO_CIERRE}}</p>
+
+<!-- ======================= PIE DE FIRMA ======================= -->
+<section class="firma">
+  <img class="flechas" src="../assets/img/patron_flechas.png" alt="">
+  <div class="marca">
+    <img class="caja" src="../assets/img/itsa_caja_azul_logo_blanco.png" alt="itsanet">
+    <img class="flexnet" src="../assets/img/logo_flexnet.png" alt="FlexNet">
+  </div>
+  <div class="divisor"></div>
+  <div class="datos">
+    <p class="nombre">{{FIRMANTE_NOMBRE}}</p>
+    <p class="cargo">{{FIRMANTE_CARGO}}</p>
+    <p class="dato"><svg class="ico" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-480q33 0 56.5-23.5T560-560q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 33 23.5 56.5T480-480Zm0 294q122-112 181-203.5T720-552q0-109-69.5-178.5T480-800q-101 0-170.5 69.5T240-552q0 71 59 162.5T480-186Zm0 106Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Z"/></svg><span>{{FIRMANTE_DIRECCION}}</span></p>
+    <p class="dato"><svg class="ico" viewBox="0 -960 960 960" aria-hidden="true"><path d="M798-120q-125 0-247-54.5T329-329Q229-429 174.5-551T120-798q0-18 12-30t30-12h162q14 0 25 9.5t13 22.5l26 140q2 16-1 27t-11 19l-97 98q20 37 47.5 71.5T387-386q31 31 65 57.5t72 48.5l94-94q9-9 23.5-13.5T670-390l138 28q14 4 23 14.5t9 23.5v162q0 18-12 30t-30 12Z"/></svg><span>{{FIRMANTE_TELEFONO}}</span></p>
+    <p class="dato"><svg class="ico" viewBox="0 -960 960 960" aria-hidden="true"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm320-280L160-640v400h640v-400L480-440Zm0-80 320-200H160l320 200Z"/></svg><span>{{FIRMANTE_CORREO}}</span></p>
+    <p class="dato"><svg class="ico" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-80q-82 0-155-31.5t-127.5-86Q143-252 111.5-325T80-480q0-83 31.5-155.5t86-127Q252-817 325-848.5T480-880q83 0 155.5 31.5t127 86q54.5 54.5 86 127T880-480q0 82-31.5 155t-86 127.5q-54.5 54.5-127 86T480-80Zm0-82q26-36 45-75t31-83H404q12 44 31 83t45 75Zm-104-16q-18-33-31.5-68.5T322-320H204q29 50 72.5 87t99.5 55Zm208 0q56-18 99.5-55t72.5-87H638q-9 38-22.5 73.5T584-178ZM170-400h136q-3-20-4.5-39.5T300-480q0-21 1.5-40.5T306-560H170q-5 20-7.5 39.5T160-480q0 21 2.5 40.5T170-400Zm216 0h188q3-20 4.5-39.5T580-480q0-21-1.5-40.5T574-560H386q-3 20-4.5 39.5T380-480q0 21 1.5 40.5T386-400Zm268 0h136q5-20 7.5-39.5T800-480q0-21-2.5-40.5T790-560H654q3 20 4.5 39.5T660-480q0 21-1.5 40.5T654-400Zm-16-240h118q-29-50-72.5-87T584-782q18 33 31.5 68.5T638-640Zm-234 0h152q-12-44-31-83t-45-75q-26 36-45 75t-31 83Zm-200 0h118q9-38 22.5-73.5T376-782q-56 18-99.5 55T204-640Z"/></svg><span>{{FIRMANTE_WEBS}}</span></p>
+  </div>
+</section>
+</td></tr></tbody>
+</table>
+</body>
+</html>

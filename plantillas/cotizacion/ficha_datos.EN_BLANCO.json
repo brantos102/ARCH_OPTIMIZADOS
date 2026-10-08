@@ -1,0 +1,42 @@
+{
+  "documento": {
+    "etiqueta": "Cotización",
+    "titulo": "Cotización de servicios logísticos",
+    "codigo": "COT-2026-000",
+    "version": "v1",
+    "fecha_emision": "",
+    "ciudad": "Quito",
+    "validez": "30 días calendario",
+    "moneda": "USD"
+  },
+  "cliente": {
+    "nombre": "",
+    "atencion_a": "",
+    "cargo": "",
+    "correo": "",
+    "ciudades_operacion": []
+  },
+  "emisor": {
+    "region": "Ecuador",
+    "responsable": "Karen Gómez Echeverría",
+    "cargo": "Gerente Comercial",
+    "direccion": "Calle 28 de Junio y Gabriel García Moreno (Entrada a Llano Grande) Quito - Ecuador",
+    "telefono": "(+593) 099 510 2287",
+    "correo": "comercial.ec@itsanet.com",
+    "webs": ["www.itsanet.com", "www.flexnetecuador.com"]
+  },
+  "servicio_cotizado": "",
+  "items": [
+    { "servicio": "", "cantidad": "", "tarifa": "", "total": 0 }
+  ],
+  "totales": {
+    "mostrar": true,
+    "tasa_iva": 0,
+    "nota": "Valores no incluyen IVA"
+  },
+  "condiciones": [
+    ""
+  ],
+  "parrafo_cierre": "",
+  "notas_internas": ""
+}
