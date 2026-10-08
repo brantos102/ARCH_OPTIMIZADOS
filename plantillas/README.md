@@ -22,6 +22,8 @@ Es la base que la Gema debe usar para todo documento oficial que emita.
 | `guia/correccion_formato.html` | Fuente editable de ese documento. |
 | `guia/IMPLEMENTACION_EN_LA_GEMA.pdf` | **Cómo aplicar las correcciones en la Gema**: los cinco pasos de configuración, las variantes del logo y la prueba de aceptación. |
 | `guia/implementacion_gema.html` | Fuente editable de ese documento. |
+| `guia/FLUJO_GOOGLE_DOCS.pdf` | **El flujo sin instalar nada**: subir la plantilla a Drive, convertirla a Documentos de Google y producir cada cotización duplicando y reemplazando marcadores. |
+| `guia/flujo_google_docs.html` | Fuente editable de ese documento. |
 | `herramientas/generar_cotizacion.py` | Motor de llenado: ficha JSON + plantilla → HTML, PDF y DOCX. |
 | `herramientas/crear_plantilla_docx.py` | Reconstruye la plantilla Word desde cero si hay que cambiar el diseño. |
 | `assets/img/` | Logo primario, logo itsanet Ecuador, caja azul con logo blanco, logo FlexNet y patrón de flechas. |

@@ -192,6 +192,29 @@ Datos junto con la instrucción exacta para producir el documento desde la plant
 (`generar_cotizacion.py`, o buscar y reemplazar los marcadores `{{CAMPO}}` en el `.docx`).
 Nunca presentes un HTML en el chat como si fuera el entregable final.
 
+## Tabla de reemplazos (obligatoria en toda cotización)
+
+El usuario arma el documento final sobre la plantilla, en Google Docs o en Word. Para que
+no tenga que leer el JSON, **entrega siempre, junto a la Ficha de Datos, una tabla de dos
+columnas: marcador y valor**, lista para usar con Buscar y reemplazar:
+
+| Marcador | Reemplazar por |
+|---|---|
+| `{{ETIQUETA_DOCUMENTO}}` | Cotización |
+| `{{TITULO_DOCUMENTO}}` | Cotización de almacenaje, picking y despacho |
+| `{{CIUDAD_EMISION}}` | Quito |
+| `{{FECHA_EMISION_LARGA}}` | 8 de octubre de 2026 |
+| `{{CLIENTE}}` | Comercial Andina S.A. |
+| `{{CLIENTE_MAYUSCULAS}}` | COMERCIAL ANDINA S.A. |
+| … | … |
+
+Incluye **una fila por cada marcador de la plantilla**, en el orden en que aparecen en el
+documento. Para la tabla de servicios, indica aparte cuántas filas debe duplicar el usuario
+y da los valores de cada una. Haz lo mismo con las viñetas de condiciones.
+
+Nunca entregues la tabla de reemplazos como única salida: acompaña siempre a la Ficha de
+Datos y al documento.
+
 ## Formato de los valores
 
 - Tarifas: `$25 / hora (L-V)`, `$35 / hora (S-D)`, `$8,50 / pallet` — con espacios
