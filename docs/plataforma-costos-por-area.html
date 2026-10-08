@@ -1,0 +1,757 @@
+<title>Plataforma de Costos por Área</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: columna de lectura de 1120px con fichas tabulares a ancho completo; navegación fija por secciones. */
+:root{
+  --paper:#eef1ef;
+  --surface:#ffffff;
+  --surface-2:#e5e9e7;
+  --ink:#131b1c;
+  --muted:#5a6a6b;
+  --line:#ccd5d2;
+  --petrol:#0d5f63;
+  --petrol-soft:#dbe9e8;
+  --ochre:#9a5513;
+  --ochre-soft:#f4e5d4;
+  --ok:#2c6440;
+  --ok-soft:#dce9de;
+  --on-accent:#ffffff;
+  --font-ui:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --font-text:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0d1314; --surface:#141d1e; --surface-2:#1c2627; --ink:#e7edeb; --muted:#94a5a4;
+  --line:#2a3637; --petrol:#5fb9bb; --petrol-soft:#16302f; --ochre:#d9975a;
+  --ochre-soft:#33240f; --ok:#79bd8e; --ok-soft:#162a1c; --on-accent:#0d1314; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --paper:#0d1314; --surface:#141d1e; --surface-2:#1c2627; --ink:#e7edeb; --muted:#94a5a4;
+  --line:#2a3637; --petrol:#5fb9bb; --petrol-soft:#16302f; --ochre:#d9975a;
+  --ochre-soft:#33240f; --ok:#79bd8e; --ok-soft:#162a1c; --on-accent:#0d1314; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-text);font-size:16px;line-height:1.6;-webkit-text-size-adjust:100%}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:20px}
+h1,h2,h3,h4{font-family:var(--font-ui);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(1.9rem,5vw,3.1rem);font-weight:700;letter-spacing:-.02em}
+h2{font-size:clamp(1.3rem,3vw,1.8rem);font-weight:600;letter-spacing:-.01em}
+h3{font-size:1.05rem;font-weight:600}
+h4{font-size:.9rem;font-weight:600}
+p{margin:0}
+a{color:var(--petrol)}
+.eyebrow{font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+
+/* Portada */
+header.cover{border-bottom:1px solid var(--line);background:var(--surface)}
+.cover-in{padding-block:clamp(32px,6vw,64px) 28px;display:flex;flex-direction:column;gap:18px}
+.cover h1{max-width:22ch}
+.lede{font-size:clamp(1.02rem,2.2vw,1.2rem);max-width:62ch;color:var(--ink)}
+.meta{display:flex;flex-wrap:wrap;gap:10px 28px;padding-top:6px;border-top:1px solid var(--line);margin-top:6px}
+.meta div{min-width:0}
+.meta dt{font-family:var(--font-mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.meta dd{margin:2px 0 0;font-family:var(--font-ui);font-size:.92rem;font-weight:500}
+
+/* Navegación */
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;gap:4px;overflow-x:auto;padding-block:8px;scrollbar-width:thin}
+nav a{font-family:var(--font-ui);font-size:.8rem;font-weight:500;white-space:nowrap;text-decoration:none;color:var(--muted);padding:5px 9px;border-radius:4px}
+nav a:hover{color:var(--ink);background:var(--surface-2)}
+nav a:focus-visible,button:focus-visible{outline:2px solid var(--petrol);outline-offset:2px}
+
+section{padding-block:clamp(34px,5vw,54px);border-bottom:1px solid var(--line)}
+.sec-head{display:flex;flex-direction:column;gap:8px;margin-bottom:22px;max-width:70ch}
+.sec-head p{color:var(--muted)}
+
+/* Rejillas y fichas */
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(195px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card p,.card li{font-size:.92rem}
+.card ul{margin:0;padding-left:1.1em}
+.card ul li{margin-top:4px}
+.bare{background:none;border:none;border-left:2px solid var(--line);border-radius:0;padding:2px 0 2px 16px}
+
+/* Etiquetas */
+.tag{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;padding:3px 7px;border-radius:3px;background:var(--surface-2);color:var(--muted)}
+.tag.p{background:var(--petrol-soft);color:var(--petrol)}
+.tag.o{background:var(--ochre-soft);color:var(--ochre)}
+.tag.k{background:var(--ok-soft);color:var(--ok)}
+.tagrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:6px}
+
+/* Tablas */
+.tablebox{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-family:var(--font-ui);font-size:.86rem}
+caption{text-align:left;font-family:var(--font-mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:12px 14px 0}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;background:var(--surface-2)}
+tbody tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--font-mono)}
+tr.total td{font-weight:700;background:var(--surface-2)}
+.mono{font-family:var(--font-mono);font-size:.82rem}
+
+/* Pestañas por área */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.tabs button{font-family:var(--font-ui);font-size:.82rem;font-weight:500;cursor:pointer;background:var(--surface);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:6px 13px}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-pressed="true"]{background:var(--petrol);border-color:var(--petrol);color:var(--on-accent)}
+
+/* Ciclo de vida */
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .step{flex:1 1 130px;min-width:0;background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--petrol);border-radius:5px;padding:10px 12px}
+.flow .step.alert{border-top-color:var(--ochre)}
+.flow .step.end{border-top-color:var(--muted)}
+.flow .step span{display:block;font-family:var(--font-mono);font-size:.64rem;color:var(--muted);letter-spacing:.08em}
+.flow .step strong{font-family:var(--font-ui);font-size:.86rem;font-weight:600}
+.flow .step em{display:block;font-size:.8rem;color:var(--muted);font-style:normal;margin-top:3px}
+
+/* Arquitectura por capas */
+.stack{display:flex;flex-direction:column;gap:10px}
+.layer{display:grid;grid-template-columns:132px 1fr;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.layer>.lname{font-family:var(--font-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--petrol)}
+.boxes{display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+.boxes span{font-family:var(--font-ui);font-size:.8rem;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:5px 10px}
+@media (max-width:620px){.layer{grid-template-columns:1fr;gap:8px}}
+
+/* Fases */
+.phase{display:grid;grid-template-columns:54px 1fr;gap:16px;padding:16px 0;border-top:1px solid var(--line)}
+.phase:first-of-type{border-top:none}
+.phase .no{font-family:var(--font-ui);font-size:1.5rem;font-weight:700;color:var(--petrol);font-variant-numeric:tabular-nums;line-height:1}
+.phase .no small{display:block;font-family:var(--font-mono);font-size:.62rem;font-weight:400;color:var(--muted);letter-spacing:.06em;margin-top:4px}
+.phase h3{margin-bottom:4px}
+.phase p{font-size:.93rem}
+.phase ul{margin:6px 0 0;padding-left:1.1em;font-size:.9rem}
+.phase li{margin-top:3px}
+@media (max-width:520px){.phase{grid-template-columns:1fr;gap:6px}}
+
+/* Decisiones */
+.ask{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--ochre);border-radius:0 6px 6px 0;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.ask .q{font-family:var(--font-ui);font-weight:600;font-size:.96rem}
+.ask .r{font-size:.9rem;color:var(--muted)}
+.ask .r b{color:var(--ink);font-weight:600}
+
+.callout{background:var(--petrol-soft);border:1px solid var(--line);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.callout h3{color:var(--petrol)}
+.callout p{font-size:.95rem;max-width:72ch}
+
+footer{padding-block:28px 40px;color:var(--muted);font-size:.84rem;display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between}
+@media print{nav{display:none}section{break-inside:avoid}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="cover">
+  <div class="wrap cover-in">
+    <p class="eyebrow">Reunión de jefaturas · 8 de octubre de 2026 · Documento de trabajo v1.0</p>
+    <h1>Plataforma de registro y control de costos de servicios por área</h1>
+    <p class="lede">Hoy el gasto en licencias, suscripciones y servicios de terceros vive repartido entre correos, hojas de cálculo y facturas. Nadie puede responder en cinco minutos cuánto gasta cada área, qué se renueva el próximo mes ni qué estamos pagando sin usar. Esta es la lluvia de ideas del equipo de Datos, TI y Reingeniería sobre qué construir, con Odoo analizado como referencia funcional y una recomendación concreta.</p>
+    <dl class="meta">
+      <div><dt>Preparado por</dt><dd>Analítica de Datos · TI · Reingeniería de Procesos</dd></div>
+      <div><dt>Decisión solicitada</dt><dd>6 definiciones (sección final)</dd></div>
+      <div><dt>Piloto propuesto</dt><dd>TI + RRHH, 6 semanas</dd></div>
+      <div><dt>Horizonte</dt><dd>MVP en 10 semanas, despliegue total en 24</dd></div>
+    </dl>
+  </div>
+</header>
+
+<nav>
+  <div class="wrap nav-in">
+    <a href="#contexto">El problema</a>
+    <a href="#odoo">Odoo como referencia</a>
+    <a href="#alcance">Alcance</a>
+    <a href="#modelo">Modelo de datos</a>
+    <a href="#powerbi">Activos de Power BI</a>
+    <a href="#areas">Catálogo por área</a>
+    <a href="#ideas">Lluvia de ideas</a>
+    <a href="#opciones">Opciones de construcción</a>
+    <a href="#recomendacion">Recomendación</a>
+    <a href="#roadmap">Fases</a>
+    <a href="#kpis">Indicadores</a>
+    <a href="#riesgos">Riesgos</a>
+    <a href="#gobierno">Gobierno</a>
+    <a href="#decisiones">Decisiones de hoy</a>
+  </div>
+</nav>
+
+<section id="contexto">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Punto de partida</p>
+      <h2>El problema, en cuatro hechos</h2>
+      <p>Lo que encontramos al levantar la información con las áreas durante las últimas semanas.</p>
+    </div>
+    <div class="grid g4">
+      <article class="card">
+        <h3>Gasto sin dueño</h3>
+        <p>Las facturas de servicios llegan a Finanzas con un centro de costo contable, pero no con el área usuaria ni el responsable que autorizó el servicio. El reparto se hace a criterio, al cierre.</p>
+      </article>
+      <article class="card">
+        <h3>Licencias que nadie confirma</h3>
+        <p>Hay licencias en tres estados que hoy no se distinguen: adquiridas y en uso, adquiridas sin uso, y solicitudes "por revisar" que llevan meses abiertas. Las tres pagan o comprometen presupuesto.</p>
+      </article>
+      <article class="card">
+        <h3>Renovaciones que sorprenden</h3>
+        <p>Contratos con autorenovación y plazos de aviso previo que se enteran cuando ya se cobró. No existe un calendario único de vencimientos.</p>
+      </article>
+      <article class="card">
+        <h3>Power BI sin inventario</h3>
+        <p>Modelos semánticos y tableros creados por distintas áreas, sin dueño declarado, sin criticidad y sin costo asociado (licencias, capacidad y horas de desarrollo).</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="odoo">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Análisis funcional</p>
+      <h2>Qué hace Odoo, qué le copiamos y dónde se queda corto</h2>
+      <p>Odoo no se va a implementar. Se analizó porque resuelve bien, y de forma probada, dos cosas que son el corazón de lo que necesitamos: repartir el costo de un documento entre varias dimensiones y mantener el ciclo de vida de un servicio recurrente.</p>
+    </div>
+    <div class="grid g2">
+      <article class="card">
+        <h3>Módulos relevantes</h3>
+        <ul>
+          <li><b>Compras</b>: requisición interna, acuerdo de compra, orden de compra, recepción y conciliación contra factura.</li>
+          <li><b>Contabilidad</b>: factura de proveedor con líneas, cuentas analíticas y planes analíticos múltiples.</li>
+          <li><b>Suscripciones</b>: servicio recurrente con periodicidad, fecha de renovación, valor recurrente mensual y anual.</li>
+          <li><b>Aprobaciones y Gastos</b>: solicitudes tipificadas con niveles de autorización por monto.</li>
+          <li><b>Proyectos y partes de horas</b>: imputación de horas internas al costo de un servicio.</li>
+          <li><b>Activos</b>: alta, depreciación y baja de bienes.</li>
+          <li><b>Empleados, Reclutamiento, Formación</b>: estructura organizativa y servicios de RRHH.</li>
+          <li><b>Mantenimiento y Helpdesk</b>: contratos de servicio y tickets.</li>
+          <li><b>Studio</b>: creación de campos, vistas y flujos sin programar.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>Mecanismos que vale la pena replicar</h3>
+        <ul>
+          <li><b>Distribución analítica multi-plan.</b> Una misma línea de factura se reparte en porcentajes entre varias dimensiones a la vez (plan Área, plan Proyecto, plan Sede). Es exactamente el reparto que necesitamos y evita duplicar registros.</li>
+          <li><b>Catálogo de productos y servicios.</b> Todo lo que se compra existe antes como ítem de catálogo con unidad de medida, cuenta contable y proveedor habitual. Nada se escribe a mano libre.</li>
+          <li><b>Historial conversacional por registro.</b> Cada contrato y factura arrastra su bitácora, actividades pendientes y adjuntos. La trazabilidad no es un módulo aparte: es un campo del registro.</li>
+          <li><b>Reglas de registro por perfil.</b> Cada jefatura ve y edita solo lo de su área sin necesidad de aplicaciones separadas.</li>
+          <li><b>Metadatos antes que código.</b> Los formularios se definen como configuración, no como pantallas programadas. Agregar un campo a un área no debe ser un desarrollo.</li>
+        </ul>
+      </article>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <article class="card">
+        <h3>Dónde no nos alcanza</h3>
+        <ul>
+          <li>No tiene gestión de activos de software: no modela SKU, métrica de licenciamiento, asignación a usuario ni recuperación por desuso.</li>
+          <li>No tiene nada para catalogar activos de datos y BI (modelos semánticos, refrescos, capacidad, criticidad).</li>
+          <li>La contabilidad analítica se activa cuando ya existe un documento contable. Nosotros necesitamos registrar también lo <em>estimado</em> y lo <em>por revisar</em>, antes de que exista factura.</li>
+          <li>Varios módulos clave de ese flujo (Suscripciones, Studio, Helpdesk, Documentos, Firma) son de la edición Enterprise, con costo por usuario que crece con cada jefatura que consulte.</li>
+          <li>Personalizar implica módulos en Python y XML, un socio implementador y un costo recurrente en cada actualización de versión mayor.</li>
+        </ul>
+      </article>
+      <article class="card bare">
+        <h3>Conclusión del análisis</h3>
+        <p>Implementar Odoo para este problema significa pagar un ERP completo y adaptarlo para cubrir un 30% de lo que necesitamos, mientras que lo específico de nuestro caso —licencias, modelos de Power BI, costos por revisar— habría que desarrollarlo igual.</p>
+        <p>La decisión es construir una aplicación propia enfocada, que tome prestados cinco patrones de diseño de Odoo: catálogo maestro, distribución porcentual multi-dimensión, ciclo de vida con fechas de renovación, bitácora por registro y permisos por área.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="alcance">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Límites</p>
+      <h2>Alcance: lo que sí y lo que no</h2>
+      <p>La causa más común de fracaso en este tipo de proyecto es terminar construyendo un ERP de compras. El límite se declara ahora, por escrito.</p>
+    </div>
+    <div class="grid g2">
+      <article class="card">
+        <h3><span class="tag k">Dentro</span></h3>
+        <ul>
+          <li>Catálogo único de servicios y licencias, con taxonomía de tres niveles.</li>
+          <li>Registro de costos por área: monto, moneda, periodicidad, vigencia, evidencia.</li>
+          <li>Inventario de licencias con estado de ciclo de vida y asignación a personas.</li>
+          <li>Registro de modelos y tableros de Power BI con su costo de propiedad.</li>
+          <li>Contratos, vencimientos, autorenovaciones y plazos de aviso.</li>
+          <li>Distribución del costo entre áreas por reglas y drivers aprobados.</li>
+          <li>Solicitudes internas con aprobación por monto y por tipo.</li>
+          <li>Presupuesto por área versus ejecutado, con alertas.</li>
+          <li>Tableros de consulta para jefaturas y vista ejecutiva.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3><span class="tag o">Fuera</span></h3>
+        <ul>
+          <li>No reemplaza la contabilidad ni el ERP: el asiento y la factura siguen donde están. La aplicación se alimenta de ellos y les devuelve el reparto.</li>
+          <li>No gestiona nómina ni datos personales sensibles de RRHH. Solo consume headcount por área como driver.</li>
+          <li>No es un portal de proveedores ni un sistema de cotizaciones.</li>
+          <li>No lleva el activo fijo ni su depreciación.</li>
+          <li>No instala ni despliega software: no es una herramienta de gestión de inventario técnico de estaciones.</li>
+          <li>No gestiona el pago. Registra el compromiso y lo concilia.</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="modelo">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Diseño</p>
+      <h2>Modelo de datos: diez entidades y un reparto</h2>
+      <p>Todo el sistema se sostiene en separar tres cosas que hoy se confunden: el <em>servicio</em> (qué es), el <em>contrato</em> (bajo qué condiciones lo tenemos) y el <em>costo</em> (cuánto y a quién se le carga).</p>
+    </div>
+    <div class="grid g3">
+      <article class="card"><h3>Área / Centro de costo</h3><p>Jerarquía organizativa con responsable, centro de costo contable y driver por defecto. Es la dimensión principal de todo el modelo.</p></article>
+      <article class="card"><h3>Catálogo de servicios</h3><p>Taxonomía de tres niveles: categoría, subcategoría, ítem. Define unidad de medida, métrica de cobro y cuenta contable sugerida.</p></article>
+      <article class="card"><h3>Proveedor</h3><p>Datos fiscales, ejecutivo de cuenta, moneda habitual, condición de pago y calificación de criticidad.</p></article>
+      <article class="card"><h3>Contrato</h3><p>Número, vigencia, valor, periodicidad, autorenovación, días de aviso previo para cancelar, cláusula de escalamiento y documento adjunto.</p></article>
+      <article class="card"><h3>Licencia</h3><p>SKU, edición, métrica (por usuario, por dispositivo, por capacidad, por consumo, perpetua), cantidad contratada, cantidad asignada y estado de ciclo de vida.</p></article>
+      <article class="card"><h3>Asignación</h3><p>Qué licencia tiene qué persona, desde cuándo, bajo qué área y con qué último indicio de uso. Es la base para recuperar lo que no se usa.</p></article>
+      <article class="card"><h3>Costo</h3><p>Línea periódica: importe, moneda, tipo de cambio, periodo, tipo (real, comprometido o estimado), OPEX o CAPEX y evidencia.</p></article>
+      <article class="card"><h3>Distribución</h3><p>Reparto porcentual de una línea de costo entre una o varias áreas, calculado por un driver o fijado a mano con justificación.</p></article>
+      <article class="card"><h3>Solicitud</h3><p>Pedido de un servicio o licencia nueva: solicitante, área, justificación, monto estimado, nivel de aprobación y resolución.</p></article>
+      <article class="card"><h3>Presupuesto</h3><p>Monto aprobado por área, categoría y periodo, contra el cual se mide la ejecución y se disparan las alertas.</p></article>
+      <article class="card"><h3>Activo de BI</h3><p>Modelo semántico, reporte o flujo de datos, con workspace, dueño, criticidad y costo imputado. Se detalla en la sección siguiente.</p></article>
+      <article class="card"><h3>Bitácora</h3><p>Quién cambió qué y cuándo, en todas las entidades anteriores. Sin borrado físico: toda baja es un estado.</p></article>
+    </div>
+
+    <h3 style="margin-top:30px">Ciclo de vida de una licencia</h3>
+    <p style="color:var(--muted);font-size:.93rem;margin:6px 0 12px;max-width:70ch">El estado es el campo más importante del sistema: separa lo que se está evaluando de lo que ya se paga, y lo que se paga de lo que realmente se usa.</p>
+    <div class="flow">
+      <div class="step"><span>01</span><strong>Solicitada</strong><em>El área pide; aún no hay compromiso.</em></div>
+      <div class="step"><span>02</span><strong>Por revisar</strong><em>TI y Finanzas evalúan alternativa, duplicidad y costo.</em></div>
+      <div class="step"><span>03</span><strong>Aprobada</strong><em>Con presupuesto y nivel de autorización cumplido.</em></div>
+      <div class="step"><span>04</span><strong>Adquirida</strong><em>Contrato y OC vigentes; ya genera costo.</em></div>
+      <div class="step"><span>05</span><strong>Asignada</strong><em>Con usuario y área responsable identificados.</em></div>
+      <div class="step alert"><span>06</span><strong>Sin uso</strong><em>Asignada pero sin actividad en 60 días: candidata a recuperar.</em></div>
+      <div class="step alert"><span>07</span><strong>Por renovar</strong><em>Dentro de la ventana de aviso previo del contrato.</em></div>
+      <div class="step end"><span>08</span><strong>Dada de baja</strong><em>Liberada, con fecha y motivo. Nunca se borra.</em></div>
+    </div>
+
+    <h3 style="margin-top:30px">Métodos de reparto entre áreas</h3>
+    <div class="tablebox" style="margin-top:10px">
+      <table>
+        <caption>Cada ítem del catálogo lleva un método por defecto; la jefatura puede sobrescribirlo con justificación registrada</caption>
+        <thead><tr><th>Método</th><th>Driver</th><th>Cuándo usarlo</th><th>Ejemplo</th></tr></thead>
+        <tbody>
+          <tr><td>Directo</td><td>Ninguno, 100% a un área</td><td>El servicio existe solo para un área</td><td>Software de diseño de Marketing</td></tr>
+          <tr><td>Por headcount</td><td>Colaboradores activos del área</td><td>Servicios que escalan con las personas</td><td>HRIS, seguro de salud, capacitación general</td></tr>
+          <tr><td>Por usuarios de licencia</td><td>Licencias asignadas al área</td><td>Suites de software compartidas</td><td>Microsoft 365, antivirus, Power BI Pro</td></tr>
+          <tr><td>Por superficie</td><td>m² ocupados</td><td>Servicios de infraestructura física</td><td>Alquiler, limpieza, vigilancia, energía</td></tr>
+          <tr><td>Por consumo medido</td><td>Lectura real del proveedor o plataforma</td><td>Cuando existe telemetría confiable</td><td>Nube, impresión, telefonía, capacidad Fabric</td></tr>
+          <tr><td>Por partes iguales</td><td>Número de áreas beneficiadas</td><td>Último recurso; exige justificación</td><td>Servicios corporativos indivisibles</td></tr>
+          <tr><td>Driver personalizado</td><td>Horas máquina, unidades, transacciones</td><td>Operaciones y Finanzas</td><td>Mantenimiento por horas de planta</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="powerbi">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Caso específico</p>
+      <h2>Registro de modelos de Power BI y su costo real</h2>
+      <p>Un tablero de Power BI no cuesta solo la licencia del que lo mira. Cuesta licencias, capacidad, refrescos y, sobre todo, horas de desarrollo y mantenimiento que hoy no se registran en ningún lado. Esta es la ficha propuesta.</p>
+    </div>
+    <div class="tablebox">
+      <table>
+        <caption>Ficha del activo de BI — campos del MVP</caption>
+        <thead><tr><th>Campo</th><th>Tipo</th><th>Para qué sirve</th></tr></thead>
+        <tbody>
+          <tr><td>Nombre del modelo semántico</td><td>Texto</td><td>Identificación única junto al workspace</td></tr>
+          <tr><td>Workspace y entorno</td><td>Lista</td><td>Separar desarrollo, pruebas y producción</td></tr>
+          <tr><td>Área dueña y steward de datos</td><td>Relación</td><td>Responsable funcional del dato, no solo técnico</td></tr>
+          <tr><td>Criticidad</td><td>Alta / Media / Baja</td><td>Define SLA de refresco y prioridad de soporte</td></tr>
+          <tr><td>Fuentes de datos</td><td>Lista múltiple</td><td>Analizar impacto cuando una fuente cambia o cae</td></tr>
+          <tr><td>Modo de almacenamiento</td><td>Import / DirectQuery / Direct Lake</td><td>Explica consumo de capacidad y costo</td></tr>
+          <tr><td>Frecuencia y duración de refresco</td><td>Número</td><td>Carga sobre la capacidad y ventana de disponibilidad</td></tr>
+          <tr><td>Tamaño del modelo</td><td>Número (MB)</td><td>Define si cabe en Pro o exige PPU o capacidad</td></tr>
+          <tr><td>Reportes dependientes</td><td>Número</td><td>Mide el impacto de dar de baja el modelo</td></tr>
+          <tr><td>Usuarios activos últimos 30 días</td><td>Número</td><td>Detecta tableros que nadie abre</td></tr>
+          <tr><td>Licencia requerida</td><td>Pro / PPU / Capacidad</td><td>Vincula el activo con su costo de licenciamiento</td></tr>
+          <tr><td>Horas de desarrollo y de mantenimiento mensual</td><td>Número</td><td>Costo interno, el más grande y el menos visible</td></tr>
+          <tr><td>Costo imputado total</td><td>Calculado</td><td>Licencias + capacidad + horas, repartido al área dueña</td></tr>
+          <tr><td>Seguridad a nivel de fila</td><td>Sí / No</td><td>Requisito de cumplimiento para datos sensibles</td></tr>
+          <tr><td>Certificación</td><td>Certificado / Promovido / Ninguno</td><td>Distingue la fuente oficial de la exploratoria</td></tr>
+          <tr><td>Estado y última revisión</td><td>Lista + fecha</td><td>Permite depurar lo obsoleto cada trimestre</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid g3" style="margin-top:14px">
+      <article class="card"><h3>Lo que se gana</h3><p>Responder, por área, cuánto cuesta su analítica, qué tableros nadie usa y qué modelos quedarían huérfanos si se va la persona que los hizo.</p></article>
+      <article class="card"><h3>Cómo se puebla</h3><p>Registro manual en el MVP (hay menos de doscientos activos) y luego carga automática desde la API de administración de Power BI para inventario y uso.</p></article>
+      <article class="card"><h3>Dato a validar</h3><p>Las tarifas de Pro, PPU y capacidades Fabric cambian; el sistema las guarda como parámetro editable, no como número fijo en el código.</p></article>
+    </div>
+  </div>
+</section>
+
+<section id="areas">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Catálogo</p>
+      <h2>Qué registra cada área</h2>
+      <p>El mismo formulario para todos, con un catálogo distinto por área. Elija un área para ver sus ítems típicos, la métrica de cobro y el driver de reparto propuesto.</p>
+    </div>
+    <div class="tabs" id="tabs">
+      <button type="button" data-area="TI" aria-pressed="true">TI</button>
+      <button type="button" data-area="RRHH" aria-pressed="false">RRHH</button>
+      <button type="button" data-area="Operaciones" aria-pressed="false">Operaciones</button>
+      <button type="button" data-area="Administrativo" aria-pressed="false">Administrativo</button>
+      <button type="button" data-area="Finanzas" aria-pressed="false">Finanzas</button>
+      <button type="button" data-area="Comercial" aria-pressed="false">Comercial</button>
+      <button type="button" data-area="Legal" aria-pressed="false">Legal y Cumplimiento</button>
+      <button type="button" data-area="Calidad" aria-pressed="false">Calidad y HSE</button>
+      <button type="button" data-area="todas" aria-pressed="false">Todas</button>
+    </div>
+    <div class="tablebox">
+      <table id="cat">
+        <caption id="catcap">Catálogo de servicios — TI</caption>
+        <thead><tr><th>Área</th><th>Ítem del catálogo</th><th>Métrica de cobro</th><th>Driver de reparto</th></tr></thead>
+        <tbody>
+          <tr data-area="TI"><td>TI</td><td>Licencias de productividad y suites (M365, Adobe, CAD)</td><td>Usuario / mes</td><td>Usuarios de licencia</td></tr>
+          <tr data-area="TI"><td>TI</td><td>Licencias Power BI Pro, PPU y capacidad Fabric</td><td>Usuario / mes y SKU / mes</td><td>Consumo medido y usuarios</td></tr>
+          <tr data-area="TI"><td>TI</td><td>Nube e infraestructura (IaaS, PaaS, respaldos)</td><td>Consumo</td><td>Consumo medido por etiqueta</td></tr>
+          <tr data-area="TI"><td>TI</td><td>Ciberseguridad (EDR, SIEM, correo, pruebas de intrusión)</td><td>Endpoint / mes y servicio</td><td>Equipos asignados</td></tr>
+          <tr data-area="TI"><td>TI</td><td>Enlaces de datos, internet y telefonía IP</td><td>Sede / mes</td><td>Superficie o headcount por sede</td></tr>
+          <tr data-area="TI"><td>TI</td><td>Soporte y mantenimiento de equipos y servidores</td><td>Equipo / mes</td><td>Equipos asignados</td></tr>
+          <tr data-area="TI"><td>TI</td><td>Desarrollo, consultoría y horas de BI</td><td>Hora-hombre</td><td>Horas registradas por área</td></tr>
+          <tr data-area="TI"><td>TI</td><td>Mesa de ayuda y servicios gestionados</td><td>Usuario / mes o ticket</td><td>Headcount o tickets</td></tr>
+
+          <tr data-area="RRHH" hidden><td>RRHH</td><td>Sistema de gestión humana y planilla</td><td>Colaborador / mes</td><td>Headcount</td></tr>
+          <tr data-area="RRHH" hidden><td>RRHH</td><td>Reclutamiento: bolsas de empleo y publicaciones</td><td>Vacante o publicación</td><td>Directo al área solicitante</td></tr>
+          <tr data-area="RRHH" hidden><td>RRHH</td><td>Capacitación, cursos y plataformas de aprendizaje</td><td>Participante / curso</td><td>Directo por participante</td></tr>
+          <tr data-area="RRHH" hidden><td>RRHH</td><td>Seguros de salud y programas de bienestar</td><td>Colaborador / mes</td><td>Headcount</td></tr>
+          <tr data-area="RRHH" hidden><td>RRHH</td><td>Evaluación de desempeño y clima laboral</td><td>Suscripción anual</td><td>Headcount</td></tr>
+          <tr data-area="RRHH" hidden><td>RRHH</td><td>Exámenes médicos ocupacionales</td><td>Examen</td><td>Directo por colaborador</td></tr>
+          <tr data-area="RRHH" hidden><td>RRHH</td><td>Servicios de terceros y destaque de personal</td><td>Contrato / mes</td><td>Directo al área receptora</td></tr>
+          <tr data-area="RRHH" hidden><td>RRHH</td><td>Uniformes y dotación</td><td>Colaborador / año</td><td>Headcount</td></tr>
+
+          <tr data-area="Operaciones" hidden><td>Operaciones</td><td>Software de almacén, transporte y producción</td><td>Suscripción + usuario</td><td>Usuarios de licencia</td></tr>
+          <tr data-area="Operaciones" hidden><td>Operaciones</td><td>Telemetría y GPS de flota</td><td>Vehículo / mes</td><td>Vehículos asignados</td></tr>
+          <tr data-area="Operaciones" hidden><td>Operaciones</td><td>Mantenimiento preventivo y correctivo de planta</td><td>Contrato / mes y orden</td><td>Horas máquina</td></tr>
+          <tr data-area="Operaciones" hidden><td>Operaciones</td><td>Calibración y certificación de instrumentos</td><td>Instrumento / año</td><td>Directo por centro</td></tr>
+          <tr data-area="Operaciones" hidden><td>Operaciones</td><td>Energía y servicios industriales</td><td>Consumo medido</td><td>Lectura de medidor</td></tr>
+          <tr data-area="Operaciones" hidden><td>Operaciones</td><td>Equipos de protección personal</td><td>Colaborador / mes</td><td>Headcount operativo</td></tr>
+          <tr data-area="Operaciones" hidden><td>Operaciones</td><td>Fletes y servicios logísticos de terceros</td><td>Envío o tonelada</td><td>Unidades despachadas</td></tr>
+
+          <tr data-area="Administrativo" hidden><td>Administrativo</td><td>Alquiler de oficinas y servicios del inmueble</td><td>m² / mes</td><td>Superficie ocupada</td></tr>
+          <tr data-area="Administrativo" hidden><td>Administrativo</td><td>Limpieza y vigilancia</td><td>Contrato / mes</td><td>Superficie ocupada</td></tr>
+          <tr data-area="Administrativo" hidden><td>Administrativo</td><td>Courier, mensajería y valija</td><td>Envío</td><td>Directo al área solicitante</td></tr>
+          <tr data-area="Administrativo" hidden><td>Administrativo</td><td>Telefonía móvil y planes de datos</td><td>Línea / mes</td><td>Líneas asignadas</td></tr>
+          <tr data-area="Administrativo" hidden><td>Administrativo</td><td>Flota liviana, combustible y mantenimiento</td><td>Vehículo / mes</td><td>Vehículos asignados</td></tr>
+          <tr data-area="Administrativo" hidden><td>Administrativo</td><td>Útiles de oficina e impresión</td><td>Consumo</td><td>Consumo medido o headcount</td></tr>
+          <tr data-area="Administrativo" hidden><td>Administrativo</td><td>Seguros patrimoniales</td><td>Póliza / año</td><td>Valor asegurado por área</td></tr>
+          <tr data-area="Administrativo" hidden><td>Administrativo</td><td>Custodia y digitalización de archivo</td><td>Caja / mes</td><td>Cajas por área</td></tr>
+
+          <tr data-area="Finanzas" hidden><td>Finanzas</td><td>ERP y módulos contables</td><td>Usuario / mes</td><td>Usuarios de licencia</td></tr>
+          <tr data-area="Finanzas" hidden><td>Finanzas</td><td>Auditoría externa y revisión limitada</td><td>Contrato / año</td><td>Corporativo, partes iguales</td></tr>
+          <tr data-area="Finanzas" hidden><td>Finanzas</td><td>Facturación electrónica y operador de servicios</td><td>Comprobante</td><td>Comprobantes por área</td></tr>
+          <tr data-area="Finanzas" hidden><td>Finanzas</td><td>Firma digital y certificados</td><td>Certificado / año</td><td>Directo por usuario</td></tr>
+          <tr data-area="Finanzas" hidden><td>Finanzas</td><td>Comisiones bancarias y servicios de tesorería</td><td>Transacción</td><td>Transacciones por área</td></tr>
+          <tr data-area="Finanzas" hidden><td>Finanzas</td><td>Asesoría tributaria y precios de transferencia</td><td>Hora o contrato</td><td>Corporativo</td></tr>
+          <tr data-area="Finanzas" hidden><td>Finanzas</td><td>Centrales de riesgo y evaluación crediticia</td><td>Consulta</td><td>Consultas por área</td></tr>
+
+          <tr data-area="Comercial" hidden><td>Comercial</td><td>CRM y automatización de ventas</td><td>Usuario / mes</td><td>Usuarios de licencia</td></tr>
+          <tr data-area="Comercial" hidden><td>Comercial</td><td>Publicidad digital y medios</td><td>Inversión</td><td>Directo por campaña y línea</td></tr>
+          <tr data-area="Comercial" hidden><td>Comercial</td><td>Herramientas de analítica web y SEO</td><td>Suscripción / mes</td><td>Directo</td></tr>
+          <tr data-area="Comercial" hidden><td>Comercial</td><td>Correo masivo y mensajería a clientes</td><td>Contacto o envío</td><td>Contactos por línea</td></tr>
+          <tr data-area="Comercial" hidden><td>Comercial</td><td>Ferias, eventos y material promocional</td><td>Evento</td><td>Directo</td></tr>
+          <tr data-area="Comercial" hidden><td>Comercial</td><td>Comisiones de pasarela de pago</td><td>Transacción</td><td>Transacciones por canal</td></tr>
+
+          <tr data-area="Legal" hidden><td>Legal</td><td>Estudios de abogados y patrocinio</td><td>Hora o retainer</td><td>Directo al área del caso</td></tr>
+          <tr data-area="Legal" hidden><td>Legal</td><td>Gestión documental de contratos</td><td>Usuario / mes</td><td>Usuarios de licencia</td></tr>
+          <tr data-area="Legal" hidden><td>Legal</td><td>Firma electrónica</td><td>Documento</td><td>Documentos por área</td></tr>
+          <tr data-area="Legal" hidden><td>Legal</td><td>Tasas, registros públicos y marcas</td><td>Trámite</td><td>Directo</td></tr>
+          <tr data-area="Legal" hidden><td>Legal</td><td>Licencias y permisos municipales o sectoriales</td><td>Licencia / año</td><td>Directo por sede</td></tr>
+          <tr data-area="Legal" hidden><td>Legal</td><td>Línea ética y programa de cumplimiento</td><td>Contrato / año</td><td>Headcount</td></tr>
+
+          <tr data-area="Calidad" hidden><td>Calidad y HSE</td><td>Ensayos y análisis de laboratorio</td><td>Muestra</td><td>Muestras por área</td></tr>
+          <tr data-area="Calidad" hidden><td>Calidad y HSE</td><td>Certificaciones y auditorías de sistemas de gestión</td><td>Auditoría / año</td><td>Corporativo o por planta</td></tr>
+          <tr data-area="Calidad" hidden><td>Calidad y HSE</td><td>Software de seguridad y salud en el trabajo</td><td>Usuario / mes</td><td>Usuarios de licencia</td></tr>
+          <tr data-area="Calidad" hidden><td>Calidad y HSE</td><td>Capacitación en seguridad y simulacros</td><td>Participante</td><td>Headcount operativo</td></tr>
+          <tr data-area="Calidad" hidden><td>Calidad y HSE</td><td>Gestión de residuos y monitoreo ambiental</td><td>Tonelada o monitoreo</td><td>Consumo medido</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:.88rem;color:var(--muted);margin-top:10px;max-width:72ch">El catálogo es editable por cada jefatura dentro de su área, con aprobación de Finanzas cuando se crea una categoría nueva. Así el sistema crece sin desarrollo.</p>
+  </div>
+</section>
+
+<section id="ideas">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Lluvia de ideas</p>
+      <h2>Veinte ideas, ordenadas por lo que resuelven</h2>
+      <p>Cada ficha lleva su impacto esperado y el esfuerzo de construirla. Las marcadas como MVP son las que proponemos para las primeras diez semanas.</p>
+    </div>
+
+    <h3 style="margin:8px 0 10px">Capturar el dato una sola vez</h3>
+    <div class="grid g2">
+      <article class="card"><h4>1. Catálogo único de servicios</h4><p>Taxonomía de tres niveles común a todas las áreas. Sin texto libre en el nombre del servicio: lo que no está en el catálogo se solicita y se aprueba.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo bajo</span></div></article>
+      <article class="card"><h4>2. Formulario único con campos por área</h4><p>Un solo formulario de registro; los campos adicionales se activan según la categoría elegida. Agregar un campo es configuración, no desarrollo.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo medio</span></div></article>
+      <article class="card"><h4>3. Estado de ciclo de vida obligatorio</h4><p>Distinguir "por revisar", "adquirida", "asignada", "sin uso" y "por renovar". Es el campo que convierte un registro de gastos en una herramienta de control.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo bajo</span></div></article>
+      <article class="card"><h4>4. Carga histórica de doce meses</h4><p>Partir con un año de datos cargados desde las facturas y contratos existentes. Un sistema vacío no se usa; un sistema con historia responde preguntas el primer día.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag o">Esfuerzo alto</span></div></article>
+    </div>
+
+    <h3 style="margin:24px 0 10px">Controlar lo que ya pagamos</h3>
+    <div class="grid g2">
+      <article class="card"><h4>5. Semáforo de renovaciones</h4><p>Alerta a 90, 60 y 30 días del vencimiento, calculada sobre el plazo de aviso previo de cada contrato, no sobre la fecha de fin. Nadie más se entera por el cobro.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo bajo</span></div></article>
+      <article class="card"><h4>6. Detección de licencias sin uso</h4><p>Cruce entre licencias asignadas y último indicio de actividad. Lo que no se usa en 60 días entra a una cola de recuperación con visto bueno de la jefatura.</p><div class="tagrow"><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo medio</span></div></article>
+      <article class="card"><h4>7. Conciliación factura contra contrato</h4><p>Marca automática cuando lo facturado se aparta de lo contratado más allá de una tolerancia. Captura escalamientos de precio no avisados.</p><div class="tagrow"><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo medio</span></div></article>
+      <article class="card"><h4>8. Presupuesto contra ejecutado por área</h4><p>Cada jefatura ve su consumo del año, el comprometido de los meses que faltan y la proyección de cierre. Alerta al 80% y al 100%.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo medio</span></div></article>
+    </div>
+
+    <h3 style="margin:24px 0 10px">Encontrar ahorro</h3>
+    <div class="grid g2">
+      <article class="card"><h4>9. Detector de duplicidad de herramientas</h4><p>Agrupa por capacidad funcional, no por proveedor: muestra cuántas herramientas distintas estamos pagando para la misma función en diferentes áreas.</p><div class="tagrow"><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo medio</span></div></article>
+      <article class="card"><h4>10. Consolidación de compras</h4><p>Identifica el mismo proveedor contratado por varias áreas por separado para negociarlo como volumen único.</p><div class="tagrow"><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo bajo</span></div></article>
+      <article class="card"><h4>11. Optimización de nivel de licencia</h4><p>Compara la edición contratada contra el uso real de funcionalidades: quién necesita PPU y quién trabaja bien con Pro, quién tiene una edición premium para usar tres funciones.</p><div class="tagrow"><span class="tag">Impacto medio</span><span class="tag o">Esfuerzo alto</span></div></article>
+      <article class="card"><h4>12. Detección de software no autorizado</h4><p>Cruce entre lo registrado y lo que aparece en los reportes de administración de la nube corporativa. Lo que se usa sin contrato es un riesgo legal, no solo un costo.</p><div class="tagrow"><span class="tag">Impacto medio</span><span class="tag">Esfuerzo medio</span></div></article>
+    </div>
+
+    <h3 style="margin:24px 0 10px">Convertirlo en analítica</h3>
+    <div class="grid g2">
+      <article class="card"><h4>13. Modelo semántico único en Power BI</h4><p>Un solo modelo certificado sobre la base de la aplicación, con las dimensiones Área, Proveedor, Categoría, Tiempo y Estado. Todos los tableros salen de ahí.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo medio</span></div></article>
+      <article class="card"><h4>14. Tablero de jefatura y vista ejecutiva</h4><p>Dos consumos distintos: la jefatura ve el detalle de su área y puede actuar; la gerencia ve la comparación entre áreas y la tendencia.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo bajo</span></div></article>
+      <article class="card"><h4>15. Inventario de activos de BI con costo</h4><p>El catálogo de modelos y tableros de la sección anterior, con su costo de propiedad y su uso real. La analítica también rinde cuentas de lo que cuesta.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo medio</span></div></article>
+      <article class="card"><h4>16. Costo por unidad de negocio</h4><p>Dividir el costo de servicios entre un denominador operativo (colaborador, tonelada, pedido, cliente atendido) para comparar entre periodos y entre sedes.</p><div class="tagrow"><span class="tag">Impacto medio</span><span class="tag">Esfuerzo bajo</span></div></article>
+    </div>
+
+    <h3 style="margin:24px 0 10px">Gobernar el proceso</h3>
+    <div class="grid g2">
+      <article class="card"><h4>17. Solicitud con aprobación por monto</h4><p>Flujo corto: el área solicita, TI valida duplicidad y viabilidad técnica, Finanzas valida presupuesto, y el nivel de aprobación lo define el monto anualizado.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo medio</span></div></article>
+      <article class="card"><h4>18. Showback antes de chargeback</h4><p>Primero mostrar el costo a cada área sin cargarlo al resultado; después de dos trimestres de datos limpios, decidir si se carga de verdad.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo bajo</span></div></article>
+      <article class="card"><h4>19. Steward de datos por área</h4><p>Una persona nombrada por área, responsable de que su catálogo y sus registros estén completos. Sin esto, cualquier plataforma se degrada en tres meses.</p><div class="tagrow"><span class="tag p">MVP</span><span class="tag k">Impacto alto</span><span class="tag">Esfuerzo bajo</span></div></article>
+      <article class="card"><h4>20. Catálogo de servicios internos entre áreas</h4><p>Lo que un área presta a otra (horas de BI, soporte, asesoría legal, reclutamiento) registrado con su tarifa interna. Es el paso que cierra el mapa completo de costos.</p><div class="tagrow"><span class="tag">Impacto medio</span><span class="tag o">Esfuerzo alto</span></div></article>
+    </div>
+  </div>
+</section>
+
+<section id="opciones">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Cómo construirlo</p>
+      <h2>Cuatro caminos posibles</h2>
+      <p>Se evaluaron cuatro arquitecturas con los mismos ocho criterios, ponderados según lo que importa en este proyecto: que el dato empiece a capturarse rápido y que el costo total a tres años sea defendible.</p>
+    </div>
+    <div class="grid g4">
+      <article class="card"><h3>A · Odoo con módulos propios</h3><p>Odoo Community o Enterprise con desarrollo a medida para licencias, activos de BI y costos estimados.</p><p style="color:var(--muted)"><b>A favor:</b> flujo de compras y distribución analítica ya resueltos.<br><b>En contra:</b> traemos un ERP entero para un problema acotado, y lo específico se desarrolla igual.</p></article>
+      <article class="card"><h3>B · Plataforma de bajo código</h3><p>Base de datos gestionada con formularios y flujos de bajo código, más Power BI para el consumo.</p><p style="color:var(--muted)"><b>A favor:</b> MVP rápido, integración natural con la nube corporativa y Power BI.<br><b>En contra:</b> licenciamiento premium por usuario y techo de complejidad.</p></article>
+      <article class="card"><h3>C · Aplicación propia</h3><p>PostgreSQL con API propia y aplicación web, Power BI conectado al mismo esquema.</p><p style="color:var(--muted)"><b>A favor:</b> sin límite funcional, sin licencias por usuario, dato totalmente nuestro.<br><b>En contra:</b> exige equipo de desarrollo dedicado y asumir el mantenimiento.</p></article>
+      <article class="card"><h3>D · Listas y hojas con Power BI</h3><p>Listas colaborativas o archivos estructurados en la nube, consumidos directamente desde Power BI.</p><p style="color:var(--muted)"><b>A favor:</b> operativo en dos semanas, costo marginal.<br><b>En contra:</b> sin validaciones, sin aprobaciones, sin auditoría. No escala a ocho áreas.</p></article>
+    </div>
+
+    <div class="tablebox" style="margin-top:18px">
+      <table>
+        <caption>Evaluación ponderada — escala 1 a 5, donde 5 es mejor</caption>
+        <thead>
+          <tr><th>Criterio</th><th class="num">Peso</th><th class="num">A · Odoo</th><th class="num">B · Bajo código</th><th class="num">C · App propia</th><th class="num">D · Listas</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Tiempo hasta el primer MVP útil</td><td class="num">15%</td><td class="num">2</td><td class="num">4</td><td class="num">2</td><td class="num">5</td></tr>
+          <tr><td>Costo total a tres años</td><td class="num">20%</td><td class="num">3</td><td class="num">3</td><td class="num">4</td><td class="num">5</td></tr>
+          <tr><td>Flexibilidad para evolucionar</td><td class="num">15%</td><td class="num">4</td><td class="num">4</td><td class="num">5</td><td class="num">2</td></tr>
+          <tr><td>Integración con la nube corporativa y Power BI</td><td class="num">15%</td><td class="num">3</td><td class="num">5</td><td class="num">4</td><td class="num">4</td></tr>
+          <tr><td>Gobierno, permisos y auditoría</td><td class="num">10%</td><td class="num">4</td><td class="num">4</td><td class="num">5</td><td class="num">2</td></tr>
+          <tr><td>Talento interno disponible hoy</td><td class="num">10%</td><td class="num">2</td><td class="num">4</td><td class="num">3</td><td class="num">5</td></tr>
+          <tr><td>Escalabilidad a ocho áreas y 5 años de datos</td><td class="num">10%</td><td class="num">4</td><td class="num">4</td><td class="num">5</td><td class="num">1</td></tr>
+          <tr><td>Independencia del proveedor</td><td class="num">5%</td><td class="num">3</td><td class="num">2</td><td class="num">5</td><td class="num">3</td></tr>
+          <tr class="total"><td>Puntaje ponderado</td><td class="num">100%</td><td class="num">3.10</td><td class="num">3.85</td><td class="num">4.00</td><td class="num">3.60</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card bare" style="margin-top:16px">
+      <h3>El supuesto que decide el resultado</h3>
+      <p style="font-size:.95rem">La opción C gana por un margen estrecho, pero su puntaje asume que TI dispone de uno o dos desarrolladores dedicados durante diez semanas. Sin ese supuesto, sus notas de "tiempo hasta el MVP" y "talento disponible" caen a 1 y su puntaje baja a <span class="mono">3.65</span>: por debajo de B.</p>
+      <p style="font-size:.95rem">La elección entre B y C, entonces, no es técnica. Es una decisión de asignación de personas, y es una de las que pedimos hoy.</p>
+    </div>
+  </div>
+</section>
+
+<section id="recomendacion">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Propuesta</p>
+      <h2>Recomendación: empezar por el modelo, no por la herramienta</h2>
+    </div>
+    <div class="callout">
+      <h3>Lo que proponemos</h3>
+      <p><b>Uno.</b> Construir el MVP sobre la plataforma de bajo código (opción B) para capturar el dato en diez semanas, con el modelo de datos diseñado de forma portable: tablas y campos neutros, nada de estructuras propias de la herramienta.</p>
+      <p><b>Dos.</b> Mantener el modelo semántico de Power BI sobre una capa separada, de modo que un cambio de plataforma de registro no rompa ningún tablero.</p>
+      <p><b>Tres.</b> Reevaluar a los seis meses, con datos reales de volumen y de casos de uso, si corresponde migrar el registro a una aplicación propia (opción C). Si TI asigna desarrolladores dedicados desde el inicio, empezar directamente por C.</p>
+      <p><b>Cuatro.</b> No implementar Odoo para este alcance. Sí tomar prestados sus cinco patrones de diseño, ya identificados.</p>
+    </div>
+
+    <h3 style="margin:28px 0 12px">Arquitectura de referencia</h3>
+    <div class="stack">
+      <div class="layer"><div class="lname">Fuentes</div><div class="boxes"><span>Facturas y ERP contable</span><span>Contratos y órdenes de compra</span><span>Administración de la nube corporativa</span><span>API de administración de Power BI</span><span>Sistema de gestión humana</span><span>Carga manual y CSV</span></div></div>
+      <div class="layer"><div class="lname">Integración</div><div class="boxes"><span>Flujos programados</span><span>Validación y normalización</span><span>Tabla de errores y reproceso</span><span>Bitácora de carga</span></div></div>
+      <div class="layer"><div class="lname">Núcleo</div><div class="boxes"><span>Catálogo</span><span>Contratos y licencias</span><span>Costos y distribución</span><span>Solicitudes y aprobaciones</span><span>Presupuesto</span><span>Activos de BI</span><span>Auditoría</span></div></div>
+      <div class="layer"><div class="lname">Capa semántica</div><div class="boxes"><span>Vistas de reporte estables</span><span>Modelo semántico certificado</span><span>Medidas de costo, reparto y proyección</span><span>Seguridad a nivel de fila por área</span></div></div>
+      <div class="layer"><div class="lname">Consumo</div><div class="boxes"><span>Formulario de registro por área</span><span>Bandeja de aprobaciones</span><span>Tablero de jefatura</span><span>Vista ejecutiva</span><span>Alertas por correo y chat corporativo</span><span>Exportación a Finanzas</span></div></div>
+    </div>
+    <p style="font-size:.88rem;color:var(--muted);margin-top:12px;max-width:72ch">La capa semántica es la pieza que da libertad: es un contrato de vistas estables. Mientras esas vistas no cambien, el registro puede mudarse de plataforma sin que ninguna jefatura pierda su tablero.</p>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Ejecución</p>
+      <h2>Cinco fases, veinticuatro semanas</h2>
+      <p>Cada fase entrega algo utilizable. No hay una fase cuyo entregable sea solo un documento.</p>
+    </div>
+    <div class="phase">
+      <div class="no">0<small>SEM 1–2</small></div>
+      <div>
+        <h3>Diagnóstico y catálogo base</h3>
+        <p>Levantamiento de contratos, licencias y servicios vigentes por área. Definición de la taxonomía, los centros de costo y los drivers de reparto.</p>
+        <ul><li>Inventario inicial de licencias y contratos, con montos y vencimientos.</li><li>Catálogo maestro v1 aprobado por Finanzas.</li><li>Diccionario de datos y lista de campos obligatorios.</li></ul>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="no">1<small>SEM 3–6</small></div>
+      <div>
+        <h3>MVP de registro — piloto TI y RRHH</h3>
+        <p>Formularios de servicio, contrato y licencia; estados de ciclo de vida; adjuntos; distribución por área; aprobación simple por monto.</p>
+        <ul><li>Aplicación de registro en producción para dos áreas.</li><li>Carga histórica de doce meses de esas dos áreas.</li><li>Primera reunión de revisión de gasto con datos del sistema.</li></ul>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="no">2<small>SEM 7–10</small></div>
+      <div>
+        <h3>Analítica y renovaciones</h3>
+        <p>Modelo semántico certificado, tablero de jefatura y vista ejecutiva, semáforo de vencimientos y presupuesto contra ejecutado.</p>
+        <ul><li>Modelo de Power BI con seguridad por área.</li><li>Alertas automáticas a 90, 60 y 30 días.</li><li>Registro de activos de BI poblado.</li></ul>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="no">3<small>SEM 11–16</small></div>
+      <div>
+        <h3>Integraciones</h3>
+        <p>Automatización de las cargas que hoy son manuales, en orden de valor sobre esfuerzo.</p>
+        <ul><li>Usuarios y licencias asignadas desde la administración de la nube corporativa.</li><li>Inventario y uso de modelos desde la API de administración de Power BI.</li><li>Facturas y cuentas desde el ERP contable; headcount desde gestión humana.</li></ul>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="no">4<small>SEM 17–24</small></div>
+      <div>
+        <h3>Despliegue total y gobierno</h3>
+        <p>Incorporación de las áreas restantes y puesta en marcha de las rutinas de control que justifican el proyecto.</p>
+        <ul><li>Ocho áreas registrando en la plataforma, con steward nombrado.</li><li>Primer ciclo de recuperación de licencias sin uso y de racionalización de herramientas duplicadas.</li><li>Política de compras de servicios actualizada y decisión sobre showback o chargeback.</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="kpis">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Medición</p>
+      <h2>Cómo sabremos si funcionó</h2>
+      <p>Siete indicadores. Los tres primeros miden que el sistema se usa; los cuatro siguientes, que sirve de algo.</p>
+    </div>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Indicador</th><th>Línea base</th><th>Meta</th><th>Plazo</th></tr></thead>
+        <tbody>
+          <tr><td>Costo de servicios con área y driver asignados</td><td>Por determinar en fase 0</td><td class="num">≥ 95%</td><td>3 meses</td></tr>
+          <tr><td>Contratos con fecha de vencimiento y aviso previo registrados</td><td>Parcial, en hojas de cálculo</td><td class="num">100%</td><td>2 meses</td></tr>
+          <tr><td>Modelos de Power BI con dueño y criticidad declarados</td><td class="num">0%</td><td class="num">100%</td><td>4 meses</td></tr>
+          <tr><td>Licencias asignadas sin uso por más de 60 días</td><td>Desconocido</td><td class="num">&lt; 5%</td><td>6 meses</td></tr>
+          <tr><td>Renovaciones gestionadas con 30 días o más de anticipación</td><td>Reactivo</td><td class="num">100%</td><td>6 meses</td></tr>
+          <tr><td>Ahorro por recuperación y racionalización</td><td>—</td><td class="num">8 – 12%</td><td>12 meses</td></tr>
+          <tr><td>Desviación entre presupuesto y ejecutado por área</td><td>Visible solo al cierre</td><td class="num">± 5%</td><td>12 meses</td></tr>
+          <tr><td>Tiempo de resolución de una solicitud de servicio o licencia</td><td>Sin medición</td><td class="num">≤ 3 días</td><td>6 meses</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="riesgos">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Lo que puede salir mal</p>
+      <h2>Riesgos y cómo los acotamos</h2>
+    </div>
+    <div class="grid g2">
+      <article class="card"><h4><span class="tag o">Alto</span> El dato llega incompleto</h4><p>Es el riesgo que mata estos proyectos. Mitigación: lista corta de campos obligatorios (menos de diez), steward nombrado por área, y un tablero de completitud visible en la reunión mensual de jefaturas.</p></article>
+      <article class="card"><h4><span class="tag o">Alto</span> Resistencia a la visibilidad del gasto</h4><p>Ver el costo del área se interpreta como fiscalización. Mitigación: dos trimestres de showback sin impacto en el resultado del área, y que cada jefatura revise sus datos antes de que se publiquen.</p></article>
+      <article class="card"><h4><span class="tag o">Alto</span> El alcance crece hacia un ERP de compras</h4><p>Mitigación: la sección de alcance de este documento es un acuerdo. Todo pedido fuera de ella se registra como idea para la fase siguiente, no se construye en la actual.</p></article>
+      <article class="card"><h4><span class="tag">Medio</span> Costo de licenciamiento de la plataforma elegida</h4><p>La opción de bajo código cobra por usuario con funcionalidad premium. Mitigación: validar la tarifa vigente antes de comprometer el MVP, y dar acceso de escritura solo a quien registra; las jefaturas consultan por Power BI.</p></article>
+      <article class="card"><h4><span class="tag">Medio</span> Las integraciones se bloquean por seguridad</h4><p>Los permisos de administración de la nube y de Power BI requieren aprobación. Mitigación: la fase 1 funciona con carga manual y CSV; ninguna integración es prerrequisito del MVP.</p></article>
+      <article class="card"><h4><span class="tag">Medio</span> Aparece un Excel paralelo</h4><p>Mitigación: la plataforma es la única fuente admitida para armar el presupuesto del año siguiente. Lo que no esté registrado no entra al presupuesto.</p></article>
+    </div>
+  </div>
+</section>
+
+<section id="gobierno">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Responsabilidades</p>
+      <h2>Quién es dueño de qué</h2>
+      <p>La confusión más frecuente: creer que porque la herramienta la hace TI, el dato de costo es de TI. No lo es.</p>
+    </div>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Rol</th><th>Es dueño de</th><th>Responde por</th></tr></thead>
+        <tbody>
+          <tr><td><b>Finanzas</b></td><td>El dato de costo, el catálogo de cuentas y los drivers de reparto</td><td>Que el reparto sea correcto y conciliable con la contabilidad</td></tr>
+          <tr><td><b>TI</b></td><td>La plataforma, las integraciones y el catálogo de licencias y servicios tecnológicos</td><td>Disponibilidad, permisos, seguridad y la validación técnica de cada solicitud</td></tr>
+          <tr><td><b>Analítica de datos</b></td><td>El modelo semántico, los tableros y el registro de activos de BI</td><td>Que haya una sola versión del número y que esté documentada</td></tr>
+          <tr><td><b>Cada jefatura de área</b></td><td>Su catálogo, sus registros y su presupuesto</td><td>Completitud y vigencia de lo propio; decidir las bajas y las renovaciones</td></tr>
+          <tr><td><b>Steward de área</b></td><td>La operación diaria del registro de su área</td><td>Que no haya registros incompletos ni vencidos sin atender</td></tr>
+          <tr><td><b>Reingeniería de procesos</b></td><td>El flujo de solicitud, aprobación y baja</td><td>Que el proceso se cumpla y se simplifique, y medir los indicadores</td></tr>
+          <tr><td><b>Comité mensual</b></td><td>Las decisiones de racionalización y los casos fuera de política</td><td>Priorizar el backlog y resolver los conflictos de reparto</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="decisiones">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Para hoy</p>
+      <h2>Seis decisiones que necesitamos de esta reunión</h2>
+      <p>Con estas seis respuestas, la fase 0 arranca el lunes siguiente.</p>
+    </div>
+    <div class="grid g2">
+      <article class="ask"><p class="q">1. ¿Showback o chargeback?</p><p class="r">Mostrar el costo a cada área sin afectar su resultado, o cargarlo de verdad. <b>Nuestra propuesta:</b> showback durante dos trimestres, luego decidir con datos limpios.</p></article>
+      <article class="ask"><p class="q">2. ¿Se asignan desarrolladores dedicados?</p><p class="r">Uno o dos, por diez semanas. <b>Si la respuesta es sí,</b> construimos la aplicación propia (opción C). <b>Si es no,</b> vamos por bajo código (opción B). Es la decisión que define la arquitectura.</p></article>
+      <article class="ask"><p class="q">3. ¿Quién es el dueño del proceso?</p><p class="r">Finanzas, TI o Compras. <b>Nuestra propuesta:</b> Finanzas es dueño del dato de costo, TI de la plataforma, y cada área de su catálogo. Reingeniería conduce el proyecto.</p></article>
+      <article class="ask"><p class="q">4. ¿Se aprueban los drivers de reparto?</p><p class="r">Headcount, superficie, usuarios de licencia y consumo medido, según la tabla de la sección de modelo de datos. Sin drivers aprobados no hay reparto defendible.</p></article>
+      <article class="ask"><p class="q">5. ¿Se confirma el piloto con TI y RRHH?</p><p class="r">Seis semanas, dos áreas, carga histórica de doce meses. Son las dos áreas con mayor volumen de licencias y servicios recurrentes.</p></article>
+      <article class="ask"><p class="q">6. ¿Qué fecha de corte usamos para la carga histórica?</p><p class="r">Propuesta: los doce meses cerrados anteriores al inicio del piloto. Define el esfuerzo de la fase 0 y la línea base de todos los indicadores.</p></article>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <span>Analítica de Datos · TI · Reingeniería de Procesos — documento de trabajo para discusión, v1.0</span>
+  <span class="mono">8 de octubre de 2026</span>
+</footer>
+
+<script>
+(function(){
+  var tabs=document.getElementById('tabs');
+  if(!tabs)return;
+  var rows=Array.prototype.slice.call(document.querySelectorAll('#cat tbody tr'));
+  var cap=document.getElementById('catcap');
+  tabs.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-area]');
+    if(!b)return;
+    var area=b.getAttribute('data-area');
+    Array.prototype.forEach.call(tabs.querySelectorAll('button'),function(x){
+      x.setAttribute('aria-pressed',String(x===b));
+    });
+    rows.forEach(function(r){
+      r.hidden=!(area==='todas'||r.getAttribute('data-area')===area);
+    });
+    cap.textContent='Catálogo de servicios — '+(area==='todas'?'todas las áreas':b.textContent.trim());
+  });
+})();
+</script>
