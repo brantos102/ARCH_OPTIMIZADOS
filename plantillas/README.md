@@ -14,7 +14,10 @@ Es la base que la Gema debe usar para todo documento oficial que emita.
 | `cotizacion/PLANTILLA_COTIZACION_EN_BLANCO.docx` | Misma plantilla en Word, para el equipo comercial y para llenado automático. |
 | `cotizacion/ficha_datos.EN_BLANCO.json` | **Ficha de datos vacía**: el formulario que se llena por cliente. |
 | `cotizacion/ficha_datos.EJEMPLO_COT-2026-005.json` | Ficha completa de ejemplo (reproduce la cotización original). |
-| `cotizacion/ejemplo_salida/` | Resultado real de fusionar esa ficha con la plantilla (PDF y DOCX). |
+| `cotizacion/ficha_datos.EJEMPLO_GUIA_COT-2026-006.json` | Ficha del ejemplo didáctico que acompaña la guía rápida. |
+| `cotizacion/ejemplo_salida/` | Resultados reales de fusionar esas fichas con la plantilla (PDF y DOCX). |
+| `guia/GUIA_RAPIDA_COTIZACION.pdf` | **Guía rápida de 4 páginas**: cómo generar una cotización con la Gema, con un ejemplo completo. Para repartir al equipo comercial. |
+| `guia/guia_rapida_cotizacion.html` | Fuente editable de la guía rápida. |
 | `herramientas/generar_cotizacion.py` | Motor de llenado: ficha JSON + plantilla → HTML, PDF y DOCX. |
 | `herramientas/crear_plantilla_docx.py` | Reconstruye la plantilla Word desde cero si hay que cambiar el diseño. |
 | `assets/img/` | Logo itsanet Ecuador, caja azul con logo blanco, logo FlexNet y patrón de flechas, extraídos del PDF original. |

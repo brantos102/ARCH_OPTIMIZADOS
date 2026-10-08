@@ -1,0 +1,43 @@
+{
+  "documento": {
+    "etiqueta": "Cotización",
+    "titulo": "Cotización de servicios logísticos",
+    "codigo": "COT-2026-006",
+    "version": "v1",
+    "fecha_emision": "2026-10-08",
+    "ciudad": "Quito",
+    "validez": "30 días calendario",
+    "moneda": "USD"
+  },
+  "cliente": {
+    "nombre": "Comercial Andina S.A.",
+    "atencion_a": "Luis Paredes",
+    "cargo": "Jefe de Operaciones",
+    "correo": "",
+    "ciudades_operacion": ["Quito", "Guayaquil"]
+  },
+  "emisor": {
+    "region": "Ecuador",
+    "responsable": "Karen Gómez Echeverría",
+    "cargo": "Gerente Comercial",
+    "direccion": "Calle 28 de Junio y Gabriel García Moreno (Entrada a Llano Grande) Quito - Ecuador",
+    "telefono": "(+593) 099 510 2287",
+    "correo": "comercial.ec@itsanet.com",
+    "webs": ["www.itsanet.com", "www.flexnetecuador.com"]
+  },
+  "servicio_cotizado": "Almacenaje, picking y despacho de mercadería importada.",
+  "items": [
+    { "servicio": "Picking y preparación de pedidos", "cantidad": "20 días (160 horas)", "tarifa": "$25 / hora (L-V)", "total": 4000.00 },
+    { "servicio": "Picking - Fin de semana", "cantidad": "4 días (32 horas)", "tarifa": "$35 / hora (S-D)", "total": 1120.00 },
+    { "servicio": "Almacenaje mensual", "cantidad": "120 pallets", "tarifa": "$8,50 / pallet", "total": 1020.00 }
+  ],
+  "totales": { "mostrar": true, "tasa_iva": 0, "nota": "Valores no incluyen IVA" },
+  "condiciones": [
+    "Los despachos solicitados después de las 15:00 se procesan al día siguiente hábil.",
+    "El volumen estimado corresponde a la planificación enviada por el cliente.",
+    "Personal asignado: 1 equipo de trabajo (4 personas) en horario regular L-V.",
+    "Cualquier requerimiento fuera del alcance descrito será cotizado por separado."
+  ],
+  "parrafo_cierre": "Quedamos atentos a sus comentarios y a coordinar el inicio del proceso. Trabajaremos en conjunto con ustedes para que la operación fluya sin complicaciones.",
+  "notas_internas": "Ejemplo didáctico que acompaña la Guía rápida: cómo generar una cotización."
+}
