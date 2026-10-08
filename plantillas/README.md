@@ -18,6 +18,8 @@ Es la base que la Gema debe usar para todo documento oficial que emita.
 | `cotizacion/ejemplo_salida/` | Resultados reales de fusionar esas fichas con la plantilla (PDF y DOCX). |
 | `guia/GUIA_RAPIDA_COTIZACION.pdf` | **Guía rápida de 4 páginas**: cómo generar una cotización con la Gema, con un ejemplo completo. Para repartir al equipo comercial. |
 | `guia/guia_rapida_cotizacion.html` | Fuente editable de la guía rápida. |
+| `guia/CORRECCION_FORMATO_Y_DOCX.pdf` | **Por qué la Gema no debe maquetar** y cómo obtener el `.docx` editable: diagnóstico de los defectos de formato, el flujo correcto y los dos caminos (automático y manual en Word). |
+| `guia/correccion_formato.html` | Fuente editable de ese documento. |
 | `herramientas/generar_cotizacion.py` | Motor de llenado: ficha JSON + plantilla → HTML, PDF y DOCX. |
 | `herramientas/crear_plantilla_docx.py` | Reconstruye la plantilla Word desde cero si hay que cambiar el diseño. |
 | `assets/img/` | Logo itsanet Ecuador, caja azul con logo blanco, logo FlexNet y patrón de flechas, extraídos del PDF original. |

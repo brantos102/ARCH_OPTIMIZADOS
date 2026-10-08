@@ -295,7 +295,8 @@ def nombre_archivo(ficha):
 
 def main():
     ap = argparse.ArgumentParser(description='Genera la cotización ITSA desde una ficha JSON.')
-    ap.add_argument('ficha')
+    ap.add_argument('ficha', help="ruta del JSON, o '-' para leerlo de la entrada estándar "
+                                  "(útil para pegar directo la Ficha de Datos de la Gema)")
     ap.add_argument('--salida', default='.')
     ap.add_argument('--solo-html', action='store_true')
     ap.add_argument('--vinculado', action='store_true',
@@ -303,8 +304,11 @@ def main():
                          '(solo sirve si la salida queda junto a la plantilla)')
     args = ap.parse_args()
 
-    with open(args.ficha, encoding='utf-8') as fh:
-        ficha = json.load(fh)
+    if args.ficha == '-':
+        ficha = json.load(sys.stdin)
+    else:
+        with open(args.ficha, encoding='utf-8') as fh:
+            ficha = json.load(fh)
 
     os.makedirs(args.salida, exist_ok=True)
     base = os.path.join(args.salida, nombre_archivo(ficha))
