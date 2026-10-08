@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Corrección de formato y entrega del .docx</title>
+<style>
+  @font-face{font-family:'Schibsted Grotesk';src:url('../assets/fonts/SchibstedGrotesk-400.woff2') format('woff2');font-weight:400}
+  @font-face{font-family:'Schibsted Grotesk';src:url('../assets/fonts/SchibstedGrotesk-500.woff2') format('woff2');font-weight:500}
+  @font-face{font-family:'Schibsted Grotesk';src:url('../assets/fonts/SchibstedGrotesk-600.woff2') format('woff2');font-weight:600}
+  @font-face{font-family:'Schibsted Grotesk';src:url('../assets/fonts/SchibstedGrotesk-700.woff2') format('woff2');font-weight:700}
+  :root{--azul:#1c58d7;--azul-60:#1749B3;--azul-80:#0E2C6B;--tint-10:#D2DEF7;--tint-20:#B3C7F2;
+        --gris-fondo:#F7F7F7;--gris-linea:#D6D6D6;--gris-num:#C2C2C2;--gris-label:#858585;
+        --gris-texto:#5C5D5D;--negro:#0C0C0C;--fuente:'Schibsted Grotesk','Inter',Arial,sans-serif}
+  @page{size:A4;margin:28mm 18mm 14mm 18mm}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:var(--fuente);font-size:9.5pt;line-height:1.5;color:var(--negro);
+       -webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff}
+  table.hoja{width:100%;border-collapse:collapse}
+  table.hoja>thead>tr>th,table.hoja>tbody>tr>td{border:0;padding:0;text-align:left;font-weight:400}
+  table.hoja>thead>tr>th{padding-bottom:7mm}
+  .encabezado .fila{display:flex;align-items:center;justify-content:space-between}
+  .encabezado img{width:42mm;height:auto;display:block}
+  .etiqueta-doc{font-size:7.5pt;font-weight:700;color:var(--azul);text-transform:uppercase;
+                letter-spacing:.28em}
+  .encabezado hr{border:0;border-top:.75px solid var(--gris-linea);margin:4mm 0 0}
+  h1{font-size:22pt;font-weight:700;color:var(--azul);margin:2mm 0 1mm;letter-spacing:-.01em}
+  .bajada{font-size:10.5pt;color:var(--gris-texto);margin:0 0 6mm}
+  h2{margin:7mm 0 3mm;font-size:12.5pt;font-weight:700;color:var(--azul);display:flex;
+     align-items:baseline;gap:2mm;break-after:avoid;page-break-after:avoid}
+  h2 .num{color:var(--gris-num)}
+  h3{margin:4.5mm 0 2mm;font-size:10pt;font-weight:700;color:var(--azul-80);
+     break-after:avoid;page-break-after:avoid}
+  p{margin:0 0 3mm}
+  table.datos{width:100%;border-collapse:collapse;table-layout:fixed}
+  table.datos th,table.datos td{border:.75px solid var(--azul);padding:2.4mm 3mm;
+       vertical-align:top;font-size:8.6pt;word-wrap:break-word}
+  table.datos th{background:var(--gris-fondo);color:var(--azul);font-weight:700}
+  table.datos td.mal{color:#5C5D5D}
+  table.datos td.bien{color:var(--negro)}
+  table.datos td.el{font-weight:600}
+  .aviso{border:.75px solid var(--tint-20);background:var(--tint-10);padding:3.5mm 4mm;
+         margin:0 0 4mm;font-size:8.8pt}
+  .aviso b{color:var(--azul-80)}
+  .flujo{display:flex;align-items:stretch;gap:0;margin:1mm 0 4mm}
+  .flujo .caja{flex:1;border:.75px solid var(--azul);border-top:2.5px solid var(--azul);
+               padding:3.5mm 3mm;background:#fff}
+  .flujo .caja .n{font-size:8pt;font-weight:700;color:var(--azul);letter-spacing:.12em}
+  .flujo .caja .t{font-weight:700;font-size:9.5pt;margin:1.5mm 0 1mm}
+  .flujo .caja .d{font-size:8.5pt;color:var(--gris-texto);line-height:1.4}
+  .flujo .sep{flex:0 0 7mm;display:flex;align-items:center;justify-content:center;
+              color:var(--azul);font-weight:700;font-size:12pt}
+  ul.limpia{margin:0 0 3mm;padding-left:5mm}
+  ul.limpia li{margin:0 0 1.8mm}
+  ol.limpia{margin:0 0 3mm;padding-left:5mm}
+  ol.limpia li{margin:0 0 2.2mm}
+  .check{list-style:none;margin:0;padding:0}
+  .check li{margin:0 0 2mm;padding-left:7mm;position:relative}
+  .check li::before{content:'';position:absolute;left:0;top:1.1mm;width:3.4mm;height:3.4mm;
+                    border:1px solid var(--azul);border-radius:.6mm}
+  code{background:var(--gris-fondo);border:.5px solid var(--gris-linea);padding:.3mm 1.2mm;
+       font-size:8.4pt;color:var(--azul-60)}
+  .cmd{border:.75px solid var(--gris-linea);border-left:3px solid var(--azul);
+       background:var(--gris-fondo);padding:3.5mm 4mm;margin:0 0 3mm;font-size:8.6pt;
+       white-space:pre-wrap;line-height:1.5}
+  .nota-pie{margin-top:6mm;padding-top:3mm;border-top:.75px solid var(--gris-linea);
+            font-size:8pt;color:var(--gris-label)}
+  .evitar{break-inside:avoid;page-break-inside:avoid}
+</style>
+</head>
+<body>
+<table class="hoja">
+<thead><tr><th>
+  <header class="encabezado">
+    <div class="fila">
+      <img src="../assets/img/logo_itsanet_ecuador.png" alt="itsanet Ecuador">
+      <span class="etiqueta-doc">Corrección de formato</span>
+    </div>
+    <hr>
+  </header>
+</th></tr></thead>
+<tbody><tr><td>
+
+<h1>Corrección de formato y entrega del .docx</h1>
+<p class="bajada">Por qué la Gema no debe maquetar el documento, y cómo obtener la cotización oficial en Word, editable y fiel al manual de marca.</p>
+
+<h2><span class="num">01</span> Qué salió distinto del original</h2>
+<table class="datos evitar">
+  <colgroup><col style="width:24%"><col style="width:38%"><col style="width:38%"></colgroup>
+  <tr><th>Elemento</th><th>Lo que entregó la Gema</th><th>Lo correcto</th></tr>
+  <tr><td class="el">Logo del encabezado</td>
+      <td class="mal">Las palabras «itsanet Ecuador» escritas como texto, sin el isotipo.</td>
+      <td class="bien">La imagen del logo: isotipo de la flecha + logotipo + región, con su área de seguridad.</td></tr>
+  <tr><td class="el">Isotipo del pie</td>
+      <td class="mal">Una flecha tipográfica apuntando a la izquierda, dibujada con caracteres.</td>
+      <td class="bien">La caja azul con el logo en blanco, insertada como imagen. Alterar la flecha es un uso incorrecto del logo.</td></tr>
+  <tr><td class="el">Logo FlexNet</td>
+      <td class="mal">La palabra «FlexNet» en texto blanco sobre la caja azul.</td>
+      <td class="bien">El logo FlexNet a color, como imagen independiente, debajo de la caja azul.</td></tr>
+  <tr><td class="el">Íconos de contacto</td>
+      <td class="mal">Símbolos sueltos y emojis que el visor no renderiza igual.</td>
+      <td class="bien">Íconos Google Fonts minimalistas, monocromos en azul primario.</td></tr>
+  <tr><td class="el">Patrón de flechas</td>
+      <td class="mal">Ausente.</td>
+      <td class="bien">Marca de agua del patrón, en azul claro, al extremo derecho del pie.</td></tr>
+  <tr><td class="el">Tipografía</td>
+      <td class="mal">La tipografía por defecto del navegador.</td>
+      <td class="bien">Schibsted Grotesk, con la jerarquía de tamaños del manual.</td></tr>
+  <tr><td class="el">Formato de tarifa</td>
+      <td class="mal"><code>$25.00/hora (L-V)</code></td>
+      <td class="bien"><code>$25 / hora (L-V)</code> — espacios alrededor de la barra, sin decimales si la cifra es entera.</td></tr>
+  <tr><td class="el">Entregable</td>
+      <td class="mal">Un HTML pegado en el chat.</td>
+      <td class="bien"><code>.docx</code> editable y <code>.pdf</code> para enviar.</td></tr>
+</table>
+
+<h2><span class="num">02</span> La causa, en una frase</h2>
+<div class="aviso evitar">
+  <b>La Gema no tiene los archivos de imagen, así que cuando le pides «respeta el logo», lo reconstruye con texto.</b>
+  Un PDF cargado en el Conocimiento sirve para <i>leer</i> el manual, no para <i>extraer</i> sus imágenes.
+  De ahí la regla que se añadió a las instrucciones: <b>la Gema no maqueta; la maqueta la aporta la plantilla</b>,
+  que ya trae el logo, el pie de firma y la tipografía incrustados.
+</div>
+
+<h2><span class="num">03</span> El flujo correcto</h2>
+<div class="flujo evitar">
+  <div class="caja">
+    <div class="n">LA GEMA</div>
+    <div class="t">Contenido y datos</div>
+    <div class="d">Recoge la información, valida la aritmética, redacta con el tono de marca y entrega la Ficha de Datos en JSON.</div>
+  </div>
+  <div class="sep">→</div>
+  <div class="caja">
+    <div class="n">LA PLANTILLA</div>
+    <div class="t">Identidad visual</div>
+    <div class="d">Aporta el logo, el pie de firma, los íconos, la tipografía y la retícula. No se modifica nunca.</div>
+  </div>
+  <div class="sep">→</div>
+  <div class="caja">
+    <div class="n">EL RESULTADO</div>
+    <div class="t">Documento oficial</div>
+    <div class="d">COT-AAAA-NNN_Cliente_vN en <b>.docx</b> editable y <b>.pdf</b> para enviar al cliente.</div>
+  </div>
+</div>
+
+<h2><span class="num">04</span> Cómo obtener el .docx — dos caminos</h2>
+
+<h3>Camino A · Automático (un comando)</h3>
+<p>Copia la Ficha de Datos que entrega la Gema, guárdala como <code>ficha.json</code> y ejecuta:</p>
+<div class="cmd">python3 plantillas/herramientas/generar_cotizacion.py ficha.json --salida ./salida</div>
+<p>Produce el <code>.docx</code>, el <code>.pdf</code> y el <code>.html</code> ya maquetados, nombrados según la convención, y lista al final los campos que quedaron pendientes. También acepta el JSON pegado directamente:</p>
+<div class="cmd">pbpaste | python3 plantillas/herramientas/generar_cotizacion.py - --salida ./salida</div>
+
+<h3>Camino B · Manual en Word (sin instalar nada)</h3>
+<ol class="limpia evitar">
+  <li>Abre <code>PLANTILLA_COTIZACION_EN_BLANCO.docx</code> y guárdala con el nombre de la nueva cotización.</li>
+  <li>Usa <b>Buscar y reemplazar</b> (Ctrl+L / Cmd+Mayús+H) con los marcadores de la tabla siguiente.</li>
+  <li>En la tabla del detalle económico, <b>duplica la fila</b> del ítem tantas veces como servicios tengas, o bórrala si sobran.</li>
+  <li>Haz lo mismo con la viñeta de condiciones.</li>
+  <li>Revisa que el total coincida con la suma de las líneas y exporta a PDF.</li>
+</ol>
+<table class="datos">
+  <colgroup><col style="width:33%"><col style="width:33%"><col style="width:34%"></colgroup>
+  <tr><th>Marcador</th><th>Marcador</th><th>Marcador</th></tr>
+  <tr><td><code>{{ETIQUETA_DOCUMENTO}}</code></td><td><code>{{TITULO_DOCUMENTO}}</code></td><td><code>{{CIUDAD_EMISION}}</code></td></tr>
+  <tr><td><code>{{FECHA_EMISION_LARGA}}</code></td><td><code>{{CLIENTE}}</code></td><td><code>{{CLIENTE_MAYUSCULAS}}</code></td></tr>
+  <tr><td><code>{{ATENCION_A}}</code></td><td><code>{{CODIGO_DOCUMENTO}}</code></td><td><code>{{VALIDEZ}}</code></td></tr>
+  <tr><td><code>{{GERENTE_COMERCIAL}}</code></td><td><code>{{SERVICIO_COTIZADO}}</code></td><td><code>{{CIUDADES_OPERACION}}</code></td></tr>
+  <tr><td><code>{{MONEDA}}</code></td><td><code>{{ITEM_SERVICIO}}</code></td><td><code>{{ITEM_CANTIDAD}}</code></td></tr>
+  <tr><td><code>{{ITEM_TARIFA}}</code></td><td><code>{{ITEM_TOTAL}}</code></td><td><code>{{TOTAL_ETIQUETA}}</code></td></tr>
+  <tr><td><code>{{TOTAL_VALOR}}</code></td><td><code>{{NOTA_FISCAL}}</code></td><td><code>{{CONDICION}}</code></td></tr>
+  <tr><td><code>{{PARRAFO_CIERRE}}</code></td><td><code>{{FIRMANTE_NOMBRE}}</code></td><td><code>{{FIRMANTE_CARGO}}</code></td></tr>
+</table>
+<p>El pie de firma de la plantilla ya trae el logo, FlexNet y los íconos: no hay que tocarlo salvo que cambie el responsable comercial.</p>
+
+<h2><span class="num">05</span> Reglas añadidas a la Gema</h2>
+<ul class="limpia evitar">
+  <li>Nunca escribir el logotipo como texto, ni aproximar el isotipo con flechas, emojis o arte ASCII.</li>
+  <li>Nunca sustituir el pie de firma, el logo FlexNet ni los íconos de contacto por texto.</li>
+  <li>Nunca cambiar tipografía, tamaños ni márgenes de la plantilla.</li>
+  <li>Si no puede insertar una imagen, dejar el marcador <code>[LOGO ITSANET – REGIÓN]</code> y decirlo, en lugar de improvisarla.</li>
+  <li>Entregar siempre la Ficha de Datos y el <code>.docx</code> editable; el HTML en el chat no es un entregable.</li>
+  <li>Respetar el formato de valores: <code>$25 / hora (L-V)</code>, <code>$4,000.00</code>, <code>8 de octubre de 2026</code>.</li>
+</ul>
+
+<h2><span class="num">06</span> Verificación del formato antes de enviar</h2>
+<ul class="check evitar">
+  <li>El logo del encabezado es la imagen con el isotipo, no texto.</li>
+  <li>La flecha del isotipo apunta en su dirección original y no está rotada ni espejada.</li>
+  <li>El pie trae la caja azul, el logo FlexNet a color y el patrón de flechas.</li>
+  <li>Los íconos de contacto son los de la plantilla, en azul primario.</li>
+  <li>La tipografía es Schibsted Grotesk en todo el documento.</li>
+  <li>Las tarifas y los importes siguen el formato de marca.</li>
+  <li>Recibiste el <code>.docx</code> editable, no solo una vista previa.</li>
+</ul>
+
+<p class="nota-pie">Plantilla maestra: <b>PLANTILLA_COTIZACION_EN_BLANCO</b> · Identidad: <b>ITSA Brandbook V2</b> ·
+Azul Real #1c58d7 · Schibsted Grotesk · Nomenclatura COT-AAAA-NNN_Cliente_vN</p>
+
+</td></tr></tbody>
+</table>
+</body>
+</html>

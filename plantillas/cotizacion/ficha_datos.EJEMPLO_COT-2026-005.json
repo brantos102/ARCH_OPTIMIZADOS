@@ -1,0 +1,49 @@
+{
+  "documento": {
+    "etiqueta": "Cotización",
+    "titulo": "Cotización de servicios logísticos",
+    "codigo": "COT-2026-005",
+    "version": "v1",
+    "fecha_emision": "2026-10-07",
+    "ciudad": "Quito",
+    "validez": "30 días calendario",
+    "moneda": "USD"
+  },
+  "cliente": {
+    "nombre": "Impoventura",
+    "atencion_a": "Tatiana Salinas",
+    "cargo": "",
+    "correo": "",
+    "ciudades_operacion": ["Quito"]
+  },
+  "emisor": {
+    "region": "Ecuador",
+    "responsable": "Karen Gómez Echeverría",
+    "cargo": "Gerente Comercial",
+    "direccion": "Calle 28 de Junio y Gabriel García Moreno (Entrada a Llano Grande) Quito - Ecuador",
+    "telefono": "(+593) 099 510 2287",
+    "correo": "comercial.ec@itsanet.com",
+    "webs": ["www.itsanet.com", "www.flexnetecuador.com"]
+  },
+  "servicio_cotizado": "Cotización de destrucción de obsoletos; recepción y preparación contenedores.",
+  "items": [
+    { "servicio": "Proceso de preparación para destrucción", "cantidad": "10 días (80 horas)", "tarifa": "$25 / hora (L-V)", "total": 4000.00 },
+    { "servicio": "Recepción (19 al 23 Oct)", "cantidad": "5 días (40 horas)", "tarifa": "$25 / hora (L-V)", "total": 2000.00 },
+    { "servicio": "Preparación - Fin de semana (24 y 25 Oct)", "cantidad": "2 días (16 horas)", "tarifa": "$35 / hora (S-D)", "total": 1120.00 },
+    { "servicio": "Preparación - Día regular (26 Oct)", "cantidad": "1 día (8 horas)", "tarifa": "$25 / hora (L-V)", "total": 400.00 }
+  ],
+  "totales": {
+    "mostrar": true,
+    "tasa_iva": 0,
+    "nota": "Valores no incluyen IVA"
+  },
+  "condiciones": [
+    "Para la preparación, se estima un 20% de los productos que llegan de la importación.",
+    "Las solicitudes de despachos cargados el 26 se procesan a partir del 27 con entrega en punto final el 28.",
+    "Personal: 2 equipos de trabajo (6 personas). Tiempo: 3 días (24, 25 y 26).",
+    "Como complemento a la cotización enviada anteriormente, le informamos que, si requiere que el proceso de destrucción se realice en un plazo específico, será necesario notificarlo con al menos 24 horas de anticipación para su evaluación y aprobación. De lo contrario, el servicio se programará según nuestra disponibilidad operativa.",
+    "Estos valores son de acuerdo a la planificación de volúmenes enviados por el cliente."
+  ],
+  "parrafo_cierre": "Quedamos atentos a sus comentarios y a coordinar el inicio del proceso. Trabajaremos en conjunto con ustedes para que la operación fluya sin complicaciones.",
+  "notas_internas": "Ejemplo de referencia: reproduce la cotización original que sirvió de base para la plantilla."
+}
