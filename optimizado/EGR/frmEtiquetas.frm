@@ -61,15 +61,17 @@ Private Sub UserForm_Initialize()
   Set t = NL("(marca los que quieras imprimir juntos)", 300, 53, 174): t.ForeColor = RGB(120, 120, 120)
 
   ' ----- lista -----
-  Set lblCnt = NL("", 10, 72, 336, 14, True)
+  Set t = NL("PEDIDO            DEST.   PARROQUIA           DESTINATARIO              ETIQUETA", 10, 72, 336)
+  t.Font.Bold = True: t.ForeColor = RGB(48, 84, 150)
+  Set lblCnt = NL("", 10, 86, 336, 14, True)
   Set lst = Me.Controls.Add("Forms.ListBox.1")
-  lst.Left = 10: lst.Top = 88: lst.Width = 336: lst.Height = 284: lst.Font.Size = 8
-  lst.ColumnCount = 4: lst.ColumnWidths = "72;34;150;74"
+  lst.Left = 10: lst.Top = 102: lst.Width = 336: lst.Height = 270: lst.Font.Size = 8
+  lst.ColumnCount = 5: lst.ColumnWidths = "64;30;86;98;58"
   lst.MultiSelect = fmMultiSelectExtended
-  lst.ControlTipText = "Sin seleccionar nada se imprime TODA la lista. Si seleccionas (Ctrl o Shift + clic) se imprime solo lo seleccionado."
+  lst.ControlTipText = "La lista está en el orden en que se va a imprimir: destino, parroquia y pedido. Sin seleccionar nada se imprime TODA la lista; si seleccionas (Ctrl o Shift + clic) se imprime solo lo seleccionado."
   Set bTodo = NB("Seleccionar todo", 10, 376, 100, 18, RGB(120, 120, 120))
   Set bNada = NB("Quitar selección", 114, 376, 100, 18, RGB(120, 120, 120))
-  Set t = NL("Sin selección se imprime toda la lista. Ctrl + clic o Shift + clic para elegir solo algunos. Un clic muestra la etiqueta.", 10, 398, 336)
+  Set t = NL("Se imprime en este orden: destino, parroquia y pedido. Sin selección sale toda la lista; Ctrl o Shift + clic para elegir solo algunos.", 10, 398, 336)
   t.Height = 28: t.WordWrap = True: t.ForeColor = RGB(120, 120, 120)
 
   ' ----- vista previa -----
@@ -262,10 +264,11 @@ Private Sub Filtrar()
   mCarga = True
   lst.Clear
   If mNIdx > 0 Then
-    ReDim arr(0 To mNIdx - 1, 0 To 3)
+    ReDim arr(0 To mNIdx - 1, 0 To 4)
     For n = 1 To mNIdx
       k = mIdx(n)
-      arr(n - 1, 0) = mPed(k): arr(n - 1, 1) = mDest(k): arr(n - 1, 2) = mNom(k): arr(n - 1, 3) = mEst(k)
+      arr(n - 1, 0) = mPed(k): arr(n - 1, 1) = mDest(k): arr(n - 1, 2) = UCase$(mParr(k))
+      arr(n - 1, 3) = mNom(k): arr(n - 1, 4) = mEst(k)
     Next
     lst.List = arr
     ' no se fija ListIndex: en una lista de selección múltiple eso dejaría marcada la
@@ -384,12 +387,19 @@ Private Sub bNada_Click()
   Contar
 End Sub
 
-' Ordena las filas filtradas por destino y, dentro de cada destino, por número de pedido.
+' Ordena las filas filtradas en el orden en que conviene imprimirlas:
+'   1. DESTINO    (PRO, GYE, UIO, GPS)
+'   2. PARROQUIA  dentro de cada destino, para que las de la misma zona salgan seguidas
+'   3. PEDIDO     dentro de cada parroquia
+' Así un lote mezclado sale de la impresora ya agrupado por ruta y no hay que separarlo
+' a mano después.
 Private Sub Ordenar()
   Dim i As Long, j As Long, h As Long, t As Long, cl() As String, ct As String
   If mNIdx < 2 Then Exit Sub
   ReDim cl(1 To mNIdx)
-  For i = 1 To mNIdx: cl(i) = mDest(mIdx(i)) & Chr(1) & mPed(mIdx(i)): Next
+  For i = 1 To mNIdx
+    cl(i) = mDest(mIdx(i)) & Chr(1) & UCase$(mParr(mIdx(i))) & Chr(1) & mPed(mIdx(i))
+  Next
   h = 1
   Do While h < mNIdx \ 3: h = h * 3 + 1: Loop
   Do While h >= 1
@@ -433,7 +443,8 @@ Private Sub bImprimir_Click()
   If cboImp.ListIndex < 0 Then MsgBox "Elige la impresora Zebra.", vbExclamation: Exit Sub
   det = "Etiqueta: " & cboEstado.Text & "   ·   Destinos: " & TextoDestinos()
   If Len(Trim$(txtBuscar.Text)) > 0 Then det = det & "   ·   Buscar: " & Trim$(txtBuscar.Text)
-  det = det & vbCrLf & IIf(NSeleccionadas() > 0, "Se imprime SOLO lo seleccionado.", "Se imprime toda la lista.")
+  det = det & vbCrLf & IIf(NSeleccionadas() > 0, "Se imprime SOLO lo seleccionado.", "Se imprime toda la lista.") & _
+        vbCrLf & "Orden de salida: destino, parroquia y pedido (las de la misma zona salen seguidas)."
   If MsgBox("Imprimir " & c.Count & " etiqueta(s) en:" & vbCrLf & cboImp.Text & vbCrLf & vbCrLf & det, _
             vbYesNo + vbQuestion, "Imprimir etiquetas") <> vbYes Then Exit Sub
   SetCfg "IMPRESORA_ZEBRA", cboImp.Text

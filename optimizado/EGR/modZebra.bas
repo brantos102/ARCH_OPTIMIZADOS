@@ -212,12 +212,56 @@ End Function
 
 ' Imprime (o guarda en archivo) las etiquetas de las filas de DATOS indicadas.
 ' Marca en ETIQUETAS: F = OK, M = destino impreso, N = fecha. Devuelve cuántas se enviaron.
+' Devuelve las mismas filas, ordenadas por DESTINO, PARROQUIA y PEDIDO.
+' Si algo fallara, devuelve la colección tal como entró: nunca deja de imprimir.
+Public Function OrdenarEtiquetas(filas As Collection) As Collection
+  Dim ws As Worksheet, n As Long, i As Long, j As Long, f, cl() As String, fi() As Long
+  Dim t As Long, ct As String, h As Long, p As String, c As New Collection
+  On Error GoTo salir
+  n = filas.Count
+  If n < 2 Then Set OrdenarEtiquetas = filas: Exit Function
+  Set ws = ThisWorkbook.Worksheets(HDAT)
+  ReDim cl(1 To n): ReDim fi(1 To n)
+  i = 0
+  For Each f In filas
+    i = i + 1
+    fi(i) = CLng(f)
+    p = TXE(ws.Cells(fi(i), D_PARRSP).Value)
+    If Len(p) = 0 Then p = TXE(ws.Cells(fi(i), D_PARR).Value)
+    cl(i) = UCase$(TXE(ws.Cells(fi(i), D_DEST).Value)) & Chr(1) & UCase$(p) & Chr(1) & TXE(ws.Cells(fi(i), D_PED).Value)
+  Next
+  h = 1
+  Do While h < n \ 3: h = h * 3 + 1: Loop
+  Do While h >= 1
+    For i = h + 1 To n
+      t = fi(i): ct = cl(i)
+      j = i
+      Do While j > h
+        If cl(j - h) <= ct Then Exit Do
+        fi(j) = fi(j - h): cl(j) = cl(j - h)
+        j = j - h
+      Loop
+      fi(j) = t: cl(j) = ct
+    Next
+    h = (h - 1) \ 3
+  Loop
+  For i = 1 To n: c.Add fi(i): Next
+  Set OrdenarEtiquetas = c
+  Exit Function
+salir:
+  LogE "ETIQUETAS: no se pudo ordenar la lista (" & Err.Description & "); se imprime en el orden recibido.", "AVISO"
+  Set OrdenarEtiquetas = filas
+End Function
+
 Public Function ImprimirFilas(filas As Collection, ByVal impresora As String, ByVal soloArchivo As Boolean) As Long
   Dim wsD As Worksheet, wsE As Worksheet, f, zpl As String, n As Long, ruta As String, ff As Integer
-  Dim ped As String, nom As String, dest As String, parr As String
+  Dim ped As String, nom As String, dest As String, parr As String, orden As Collection
   Set wsD = ThisWorkbook.Worksheets(HDAT)
   Set wsE = ThisWorkbook.Worksheets(HETQ)
-  For Each f In filas
+  ' Las etiquetas salen SIEMPRE en el mismo orden: destino, parroquia y pedido. Así un
+  ' lote mezclado sale ya agrupado por ruta, venga de donde venga la lista de filas.
+  Set orden = OrdenarEtiquetas(filas)
+  For Each f In orden
     ped = TXE(wsD.Cells(f, D_PED).Value): dest = TXE(wsD.Cells(f, D_DEST).Value)
     nom = TXE(wsD.Cells(f, D_NOM).Value): parr = TXE(wsD.Cells(f, D_PARRSP).Value)
     If Len(parr) = 0 Then parr = TXE(wsD.Cells(f, D_PARR).Value)
@@ -232,7 +276,7 @@ Public Function ImprimirFilas(filas As Collection, ByVal impresora As String, By
     Exit Function
   End If
   If Not EnviarRaw(impresora, zpl) Then Exit Function
-  For Each f In filas
+  For Each f In orden
     dest = TXE(wsD.Cells(f, D_DEST).Value)
     If Len(dest) > 0 Then
       wsE.Cells(f, 6).Value = "OK"

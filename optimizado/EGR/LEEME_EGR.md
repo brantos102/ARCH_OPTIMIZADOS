@@ -292,8 +292,9 @@ siguiente, un destino viejo nunca se aplica a otro pedido.
     que toque (p. ej. GYE + UIO y PRO fuera) y la lista queda solo con esos. Abre con los cuatro marcados;
   - **búsqueda** por pedido, destinatario, parroquia o destino, mientras se escribe;
   - **Quitar filtros** vuelve a la lista completa con los cuatro destinos marcados;
-  - la lista sale **agrupada por destino y, dentro de cada destino, por número de pedido**, así el lote se imprime
-    ordenado y es fácil separarlo después;
+  - la lista sale en el **orden en que se va a imprimir**: **destino → parroquia → pedido**. Así las etiquetas de
+    la misma zona salen **seguidas** y el lote no hay que separarlo a mano después. La columna PARROQUIA está a la
+    vista para poder comprobarlo antes de imprimir;
   - **selección opcional**: sin seleccionar nada se imprime **toda la lista**; si se seleccionan filas
     (Ctrl + clic o Shift + clic, o **Seleccionar todo** / **Quitar selección**) se imprime **solo lo
     seleccionado**. El contador y el botón lo dicen en todo momento: *Imprimir las 23 de la lista* o
@@ -306,6 +307,11 @@ siguiente, un destino viejo nunca se aplica a otro pedido.
   abría el cuadro de diálogo. Ahora el gancho se quita antes de cualquier acción, y la lista de impresoras se lee de
   Windows de forma liviana.
 - Se envía **ZPL directo** a la impresora, sin fuentes de código de barras.
+- **El orden lo garantiza la impresión, no la lista.** `ImprimirFilas` reordena siempre por destino, parroquia y
+  pedido antes de armar el ZPL, venga de donde venga la selección. Por eso lo que se ve en la ventana es
+  exactamente lo que sale de la Zebra, incluso si se eligieron filas sueltas con Ctrl + clic. Si ese orden no se
+  pudiera calcular, se imprime igual en el orden recibido y queda avisado en el registro: **nunca se deja de
+  imprimir por un problema de orden**.
 - Al imprimir, en la hoja ETIQUETAS se escribe:
   - F (STATUS) = **OK**;
   - M = destino impreso;
