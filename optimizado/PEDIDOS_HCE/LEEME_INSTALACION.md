@@ -335,3 +335,45 @@ primer cantón y lo marcaba OK; así pasaron TULCAN→MONTUFAR, MANTA→CHONE e 
 - Usar W (DESTINO) y V (GESTOR) en lugar de la fórmula de `DATOS!A`, que decide por provincia. Esto requiere ampliar el
   envío a DATOS; se hará junto con los cambios del archivo EGR.
 - Unificar el maestro de cobertura: la COBERTURA de este archivo pasa a ser la fuente única.
+
+## Consulta inicial de pedidos pendientes
+
+El archivo [`SQL_PEDIDOS_PENDIENTES.sql`](SQL_PEDIDOS_PENDIENTES.sql) reemplaza la consulta que trae los pedidos a
+validar. **Las 11 columnas, su orden y sus alias son idénticos**, porque el libro lee la hoja por **posición**
+(`ws.Cells(i, 5)` es el destinatario, la 5ª columna del SELECT). No se agrega ni se quita ninguna.
+
+### Qué cambia y por qué
+
+| # | Antes | Ahora | Por qué |
+|---|---|---|---|
+| 1 | `fecha_creacion >= DATEADD(day, -1, GETDATE())` | `>= DATEADD(DAY, -7, CAST(GETDATE() AS DATE))` y `< mañana` | `GETDATE()` sin `CAST` es **hace 24 horas exactas**: a las 15:00 del lunes no veía lo creado el domingo por la mañana. Era una ventana que se corría sola. Ahora son **días completos**, y 7 cubren fin de semana y feriado |
+| 2 | traía todo lo creado en la ventana | `NOT EXISTS` sobre `picking` | **Solo los que no tienen ni una línea de picking**: los pendientes de verdad. Es lo que permite ampliar la ventana sin arrastrar lo ya procesado |
+| 3 | `INNER JOIN cliente cl` | eliminado | No se usaba ninguna columna de `cliente`. Si esa tabla tuviera más de una fila por cliente, multiplicaba filas y el `DISTINCT` lo tapaba |
+| 4 | `INNER JOIN sys_int_documento_adicional` | `EXISTS` | Solo se usaba para filtrar por fecha. Con `EXISTS` no multiplica filas aunque un pedido tenga varias filas adicionales |
+| 5 | sin `NOLOCK` | `WITH (NOLOCK)` | Es una consulta de solo lectura que corre en hora pico; así no bloquea la operación del WMS. Es lo que ya usan las demás consultas |
+
+Los dos primeros cambios **van juntos**: ampliar la ventana sin el filtro de picking traería pedidos ya despachados
+a la validación de cobertura. Con el filtro, lo ya procesado se cae solo.
+
+**Lo que NO se tocó, a propósito:** `REPLACE('0' + info_adicional_5, '-', '')` sigue devolviendo vacío cuando el
+teléfono es nulo. Ponerle `ISNULL` parecía una mejora, pero haría que un pedido **sin teléfono** dejara de marcarse
+como *"Sin teléfono móvil"* en la revisión de cobertura. Se queda como está.
+
+### Antes de aplicarla: medir
+
+Esta consulta es la **puerta de entrada del día**. Si esconde un pedido, ese pedido no se valida, no recibe
+cobertura y no se despacha. Por eso hay [`SQL_PEDIDOS_VERIFICACION.sql`](SQL_PEDIDOS_VERIFICACION.sql), para SSMS:
+
+1. **Bloque 1** — cuenta los pedidos de las tres versiones (actual, solo ventana, nueva). Lo normal: `NUEVA` menor
+   que `VENTANA` (se caen los pickeados) y mayor o igual que `ACTUAL` (recupera los pendientes de días anteriores).
+2. **Bloque 2 — el que hay que mirar con lupa.** Lista los pedidos que la versión nueva **esconde** por tener
+   picking, con cuántas líneas y unidades llevan. Revísalos uno por uno: **todos** deben ser pedidos ya procesados.
+   Si aparece uno que todavía hay que despachar, **no apliques el `NOT EXISTS`** y avísame.
+3. **Bloque 3** — los que la versión nueva **recupera**: los pendientes de días anteriores que hoy no se ven.
+4. **Bloque 4** — qué valores de `ESTADO_GT` y `STATUS` existen en el rango. Si de ahí sale un estado que signifique
+   "ya despachado" o "anulado", se puede afinar el filtro **por estado** en lugar de por picking, que sería más
+   preciso. Mándame ese resultado y lo ajusto.
+
+> Mientras el bloque 2 no esté revisado, lo prudente es aplicar **solo** los cambios 1, 3, 4 y 5 (quitar el
+> `NOT EXISTS`): la corrección de la ventana de fechas por sí sola ya arregla el caso del feriado, aunque traiga
+> algunos pedidos ya procesados a la lista.
