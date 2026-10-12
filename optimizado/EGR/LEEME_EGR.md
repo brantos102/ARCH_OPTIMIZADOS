@@ -185,6 +185,7 @@ Están en el orden del día, numeradas:
 | 3c Reimprimir pedido(s) | Pide los números de pedido |
 | 4 Avance empaque | Resumen de picking y empaque |
 | Trazabilidad | Arma la hoja TRAZABILIDAD y ofrece guardar una copia en la carpeta de exportes |
+| Días de pedidos | Cuántos días hacia atrás traen las tres consultas (feriados, pendientes) |
 | Datos anteriores | Abre HISTORICO_EMPAQUE: las cajas de los días anteriores, con filtro por fecha |
 | Respaldo del día (.xlsb) | Guarda EGR_DIA_aaaa-mm-dd.xlsb en RESPALDOS_EGR, ya congelado |
 | Congelar como histórico | Convierte la COPIA abierta en un histórico de solo consulta |
@@ -423,19 +424,14 @@ Para aplicarla:
 > El archivo no lleva comentarios, `WITH`, `ORDER BY` ni punto y coma final, y no anida tablas derivadas: con
 > cualquiera de esas cosas el servidor devolvía *"Sintaxis incorrecta cerca de 'd'"* (error 102).
 
-**Solo el día de hoy.** El filtro de fecha es:
+**Ventana de días, no "solo hoy".** El filtro de fecha es:
 
 ```sql
-AND syd_AD.FECHA_CREACION >= CAST(GETDATE() AS DATE)
+AND syd_AD.FECHA_CREACION >= DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
 AND syd_AD.FECHA_CREACION <  DATEADD(DAY, 1, CAST(GETDATE() AS DATE))
 ```
 
-Antes era `DATEADD(DAY, -1, ...)`, o sea **desde ayer**, y por eso en ITEMS DEPOT aparecían mezclados los pedidos de
-ayer y los de hoy. Ahora la hoja trae únicamente los del día, que es lo que se despacha y lo que se factura.
-
-> Consecuencia a tener presente: un pedido **creado ayer** que se despache hoy ya **no** aparece en ITEMS DEPOT. Si
-> alguna vez hace falta arrastrar los de ayer, se vuelve a poner `DATEADD(DAY, -1, CAST(GETDATE() AS DATE))` en la
-> primera línea del filtro y se quita la segunda.
+Ver **§ 8, Días de pedidos** para por qué son 7 días y cómo se cambia sin editar el SQL.
 
 **Las fórmulas que calculan el box density no se tocan.** Siguen agrupando ITEMS DEPOT por contenedora, que es
 justamente lo que vuelve a funcionar bien al devolver cada ítem con su caja:
@@ -471,26 +467,22 @@ Además las fórmulas ya no devuelven errores, sino el aviso que el operario ent
 > Un tipo de caja nuevo, como `CAJA ORIGINAL WF1400`, sale en `Verificar` hasta que se agregue en
 > **DATA CODIGO Y CAJAS** (botón **Cajas** del panel). *Avance empaque* los lista en el registro.
 
-### "Verificar" en EMPAQUETADO: las dos fuentes tienen que mirar el mismo día
+### "Verificar" en EMPAQUETADO: las tres fuentes tienen que mirar el mismo rango
 
 `VOL. ITEMS` se calcula agrupando ITEMS DEPOT **por contenedora**. Si una contenedora está en EMPAQUETADO pero
-sus ítems no están en ITEMS DEPOT, no hay volumen que sumar y sale **Verificar**. Eso pasa cuando las dos
-consultas miran ventanas de fecha distintas: las filas de ayer en EMPAQUETADO contra un ITEMS DEPOT que ya solo
-trae hoy.
+sus ítems no están en ITEMS DEPOT, no hay volumen que sumar y sale **Verificar**. Eso pasa cuando las consultas
+miran ventanas de fecha distintas.
 
-Por eso **las dos consultas filtran ahora el día de hoy**:
+Por eso **las tres usan la misma ventana de días**, y el panel la cambia en las tres a la vez:
 
 | Consulta | Dónde está el filtro |
 |---|---|
-| `Estado` (ITEMS DEPOT) | `SQL_ITEMS_DEPOT.sql`: `FECHA_CREACION >= CAST(GETDATE() AS DATE)` y `< GETDATE()+1` |
-| `EMPAQUETADO` | `EMPAQUETADO.m`, paso `Hoy`: `[FECHA] = Date.From(DateTime.LocalNow())` |
+| `Estado` (ITEMS DEPOT) | `SQL_ITEMS_DEPOT.sql`: `DATEADD(DAY, -7, CAST(GETDATE() AS DATE))` |
+| `ITEMS API` | `SQL_ITEMS_API.sql`: `DATEADD(DAY, -7, CAST(GETDATE() AS DATE))` |
+| `EMPAQUETADO` | `EMPAQUETADO.m`, paso `Hoy`: `Date.AddDays(Date.From(DateTime.LocalNow()), -7)` |
 
-> Si algún día hace falta trabajar con dos días, hay que cambiar **las dos**, nunca una sola. Con una sola, las
-> contenedoras del día que sobra se quedan sin ítems y vuelven los *Verificar*.
-
-Las filas de ayer que quedaron en *Verificar* no se pueden recalcular hacia atrás: su volumen por contenedora ya
-no está en ITEMS DEPOT. Lo que sí queda registrado del día de ayer es la hoja **TRAZABILIDAD**, si se generó
-antes de cerrar el día; por eso conviene generarla al terminar cada jornada.
+> Nunca se cambia una sola: el panel reescribe el número en las tres. Si se editan a mano y quedan distintas,
+> vuelven los *Verificar*.
 
 ### Número de cajas (BULTOS) y box density
 
@@ -653,6 +645,39 @@ día. Lo que sí funciona: mirar, filtrar, ordenar, la trazabilidad y los export
 
 > **Protección:** la macro se niega a correr si el nombre del archivo contiene *Formato EGR*, para que nunca se
 > congele el de producción por error. Aun así, **ejecútala siempre sobre una copia**: no se puede deshacer.
+
+### Días de pedidos (feriados y pendientes)
+
+**El problema que resuelve.** Con el filtro en "solo hoy", el lunes siguiente a un **viernes feriado** los pedidos
+de ese viernes seguían pendientes pero sus ítems ya no estaban en ITEMS DEPOT ni en ITEMS API, y sus cajas tampoco
+en EMPAQUETADO: se veían 74 pedidos en vez de todos. Con un número fijo escrito en el SQL habría que entrar a
+editarlo cada vez que pase.
+
+**Cómo funciona ahora.** Las tres consultas llevan el mismo patrón de fecha y el panel reescribe **solo el número de
+días** antes de refrescar, tomándolo de `DIAS_PEDIDOS` (hoja oculta CONFIG_EGR, valor por defecto **7**):
+
+```sql
+SQL :  DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
+M   :  Date.AddDays(Date.From(DateTime.LocalNow()), -7)
+```
+
+Se cambia con el botón **Días** del panel (al lado de *Actualizar datos*) o con *Días de pedidos* en Complementos:
+
+| Valor | Cuándo |
+|---|---|
+| `0` | solo hoy |
+| `7` | normal: cubre fin de semana y un feriado |
+| `10` o más | feriado largo con pedidos pendientes |
+
+Se aplica en la siguiente **Actualizar datos**. **No hay que editar ningún SQL.**
+
+**Por qué es seguro traer más días.** La lista de lo que se despacha es la hoja **DATOS**, que viene de PEDIDOS HCE
+— no cambia. `Estado` e `ITEMS_API` se consultan **siempre por número de pedido** (XLOOKUP, COUNTIF, SUMIF y los
+diccionarios del panel): son **catálogos de apoyo**, así que traer más días solo evita que a un pedido pendiente le
+falten sus ítems. Las contenedoras son únicas, así que tampoco se mezclan volúmenes entre días.
+
+La hoja EMPAQUETADO sale con el **día más reciente arriba** y, dentro de cada día, por pedido y contenedora. El tope
+de seguridad subió de 2 000 a 5 000 cajas, porque la ventana ya no es de un solo día.
 
 ## 9. Exportación
 

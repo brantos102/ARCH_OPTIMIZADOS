@@ -10,8 +10,9 @@
 //     "sin pedido" / "Verificar". Ahora solo pasan los números de pedido de 8 dígitos o más.
 //  3. La hoja salía desordenada y el primer pedido quedaba al final. Ahora se ordena por FECHA y # ORDEN,
 //     así se presenta y se revisa en orden.
-//  4. Solo HOY, igual que la consulta Estado (ITEMS DEPOT). Las dos tienen que mirar el mismo día: si una
-//     trae ayer y la otra no, las contenedoras de ayer quedan sin items y VOL. ITEMS sale "Verificar".
+//  4. MISMA VENTANA DE DÍAS que las consultas Estado (ITEMS DEPOT) e ITEMS API. Las tres tienen que mirar
+//     el mismo rango: si una trae un día y la otra no, las contenedoras de ese día quedan sin items y
+//     VOL. ITEMS sale "Verificar". La ventana se cambia desde el panel, no editando esta consulta.
 let
     Origen = Csv.Document(Web.Contents("PEGA_AQUI_LA_URL"), [Delimiter = ",", Columns = 26, Encoding = 65001, QuoteStyle = QuoteStyle.None]),
     Encabezados = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
@@ -22,14 +23,15 @@ let
     ConOrden = Table.SelectRows(Orden, each Text.Length([#"# ORDEN"]) >= 8 and Text.Select([#"# ORDEN"], {"0".."9"}) = [#"# ORDEN"]),
     // 3) fecha: primero formato Ecuador (dd/mm/aaaa); si no, formato EE. UU.; si no se entiende, queda vacía
     Fechas = Table.TransformColumns(ConOrden, {{"FECHA", each try Date.From(_, "es-EC") otherwise try Date.From(_, "en-US") otherwise null, type date}}),
-    // 4) solo HOY
-    Hoy = Table.SelectRows(Fechas, each [FECHA] = Date.From(DateTime.LocalNow())),
+    // 4) ventana de días: hoy y los días anteriores que sigan pendientes (feriados, fines de semana).
+    //    El -7 lo reescribe el botón "Días de pedidos" del panel; no hay que editar esta consulta.
+    Hoy = Table.SelectRows(Fechas, each [FECHA] >= Date.AddDays(Date.From(DateTime.LocalNow()), -7)),
     // 5) tipos: la contenedora como número entero, el tipo de caja como texto limpio
     Contenedora = Table.TransformColumns(Hoy, {{"# CONTENEDORA", each try Int64.From(_) otherwise null, Int64.Type}}),
     Caja = Table.TransformColumns(Contenedora, {{"TIIPO CAJA", each if _ = null then null else Text.Trim(Text.From(_)), type text}}),
-    // 6) ordenado: por fecha, por pedido y por contenedora
-    Ordenado = Table.Sort(Caja, {{"FECHA", Order.Ascending}, {"# ORDEN", Order.Ascending}, {"# CONTENEDORA", Order.Ascending}}),
-    // 7) seguridad: nunca más de 2 000 cajas en un día (un día normal tiene hasta ~300 pedidos)
-    Limite = Table.FirstN(Ordenado, 2000)
+    // 6) ordenado: el día más reciente arriba y, dentro de cada día, por pedido y contenedora
+    Ordenado = Table.Sort(Caja, {{"FECHA", Order.Descending}, {"# ORDEN", Order.Ascending}, {"# CONTENEDORA", Order.Ascending}}),
+    // 7) seguridad: tope de cajas (un día normal tiene hasta ~300 pedidos; la ventana son varios días)
+    Limite = Table.FirstN(Ordenado, 5000)
 in
     Limite

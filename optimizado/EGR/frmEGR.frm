@@ -51,6 +51,7 @@ Private WithEvents bRep As MSForms.CommandButton
 Private WithEvents bTraza As MSForms.CommandButton
 Private WithEvents bHist As MSForms.CommandButton
 Private WithEvents bResp As MSForms.CommandButton
+Private WithEvents bDias As MSForms.CommandButton
 Private cboIrHoja As MSForms.ComboBox
 Private WithEvents bIrHoja As MSForms.CommandButton
 Private WithEvents bRegl As MSForms.CommandButton
@@ -109,7 +110,8 @@ Private Sub UserForm_Initialize()
   Set bExpM = NB("Exportar + correo", 105, 350, 93, 26, RGB(0, 97, 0), "Exporta y deja un borrador de Outlook con los archivos adjuntos.")
 
   Set t = NL("OPERACIÓN (en cualquier momento)", 8, 388, 190, True): t.ForeColor = RGB(89, 89, 89)
-  Set bAct = NB("Actualizar datos (items, empaque, tablas)", 8, 404, 190, 26, RGB(89, 89, 89), "Trae ITEMS API, ITEMS DEPOT, EMPAQUETADO (Google Sheets) y actualiza las tablas dinámicas. Si una fuente falla, pregunta si sigue.")
+  Set bAct = NB("Actualizar datos (items, empaque, tablas)", 8, 404, 124, 26, RGB(89, 89, 89), "Trae ITEMS API, ITEMS DEPOT, EMPAQUETADO (Google Sheets) y actualiza las tablas dinámicas. Si una fuente falla, pregunta si sigue.")
+  Set bDias = NB("Días", 136, 404, 62, 26, RGB(89, 89, 89), "Cuántos días hacia atrás traen ITEMS DEPOT, ITEMS API y EMPAQUETADO. Súbelo tras un feriado para que los pedidos pendientes no se queden sin items ni cajas. No cambia los pedidos que se despachan.")
   Set bRep = NB("Reparar fórmulas (una vez)", 8, 434, 190, 22, RGB(192, 80, 77), "Corrige los #REF! y prepara DATOS!A para los destinos confirmados. Guarda respaldo antes.")
   Set cboIrHoja = Me.Controls.Add("Forms.ComboBox.1")
   cboIrHoja.Left = 8: cboIrHoja.Top = 460: cboIrHoja.Width = 128: cboIrHoja.Height = 18: cboIrHoja.Style = fmStyleDropDownList: cboIrHoja.ListRows = 14
@@ -978,6 +980,11 @@ Private Sub bTraza_Click()
   If MsgBox(TextoTraza(n), vbYesNo + vbQuestion, "Trazabilidad") <> vbYes Then Exit Sub
   ruta = GuardarCopiaTraza()
   If Len(ruta) > 0 Then MsgBox "Copia guardada en:" & vbCrLf & ruta, vbInformation, "Trazabilidad"
+End Sub
+
+Private Sub bDias_Click()
+  If Not Listo() Then Exit Sub
+  MenuDiasPedidos
 End Sub
 
 Private Sub bHist_Click()

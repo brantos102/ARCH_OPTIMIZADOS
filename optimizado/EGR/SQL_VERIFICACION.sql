@@ -11,7 +11,7 @@
    - las cantidades no se repiten: el total de unidades, el peso y el costo del
      pedido tienen que seguir siendo los reales.
 
-   Todos los bloques filtran SOLO EL DIA DE HOY, igual que la consulta.
+   Todos los bloques usan la misma ventana de dias que la consulta (-7 por defecto).
 
    EL BLOQUE 1 ES EL QUE DECIDE SI LA CONSULTA NUEVA SIRVE. HAZLO PRIMERO. */
 
@@ -45,7 +45,7 @@ FROM SYS_INT_DOCUMENTO syd (NOLOCK)
 LEFT JOIN SYS_INT_DOCUMENTO_ADICIONAL syd_ad (NOLOCK)
     ON (syd.doc_ext = syd_ad.doc_ext AND syd.cliente_id = syd_ad.cliente_id)
 WHERE SYD.cliente_id IN ('HYCITE2')
-  AND syd_AD.FECHA_CREACION >= CAST(GETDATE() AS DATE)
+  AND syd_AD.FECHA_CREACION >= DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
   AND syd_AD.FECHA_CREACION < DATEADD(DAY, 1, CAST(GETDATE() AS DATE))
 ORDER BY 3 DESC
 
@@ -96,7 +96,7 @@ JOIN SYS_INT_DOCUMENTO_ADICIONAL ad (NOLOCK)
     ON (ad.doc_ext = s2.doc_ext AND ad.cliente_id = s2.cliente_id)
 WHERE s2.CLIENTE_ID = 'HYCITE2'
   AND p.NRO_UCEMPAQUETADO IS NOT NULL
-  AND ad.FECHA_CREACION >= CAST(GETDATE() AS DATE)
+  AND ad.FECHA_CREACION >= DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
   AND ad.FECHA_CREACION < DATEADD(DAY, 1, CAST(GETDATE() AS DATE))
 GROUP BY
     CAST(s2.DOC_EXT AS VARCHAR(50)),
@@ -122,7 +122,7 @@ JOIN SYS_INT_DET_DOCUMENTO s2 (NOLOCK)
 JOIN SYS_INT_DOCUMENTO_ADICIONAL ad (NOLOCK)
     ON (ad.doc_ext = s2.doc_ext AND ad.cliente_id = s2.cliente_id)
 WHERE s2.CLIENTE_ID = 'HYCITE2'
-  AND ad.FECHA_CREACION >= CAST(GETDATE() AS DATE)
+  AND ad.FECHA_CREACION >= DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
   AND ad.FECHA_CREACION < DATEADD(DAY, 1, CAST(GETDATE() AS DATE))
 GROUP BY CAST(s2.DOC_EXT AS VARCHAR(50))
 ORDER BY 3 DESC
@@ -146,7 +146,7 @@ JOIN SYS_INT_DOCUMENTO_ADICIONAL ad (NOLOCK)
     ON (ad.doc_ext = s2.doc_ext AND ad.cliente_id = s2.cliente_id)
 WHERE s2.CLIENTE_ID = 'HYCITE2'
   AND p.NRO_UCEMPAQUETADO IS NULL
-  AND ad.FECHA_CREACION >= CAST(GETDATE() AS DATE)
+  AND ad.FECHA_CREACION >= DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
   AND ad.FECHA_CREACION < DATEADD(DAY, 1, CAST(GETDATE() AS DATE))
 GROUP BY CAST(s2.DOC_EXT AS VARCHAR(50))
 ORDER BY 2 DESC

@@ -132,6 +132,7 @@ Private Function HojaCfg() As Worksheet
     ws.Range("A7:C7").Value = Array("ETIQ_OFFSET_Y", "0", "Corrimiento vertical de la etiqueta en puntos (8 = 1 mm)")
     ws.Range("A8:C8").Value = Array("ETIQ_OSCURIDAD", "12", "Oscuridad de la Zebra, 0 a 30. Súbela si la etiqueta sale clara")
     ws.Range("A9:C9").Value = Array("RESPALDO_DIARIO", "SI", "SI = al exportar reportes guarda EGR_DIA_aaaa-mm-dd.xlsb en RESPALDOS_EGR")
+    ws.Range("A10:C10").Value = Array("DIAS_PEDIDOS", "7", "Días hacia atrás que traen ITEMS DEPOT, ITEMS API y EMPAQUETADO (0 = solo hoy)")
     ws.Columns("A:C").AutoFit
     ws.Visible = xlSheetHidden
   End If
@@ -223,6 +224,7 @@ Sub ActualizarTodo()
   End If
   gOcupadoE = True
   Respaldo "antes_actualizar"
+  AplicarDiasConsultas False          ' ventana de días (CONFIG_EGR > DIAS_PEDIDOS) antes de refrescar
   ' Antes de refrescar, lo que está en EMPAQUETADO es todavía el día anterior: se guarda
   ' en el histórico, porque el refresco lo reemplaza por el de hoy y se perdería.
   HistoricoAuto
@@ -1444,6 +1446,7 @@ Sub CrearMenuEGR()
   BotonMenu bar, "Trazabilidad", "MenuTrazabilidad", 1016, False
   BotonMenu bar, "Datos anteriores", "MenuHistorico", 1016, False
   BotonMenu bar, "Respaldo del día (.xlsb)", "MenuRespaldoDia", 3, False
+  BotonMenu bar, "Días de pedidos", "MenuDiasPedidos", 1016, False
   BotonMenu bar, "Corregir contenedoras (validar)", "MenuCorregirValidar", 1100, False
   BotonMenu bar, "Congelar como histórico", "MenuCongelarHistorico", 1100, False
   BotonMenu bar, "Actualizar datos", "ActualizarTodo", 459, True
@@ -2684,3 +2687,133 @@ fallo:
   If nf > 0 Then Close #nf
   LogE "EXPORTAR TMS: no se pudo escribir el CSV: " & Err.Description, "ERROR"
 End Function
+
+' =====================================================================================
+'  VENTANA DE DÍAS DE LAS CONSULTAS  (sin editar el SQL)
+'
+'  Problema: con el filtro "solo hoy", un viernes feriado dejaba los pedidos de ese día
+'  sin items en ITEMS DEPOT / ITEMS API / EMPAQUETADO, y el lunes solo se veían 74
+'  pedidos. Con un número fijo de días habría que entrar a editar el SQL cada vez.
+'
+'  Solución: las tres consultas llevan el mismo patrón de fecha y el VBA reescribe SOLO
+'  el número de días dentro de la consulta antes de refrescar, tomándolo de
+'  DIAS_PEDIDOS (hoja oculta CONFIG_EGR). Se cambia desde el panel, en un campo.
+'
+'     SQL  : DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
+'     M    : Date.AddDays(Date.From(DateTime.LocalNow()), -7)
+'
+'  Esto NO cambia lo que se despacha: la lista del día es DATOS (viene de PEDIDOS HCE).
+'  Estado e ITEMS_API se consultan siempre POR PEDIDO (XLOOKUP, COUNTIF, SUMIF y los
+'  diccionarios del panel), así que son catálogos de apoyo: traer más días solo evita
+'  que a un pedido pendiente le falten sus items.
+' =====================================================================================
+
+Public Function DiasPedidos() As Long
+  Dim d As Long
+  d = Val(Cfg("DIAS_PEDIDOS", "7"))
+  If d < 0 Then d = 0
+  If d > 60 Then d = 60
+  DiasPedidos = d
+End Function
+
+' Reescribe el número de días en las consultas. Devuelve cuántas cambió.
+' Nunca interrumpe: lo que no se pueda tocar queda anotado en el registro.
+Public Function AplicarDiasConsultas(Optional ByVal avisar As Boolean = False) As Long
+  Dim q As Object, d As Long, f As String, nuevo As String, n As Long, nom As String, fallo As String
+  d = DiasPedidos()
+  On Error GoTo sinQueries
+  For Each q In ThisWorkbook.Queries
+    nom = UCase$(q.Name)
+    If nom = "ESTADO" Or nom = "ITEMS API" Or nom = "ITEMS_API" Or nom = "EMPAQUETADO" Then
+      Err.Clear
+      On Error Resume Next
+      f = q.Formula
+      If Err.Number <> 0 Then
+        fallo = fallo & IIf(Len(fallo) > 0, ", ", "") & q.Name
+        Err.Clear
+      Else
+        nuevo = CambiaDias(f, d)
+        If nuevo <> f Then
+          q.Formula = nuevo
+          If Err.Number <> 0 Then
+            fallo = fallo & IIf(Len(fallo) > 0, ", ", "") & q.Name
+            Err.Clear
+          Else
+            n = n + 1
+          End If
+        End If
+      End If
+      On Error GoTo sinQueries
+    End If
+  Next
+  If Len(fallo) > 0 Then LogE "DÍAS: no se pudo reescribir la ventana en: " & fallo, "AVISO"
+  If n > 0 Then LogE "DÍAS: ventana de " & d & " día(s) aplicada a " & n & " consulta(s)"
+  If avisar Then
+    MsgBox "Ventana de " & d & " día(s) aplicada a " & n & " consulta(s)." & vbCrLf & vbCrLf & _
+           "Se usa en la próxima actualización de datos.", vbInformation, "Días de pedidos"
+  End If
+  AplicarDiasConsultas = n
+  Exit Function
+sinQueries:
+  LogE "DÍAS: no se pudieron leer las consultas del libro (" & Err.Description & "). " & _
+       "La ventana de días queda como esté escrita en cada consulta.", "AVISO"
+End Function
+
+' Cambia el número que va detrás de "DATEADD(DAY, -" y de "DateTime.LocalNow()), -".
+' Solo toca esos dos patrones: el resto del SQL / M queda intacto.
+Private Function CambiaDias(ByVal f As String, ByVal d As Long) As String
+  f = CambiaTras(f, "DATEADD(DAY, -", ",")
+  f = CambiaTras(f, "Date.AddDays(Date.From(DateTime.LocalNow()), -", ")")
+  CambiaDias = Replace(f, Chr(1), CStr(d))
+End Function
+
+' Marca con Chr(1) el número que sigue a 'pre' y termina en 'fin'. Se reemplaza al final
+' para no volver a encontrar el patrón ya tratado.
+Private Function CambiaTras(ByVal f As String, ByVal pre As String, ByVal fin As String) As String
+  Dim p As Long, q As Long, ini As Long, num As String
+  p = 1
+  Do
+    p = InStr(p, f, pre, vbBinaryCompare)
+    If p = 0 Then Exit Do
+    ini = p + Len(pre)
+    q = InStr(ini, f, fin, vbBinaryCompare)
+    If q = 0 Then Exit Do
+    num = Trim$(Mid$(f, ini, q - ini))
+    If Len(num) > 0 And Len(num) <= 3 And EsEntero(num) Then
+      f = Left$(f, ini - 1) & Chr(1) & Mid$(f, q)
+      p = ini + 1
+    Else
+      p = ini
+    End If
+  Loop
+  CambiaTras = f
+End Function
+
+Private Function EsEntero(ByVal s As String) As Boolean
+  Dim i As Long
+  For i = 1 To Len(s)
+    If Not Mid$(s, i, 1) Like "#" Then Exit Function
+  Next
+  EsEntero = (Len(s) > 0)
+End Function
+
+Sub MenuDiasPedidos()
+  Dim r As String, d As Long
+  If PanelOcupado() Then Exit Sub
+  RuedaDesactivar
+  d = DiasPedidos()
+  r = InputBox("¿Cuántos días hacia atrás deben traer ITEMS DEPOT, ITEMS API y EMPAQUETADO?" & vbCrLf & vbCrLf & _
+               "  0 = solo hoy" & vbCrLf & _
+               "  7 = la última semana (valor normal: cubre fin de semana y un feriado)" & vbCrLf & _
+               "  10 o más = para un feriado largo con pedidos pendientes" & vbCrLf & vbCrLf & _
+               "Esto NO cambia los pedidos que se despachan (esos salen de DATOS)." & vbCrLf & _
+               "Solo evita que a un pedido pendiente le falten sus items y sus cajas." & vbCrLf & vbCrLf & _
+               "Se aplica en la próxima 'Actualizar datos'.", "Días de pedidos", CStr(d))
+  If Len(Trim$(r)) = 0 Then Exit Sub
+  If Not EsEntero(Trim$(r)) Then MsgBox "Escribe solo un número de días.", vbExclamation: Exit Sub
+  d = Val(r)
+  If d > 60 Then d = 60
+  SetCfg "DIAS_PEDIDOS", CStr(d)
+  LogE "DÍAS: ventana cambiada a " & d & " día(s) por " & Application.UserName
+  AplicarDiasConsultas True
+End Sub
