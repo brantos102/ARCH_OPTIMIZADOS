@@ -73,8 +73,8 @@ fórmulas F:K y las tablas dinámicas procesaban 37 mil filas.
 1. descarta primero las filas **sin "# ORDEN"**;
 2. filtra la fecha de hoy, aceptando dd/mm/aaaa o mm/dd/aaaa;
 3. deja la orden como texto limpio;
-4. descarta un `# ORDEN` que no sea un número de pedido (8 dígitos o más, solo dígitos): un `5465443` tecleado
-   por error entraba a la hoja y salía como *sin pedido* / *Verificar*;
+4. descarta un `# ORDEN` que no sea un número de pedido: tiene que **empezar con 8 dígitos o más**. Así entra
+   `102384109` y también `102384109_A`, y se queda fuera un `5465443` tecleado por error;
 5. **ordena por FECHA, # ORDEN y # CONTENEDORA**, así la hoja se presenta en orden y el primer pedido deja de
    quedar al final;
 6. pone un tope de seguridad de 2 000 cajas.
@@ -577,6 +577,27 @@ PORCENTAJE y cuándo se guardó.
 
 > No se confunda con los respaldos `EGR_aaaammdd_hhmmss_motivo.xlsm`, que son instantáneas antes de un proceso
 > delicado (actualizar, reparar, limpiar día) y de las que se conservan las 15 últimas.
+
+### Pedidos partidos: el sufijo `_A`, `_B`
+
+Cuando bodega empaca un mismo pedido en varias partes, en el Google Sheets escribe el número con un sufijo:
+`102384109_A`, `102384109_B`. En DATOS y en DEPOT ese pedido viene **sin sufijo**, como `102384109`.
+
+**El fallo:** el filtro de EMPAQUETADO exigía que el `# ORDEN` fuera **solo dígitos** —se puso para descartar un
+`5465443` tecleado por error— y de paso se llevaba por delante todas las filas con sufijo: estaban en el Sheets
+pero no llegaban a la hoja.
+
+Corregido en cuatro puntos, todos compatibles con un pedido sin sufijo (si no hay `_`, se comportan igual que antes):
+
+| Dónde | Qué hace ahora |
+|---|---|
+| `EMPAQUETADO.m` | el `# ORDEN` vale si **empieza** con 8 dígitos o más; lo que venga después es sufijo |
+| `EMPAQUETADO!F` | busca la contenedora en `Estado` por el **número base**, sin el sufijo |
+| `DATOS!R` (BULTOS) | cuenta las cajas del pedido **y las de sus partes**: `COUNTIF(…, pedido) + COUNTIF(…, pedido & "_*")` |
+| Panel y *Avance empaque* | las cajas se acumulan bajo el número exacto **y** bajo el número base, así el pedido cruza con DATOS lo tenga o no el sufijo |
+
+> Lo que **no** se hace es juntar dos pedidos distintos: el número base es solo un segundo camino para encontrar el
+> pedido, nunca una agrupación que mezcle datos de pedidos diferentes.
 
 ### Corregir los "validar" de EMPAQUETADO, sin actualizar nada
 

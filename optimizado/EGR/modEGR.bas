@@ -425,7 +425,7 @@ End Function
 
 Public Function FormulasEmpaquetado() As Variant
   FormulasEmpaquetado = Array( _
-    "=IF($C2="""","""",IF($E2<>"""",$E2,XLOOKUP(TEXT($C2,""@""),Estado[DOC_EXT],Estado[NRO_CONTENEDORA_EMPAQUE],IF(COUNTIF(ITEMS_API[DOC_EXT],TEXT($C2,""@""))>0,""validar"",""sin pedido""),0)))", _
+    "=IF($C2="""","""",IF($E2<>"""",$E2,XLOOKUP(TEXT(IFERROR(LEFT($C2,FIND(""_"",$C2)-1),$C2),""@""),Estado[DOC_EXT],Estado[NRO_CONTENEDORA_EMPAQUE],IF(COUNTIF(ITEMS_API[DOC_EXT],TEXT(IFERROR(LEFT($C2,FIND(""_"",$C2)-1),$C2),""@""))>0,""validar"",""sin pedido""),0)))", _
     "=IF($C2="""","""",1)", _
     "=IF($C2="""","""",IFERROR(VLOOKUP($D2,DATA_CAJAS,5,FALSE)+0.1,""Verificar""))", _
     "=IF($C2="""","""",IFERROR(VLOOKUP($D2,DATA_CAJAS,6,FALSE),""Verificar""))", _
@@ -565,8 +565,8 @@ Sub RepararFormulasEGR()
   ' contenedora). No se usa la tabla dinámica "Suma de BULTOS": como ahora EMPAQUETADO!G trae el
   ' total del pedido en cada una de sus filas, esa suma daría el total al cuadrado.
   ws.Range("R2:R" & MAXF).Formula2 = _
-    "=IF($B2="""","""",IFERROR(MAX(1,COUNTIF(EMPAQUETADO!$C:$C,TEXT($B2,""0""))),1))"
-  LogE "REPARAR: DATOS!R (BULTOS) = contenedoras del pedido en la hoja EMPAQUETADO (1 contenedora = 1 caja). Si el pedido todavía no está empacado, queda en 1"
+    "=IF($B2="""","""",IFERROR(MAX(1,COUNTIF(EMPAQUETADO!$C:$C,TEXT($B2,""0""))+COUNTIF(EMPAQUETADO!$C:$C,TEXT($B2,""0"")&""_*"")),1))"
+  LogE "REPARAR: DATOS!R (BULTOS) = contenedoras del pedido en la hoja EMPAQUETADO, incluidas las partes con sufijo (102384109_A). Si el pedido todavía no está empacado, queda en 1"
   AplicarColumnasEmpaquetado False
   On Error GoTo fallo
   ThisWorkbook.Worksheets("DESPACHOS").Range("P2:P501").Formula = _
@@ -894,6 +894,16 @@ Public Function ClaveTMS(ByVal h As String, ByVal i As String, ByVal j As String
   ClaveTMS = UCase$(s)
 End Function
 
+' Número de pedido sin el sufijo de parte: "102384109_A" -> "102384109".
+' Bodega usa ese sufijo en el Google Sheets cuando un pedido se empaca en varias
+' partes. DATOS y DEPOT traen el número sin sufijo, así que hay que poder cruzarlos.
+Public Function PedidoBase(ByVal s As String) As String
+  Dim p As Long
+  s = Trim$(s)
+  p = InStr(s, "_")
+  If p > 1 Then PedidoBase = Left$(s, p - 1) Else PedidoBase = s
+End Function
+
 ' Índice de una columna de una tabla buscándola por el nombre del encabezado.
 ' Así, si algún día la consulta cambia de columnas, el panel no se descuadra.
 ' el código sigue leyendo el dato correcto. Si no está, devuelve 'predet'.
@@ -961,9 +971,10 @@ Public Function DictEmpaque() As Object
       For i = 1 To UBound(a, 1)
         doc = TXE(a(i, 2))
         If Len(doc) > 0 Then
-          cajas(doc) = cajas(doc) + 1
-          If Not IsError(a(i, 7)) Then pesoC(doc) = pesoC(doc) + Val(TXE(a(i, 7)))
-          If Not IsError(a(i, 10)) Then If IsNumeric(a(i, 10)) Then dPct(doc) = a(i, 10)
+          AcumulaCaja cajas, pesoC, dPct, doc, a, i
+          ' si la fila es una parte ("102384109_A"), se acumula además bajo el número
+          ' base, que es como viene el pedido en DATOS y en DEPOT
+          If PedidoBase(doc) <> doc Then AcumulaCaja cajas, pesoC, dPct, PedidoBase(doc), a, i
         End If
       Next
     End If
@@ -989,6 +1000,12 @@ Public Function DictEmpaque() As Object
   Next
   Set DictEmpaque = d
 End Function
+
+Private Sub AcumulaCaja(cajas As Object, pesoC As Object, dPct As Object, ByVal doc As String, a As Variant, ByVal i As Long)
+  cajas(doc) = cajas(doc) + 1
+  If Not IsError(a(i, 7)) Then pesoC(doc) = pesoC(doc) + Val(TXE(a(i, 7)))
+  If Not IsError(a(i, 10)) Then If IsNumeric(a(i, 10)) Then dPct(doc) = a(i, 10)
+End Sub
 
 ' Estado de empaque legible para un pedido
 Public Function EstadoEmpaque(dE As Object, ByVal ped As String) As String
@@ -1099,7 +1116,11 @@ Public Function AvancePedidos(lista As Collection, ByRef resumen As String) As L
     If lo.ListRows.Count > 0 Then
       a = lo.DataBodyRange.Value
       For i = 1 To UBound(a, 1)
-        doc = TXE(a(i, 2)): If Len(doc) > 0 Then emp(doc) = emp(doc) + 1
+        doc = TXE(a(i, 2))
+        If Len(doc) > 0 Then
+          emp(doc) = emp(doc) + 1
+          If PedidoBase(doc) <> doc Then emp(PedidoBase(doc)) = emp(PedidoBase(doc)) + 1
+        End If
         If IsError(a(i, 7)) Or IsError(a(i, 8)) Then
           cajaSin(TXE(a(i, 3))) = 1
         ElseIf UCase$(TXE(a(i, 7))) = "VERIFICAR" Or UCase$(TXE(a(i, 8))) = "VERIFICAR" Then
