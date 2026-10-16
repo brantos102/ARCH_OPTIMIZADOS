@@ -132,7 +132,7 @@ Private Function HojaCfg() As Worksheet
     ws.Range("A7:C7").Value = Array("ETIQ_OFFSET_Y", "0", "Corrimiento vertical de la etiqueta en puntos (8 = 1 mm)")
     ws.Range("A8:C8").Value = Array("ETIQ_OSCURIDAD", "12", "Oscuridad de la Zebra, 0 a 30. Súbela si la etiqueta sale clara")
     ws.Range("A9:C9").Value = Array("RESPALDO_DIARIO", "SI", "SI = al exportar reportes guarda EGR_DIA_aaaa-mm-dd.xlsb en RESPALDOS_EGR")
-    ws.Range("A10:C10").Value = Array("DIAS_PEDIDOS", "7", "Días hacia atrás que traen ITEMS DEPOT, ITEMS API y EMPAQUETADO (0 = solo hoy)")
+    ws.Range("A10:C10").Value = Array("DIAS_PEDIDOS", "0", "Días hacia atrás que traen ITEMS DEPOT, ITEMS API y EMPAQUETADO (0 = solo hoy; súbelo tras un feriado)")
     ws.Columns("A:C").AutoFit
     ws.Visible = xlSheetHidden
   End If
@@ -2731,7 +2731,7 @@ End Function
 
 Public Function DiasPedidos() As Long
   Dim d As Long
-  d = Val(Cfg("DIAS_PEDIDOS", "7"))
+  d = Val(Cfg("DIAS_PEDIDOS", "0"))
   If d < 0 Then d = 0
   If d > 60 Then d = 60
   DiasPedidos = d
@@ -2824,9 +2824,9 @@ Sub MenuDiasPedidos()
   RuedaDesactivar
   d = DiasPedidos()
   r = InputBox("¿Cuántos días hacia atrás deben traer ITEMS DEPOT, ITEMS API y EMPAQUETADO?" & vbCrLf & vbCrLf & _
-               "  0 = solo hoy" & vbCrLf & _
-               "  7 = la última semana (valor normal: cubre fin de semana y un feriado)" & vbCrLf & _
-               "  10 o más = para un feriado largo con pedidos pendientes" & vbCrLf & vbCrLf & _
+               "  0 = solo hoy (valor normal)" & vbCrLf & _
+               "  3 = hoy y los dos días anteriores (tras un fin de semana)" & vbCrLf & _
+               "  7 o más = tras un feriado largo con pedidos pendientes" & vbCrLf & vbCrLf & _
                "Esto NO cambia los pedidos que se despachan (esos salen de DATOS)." & vbCrLf & _
                "Solo evita que a un pedido pendiente le falten sus items y sus cajas." & vbCrLf & vbCrLf & _
                "Se aplica en la próxima 'Actualizar datos'.", "Días de pedidos", CStr(d))

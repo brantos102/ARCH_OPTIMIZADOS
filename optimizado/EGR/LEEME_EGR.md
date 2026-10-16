@@ -424,10 +424,10 @@ Para aplicarla:
 > El archivo no lleva comentarios, `WITH`, `ORDER BY` ni punto y coma final, y no anida tablas derivadas: con
 > cualquiera de esas cosas el servidor devolvía *"Sintaxis incorrecta cerca de 'd'"* (error 102).
 
-**Ventana de días, no "solo hoy".** El filtro de fecha es:
+**De normal, solo hoy.** El filtro de fecha es:
 
 ```sql
-AND syd_AD.FECHA_CREACION >= DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
+AND syd_AD.FECHA_CREACION >= DATEADD(DAY, -0, CAST(GETDATE() AS DATE))
 AND syd_AD.FECHA_CREACION <  DATEADD(DAY, 1, CAST(GETDATE() AS DATE))
 ```
 
@@ -477,9 +477,9 @@ Por eso **las tres usan la misma ventana de días**, y el panel la cambia en las
 
 | Consulta | Dónde está el filtro |
 |---|---|
-| `Estado` (ITEMS DEPOT) | `SQL_ITEMS_DEPOT.sql`: `DATEADD(DAY, -7, CAST(GETDATE() AS DATE))` |
-| `ITEMS API` | `SQL_ITEMS_API.sql`: `DATEADD(DAY, -7, CAST(GETDATE() AS DATE))` |
-| `EMPAQUETADO` | `EMPAQUETADO.m`, paso `Hoy`: `Date.AddDays(Date.From(DateTime.LocalNow()), -7)` |
+| `Estado` (ITEMS DEPOT) | `SQL_ITEMS_DEPOT.sql`: `DATEADD(DAY, -0, CAST(GETDATE() AS DATE))` |
+| `ITEMS API` | `SQL_ITEMS_API.sql`: `DATEADD(DAY, -0, CAST(GETDATE() AS DATE))` |
+| `EMPAQUETADO` | `EMPAQUETADO.m`, paso `Hoy`: `Date.AddDays(Date.From(DateTime.LocalNow()), -0)` |
 
 > Nunca se cambia una sola: el panel reescribe el número en las tres. Si se editan a mano y quedan distintas,
 > vuelven los *Verificar*.
@@ -600,7 +600,7 @@ Corregido en cuatro puntos, todos compatibles con un pedido sin sufijo (si no ha
 
 | Dónde | Qué hace ahora |
 |---|---|
-| `EMPAQUETADO.m` | el `# ORDEN` nunca se convierte a número. La regla mira el **número base** (lo que va antes del `_`): con sufijo pide 6 dígitos o más (`9824569_A` entra), sin sufijo pide 8 o más (`5465443` no entra) |
+| `EMPAQUETADO.m` | el `# ORDEN` nunca se convierte a número. La regla mira el **número base** (lo que va antes del `_`): solo dígitos y **6 o más**. Después del `_` puede ir cualquier cosa |
 | `EMPAQUETADO!F` | busca la contenedora en `Estado` por el **número base**, sin el sufijo |
 | `DATOS!R` (BULTOS) | cuenta las cajas del pedido **y las de sus partes**: `COUNTIF(…, pedido) + COUNTIF(…, pedido & "_*")` |
 | Panel y *Avance empaque* | las cajas se acumulan bajo el número exacto **y** bajo el número base, así el pedido cruza con DATOS lo tenga o no el sufijo |
@@ -694,20 +694,20 @@ en EMPAQUETADO: se veían 74 pedidos en vez de todos. Con un número fijo escrit
 editarlo cada vez que pase.
 
 **Cómo funciona ahora.** Las tres consultas llevan el mismo patrón de fecha y el panel reescribe **solo el número de
-días** antes de refrescar, tomándolo de `DIAS_PEDIDOS` (hoja oculta CONFIG_EGR, valor por defecto **7**):
+días** antes de refrescar, tomándolo de `DIAS_PEDIDOS` (hoja oculta CONFIG_EGR, valor por defecto **0**, solo hoy):
 
 ```sql
-SQL :  DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
-M   :  Date.AddDays(Date.From(DateTime.LocalNow()), -7)
+SQL :  DATEADD(DAY, -0, CAST(GETDATE() AS DATE))
+M   :  Date.AddDays(Date.From(DateTime.LocalNow()), -0)
 ```
 
 Se cambia con el botón **Días** del panel (al lado de *Actualizar datos*) o con *Días de pedidos* en Complementos:
 
 | Valor | Cuándo |
 |---|---|
-| `0` | solo hoy |
-| `7` | normal: cubre fin de semana y un feriado |
-| `10` o más | feriado largo con pedidos pendientes |
+| `0` | **solo hoy — valor normal** |
+| `3` | hoy y los dos días anteriores (tras un fin de semana) |
+| `7` o más | tras un feriado largo con pedidos pendientes |
 
 Se aplica en la siguiente **Actualizar datos**. **No hay que editar ningún SQL.**
 
