@@ -583,15 +583,24 @@ PORCENTAJE y cuándo se guardó.
 Cuando bodega empaca un mismo pedido en varias partes, en el Google Sheets escribe el número con un sufijo:
 `102384109_A`, `102384109_B`. En DATOS y en DEPOT ese pedido viene **sin sufijo**, como `102384109`.
 
-**El fallo:** el filtro de EMPAQUETADO exigía que el `# ORDEN` fuera **solo dígitos** —se puso para descartar un
-`5465443` tecleado por error— y de paso se llevaba por delante todas las filas con sufijo: estaban en el Sheets
-pero no llegaban a la hoja.
+**El fallo, en la consulta que estaba en producción.** En el paso *Tipo cambiado*:
+
+```m
+{"# ORDEN", Int64.Type}
+```
+
+`102384109_A` **no es un número entero**, así que esa celda se convierte en **error**. El paso siguiente
+(`{"# ORDEN", type text}`) la pasa a texto, pero ya es tarde: el error no se deshace. La fila está en el Google
+Sheets y no llega a la hoja.
+
+> **Regla:** el `# ORDEN` se trata como **texto de principio a fin**. No volver a ponerle un tipo numérico — es
+> exactamente lo que rompe los sufijos.
 
 Corregido en cuatro puntos, todos compatibles con un pedido sin sufijo (si no hay `_`, se comportan igual que antes):
 
 | Dónde | Qué hace ahora |
 |---|---|
-| `EMPAQUETADO.m` | el `# ORDEN` vale si **empieza** con 8 dígitos o más; lo que venga después es sufijo |
+| `EMPAQUETADO.m` | el `# ORDEN` nunca se convierte a número, y vale si **empieza** con 8 dígitos o más; lo que venga después es sufijo |
 | `EMPAQUETADO!F` | busca la contenedora en `Estado` por el **número base**, sin el sufijo |
 | `DATOS!R` (BULTOS) | cuenta las cajas del pedido **y las de sus partes**: `COUNTIF(…, pedido) + COUNTIF(…, pedido & "_*")` |
 | Panel y *Avance empaque* | las cajas se acumulan bajo el número exacto **y** bajo el número base, así el pedido cruza con DATOS lo tenga o no el sufijo |

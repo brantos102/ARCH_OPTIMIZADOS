@@ -3,16 +3,41 @@
 // Editar > Inicio > Editor avanzado. Cambia PEGA_AQUI_LA_URL por la URL que ya tiene la consulta actual
 // (la línea "Origen = Csv.Document(Web.Contents(...". Cópiala antes de borrar).
 //
-// Qué resuelve:
-//  1. En el Google Sheets los operadores arrastran la FECHA de hoy sobre miles de filas vacías. La consulta
-//     original las dejaba pasar (36 000 filas en la tabla). Aquí se descartan ANTES de cualquier otra cosa.
-//  2. Un "# ORDEN" tecleado por error (p. ej. 5465443, de 7 dígitos) entraba a la hoja y salía como
-//     "sin pedido" / "Verificar". Ahora solo pasan los números de pedido de 8 dígitos o más.
-//  3. La hoja salía desordenada y el primer pedido quedaba al final. Ahora se ordena por FECHA y # ORDEN,
-//     así se presenta y se revisa en orden.
-//  4. MISMA VENTANA DE DÍAS que las consultas Estado (ITEMS DEPOT) e ITEMS API. Las tres tienen que mirar
-//     el mismo rango: si una trae un día y la otra no, las contenedoras de ese día quedan sin items y
-//     VOL. ITEMS sale "Verificar". La ventana se cambia desde el panel, no editando esta consulta.
+// Qué resuelve, comparado con la consulta que está en producción:
+//
+//  1. PEDIDOS CON SUFIJO (102384109_A). La consulta actual hace, en "Tipo cambiado":
+//         {"# ORDEN", Int64.Type}
+//     "102384109_A" no es un número entero, así que esa celda se convierte en ERROR. El paso
+//     siguiente la pasa a texto, pero ya es tarde: el error no se deshace. Por eso la fila está
+//     en el Google Sheets y no llega a la hoja.
+//     Aquí el # ORDEN se trata como TEXTO DE PRINCIPIO A FIN y nunca se convierte a número.
+//     REGLA: no volver a poner un tipo numérico en "# ORDEN". Es lo que rompe los sufijos.
+//
+//  2. FILAS VACÍAS. En el Sheets los operadores arrastran la FECHA de hoy sobre miles de filas
+//     sin pedido. La consulta actual las deja pasar (36 000 filas en la tabla). Aquí se
+//     descartan por el # ORDEN antes que nada.
+//
+//  3. UN # ORDEN TECLEADO POR ERROR (5465443, de 7 dígitos) entraba y salía como "sin pedido" /
+//     "Verificar". Ahora el # ORDEN tiene que EMPEZAR con 8 dígitos o más; el sufijo _A sí pasa.
+//
+//  4. FECHA. La consulta actual usa {"FECHA", type date}, que depende del idioma del libro, y
+//     si falla deja un error en la celda. Aquí se prueba dd/mm/aaaa, luego el formato de EE. UU.,
+//     y si no se entiende queda vacía, sin romper la fila.
+//
+//  5. SOLO HOY -> VENTANA DE DÍAS. La consulta actual usa Date.IsInCurrentDay([FECHA]): tras un
+//     feriado, las cajas de los días pendientes desaparecían. Aquí es una ventana de días, LA
+//     MISMA que las consultas Estado (ITEMS DEPOT) e ITEMS API: si una mira un rango y otra no,
+//     las contenedoras se quedan sin items y VOL. ITEMS sale "Verificar". El número de días lo
+//     reescribe el botón "Días" del panel; no hay que editar esta consulta.
+//
+//  6. ORDEN Y TOPE. La hoja salía desordenada y el primer pedido quedaba al final. Ahora sale el
+//     día más reciente arriba y, dentro de cada día, por pedido y contenedora, con tope de cajas.
+//
+// Las 4 columnas que entrega (FECHA, # ORDEN, TIIPO CAJA, # CONTENEDORA) y su orden son los
+// mismos que ahora, así que las columnas calculadas F:K de la hoja no se tocan.
+// Lo que se quita respecto a la consulta actual son las conversiones de tipo de las columnas que
+// de todas formas se eliminan (VOLUMEN M3, PESO, Largo, Ancho, Alto...): convertirlas a Int64
+// para borrarlas después solo gasta tiempo y puede generar errores.
 let
     Origen = Csv.Document(Web.Contents("PEGA_AQUI_LA_URL"), [Delimiter = ",", Columns = 26, Encoding = 65001, QuoteStyle = QuoteStyle.None]),
     Encabezados = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
