@@ -600,10 +600,20 @@ Corregido en cuatro puntos, todos compatibles con un pedido sin sufijo (si no ha
 
 | Dónde | Qué hace ahora |
 |---|---|
-| `EMPAQUETADO.m` | el `# ORDEN` nunca se convierte a número, y vale si **empieza** con 8 dígitos o más; lo que venga después es sufijo |
+| `EMPAQUETADO.m` | el `# ORDEN` nunca se convierte a número. La regla mira el **número base** (lo que va antes del `_`): con sufijo pide 6 dígitos o más (`9824569_A` entra), sin sufijo pide 8 o más (`5465443` no entra) |
 | `EMPAQUETADO!F` | busca la contenedora en `Estado` por el **número base**, sin el sufijo |
 | `DATOS!R` (BULTOS) | cuenta las cajas del pedido **y las de sus partes**: `COUNTIF(…, pedido) + COUNTIF(…, pedido & "_*")` |
 | Panel y *Avance empaque* | las cajas se acumulan bajo el número exacto **y** bajo el número base, así el pedido cruza con DATOS lo tenga o no el sufijo |
+
+**Cómo comprobar que la consulta quedó aplicada.** En el Editor de Power Query, mira **PASOS APLICADOS**:
+
+| | Pasos |
+|---|---|
+| Consulta vieja | Origen · Encabezados promovidos · **Tipo cambiado** · Filas filtradas |
+| Consulta nueva | Origen · Encabezados · Columnas · Orden · ConOrden · Fechas · Hoy · Contenedora · Caja · Ordenado · Limite |
+
+Si ves *"Tipo cambiado"*, la consulta **no** se cambió: pulsar *Actualizar vista previa* no la reemplaza, hay que
+pegar el texto completo en **Inicio › Editor avanzado**.
 
 > Lo que **no** se hace es juntar dos pedidos distintos: el número base es solo un segundo camino para encontrar el
 > pedido, nunca una agrupación que mezcle datos de pedidos diferentes.

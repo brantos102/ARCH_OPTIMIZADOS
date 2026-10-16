@@ -17,8 +17,9 @@
 //     sin pedido. La consulta actual las deja pasar (36 000 filas en la tabla). Aquí se
 //     descartan por el # ORDEN antes que nada.
 //
-//  3. UN # ORDEN TECLEADO POR ERROR (5465443, de 7 dígitos) entraba y salía como "sin pedido" /
-//     "Verificar". Ahora el # ORDEN tiene que EMPEZAR con 8 dígitos o más; el sufijo _A sí pasa.
+//  3. UN # ORDEN TECLEADO POR ERROR (5465443) entraba y salía como "sin pedido" / "Verificar".
+//     La regla mira el número BASE, lo que va antes del "_": con sufijo pide 6 dígitos o más
+//     (9824569_A entra), sin sufijo pide 8 o más (5465443 no entra).
 //
 //  4. FECHA. La consulta actual usa {"FECHA", type date}, que depende del idioma del libro, y
 //     si falla deja un error en la celda. Aquí se prueba dd/mm/aaaa, luego el formato de EE. UU.,
@@ -44,11 +45,21 @@ let
     Columnas = Table.SelectColumns(Encabezados, {"FECHA", "# ORDEN", "TIIPO CAJA", "# CONTENEDORA"}, MissingField.UseNull),
     // 1) la orden como texto limpio, sin espacios ni decimales
     Orden = Table.TransformColumns(Columnas, {{"# ORDEN", each if _ = null then "" else Text.BeforeDelimiter(Text.Trim(Text.From(_)), "."), type text}}),
-    // 2) solo filas con un número de pedido de verdad: empieza con 8 dígitos o más.
-    //    Se admite un sufijo tras el número (102384109_A, _B...): bodega los usa cuando
-    //    un mismo pedido se empaca en varias partes. Lo que se descarta es un número
-    //    corto tecleado por error (5465443) o un texto.
-    ConOrden = Table.SelectRows(Orden, each Text.Length([#"# ORDEN"]) >= 8 and Text.Select(Text.Start([#"# ORDEN"], 8), {"0".."9"}) = Text.Start([#"# ORDEN"], 8)),
+    // 2) solo filas con un número de pedido de verdad. La regla mira el número BASE (lo que
+    //    va antes del "_"), no los primeros caracteres, porque hay pedidos con sufijo y con
+    //    menos de 8 dígitos (9824569_A):
+    //       con sufijo "_" : la base debe ser solo dígitos y tener 6 o más  -> 9824569_A entra
+    //       sin sufijo     : debe ser solo dígitos y tener 8 o más          -> 5465443 no entra
+    //    Así entran los pedidos partidos y se quedan fuera los números cortos tecleados por
+    //    error y los textos ("Adriana Morillo").
+    EsPedido = (t as text) as logical =>
+        let
+            tieneSufijo = Text.Contains(t, "_"),
+            base = if tieneSufijo then Text.BeforeDelimiter(t, "_") else t,
+            minimo = if tieneSufijo then 6 else 8
+        in
+            Text.Length(base) >= minimo and Text.Select(base, {"0".."9"}) = base,
+    ConOrden = Table.SelectRows(Orden, each EsPedido([#"# ORDEN"])),
     // 3) fecha: primero formato Ecuador (dd/mm/aaaa); si no, formato EE. UU.; si no se entiende, queda vacía
     Fechas = Table.TransformColumns(ConOrden, {{"FECHA", each try Date.From(_, "es-EC") otherwise try Date.From(_, "en-US") otherwise null, type date}}),
     // 4) ventana de días: hoy y los días anteriores que sigan pendientes (feriados, fines de semana).
