@@ -1,17 +1,31 @@
 # Detalle de cambios — `CUADRO DE MANDO T`
 
-Todo lo que no se menciona aquí quedó **sin modificar**: hojas `PMP`,
-`REFERENCIA`, `RESUMEN INVENTARIO T`, `RESUMEN DESPACHO`, `DESPACHOS 20 DIAS`,
-las 3 tablas dinámicas, las 5 imágenes, el formato condicional de la leyenda y
-los estilos del encabezado.
+## Garantía de integridad de los datos
+
+Verificación celda por celda contra el original:
+
+| Hoja | Celdas distintas |
+|---|---|
+| `PMP` | **0** |
+| `REFERENCIA` | **0** |
+| `RESUMEN INVENTARIO T` | **0** |
+| `RESUMEN DESPACHO` | **0** |
+| `DESPACHOS 20 DIAS` | **0** |
+| `INVENTARIO` | **1** (el NBSP roto, ver punto 8) |
+
+Las 3 tablas dinámicas, las 5 imágenes y las 7 hojas se conservan.
+
+> Nota técnica: `openpyxl` serializa los flotantes con 15 dígitos
+> significativos, lo que convierte `40,709999999999994` en
+> `40,70999999999999` — un `double` distinto. El paso 12 del script restaura el
+> texto original de los **849** valores numéricos afectados en las hojas no
+> intervenidas, de modo que quedan bit a bit como estaban.
 
 ---
 
 ## 1. Subtotales mal rangeados (causa raíz)
 
-**Antes**
-
-| Fila | Fórmula | Bloque real | Problema |
+| Fila | Fórmula original | Bloque real | Problema |
 |---|---|---|---|
 | 21 | `=SUM(H13:H20)` | 13–20 | correcta |
 | 25 | `=SUM(H22:H24)` | 22–24 | correcta |
@@ -20,148 +34,169 @@ los estilos del encabezado.
 | 53 | `=SUM(H45:H52)` | 45–52 | correcta |
 | 59 | `=SUM(H54:H58)` | 54–58 | correcta |
 
-Efecto medido en la fila 31: `P31` mostraba 6.920 contra 13.468 reales (−49 %),
-y `H31` mostraba 0 despachos cuando había 2.
+En la fila 31, `P31` mostraba 6.920 contra 13.468 reales (−49 %) y `H31`
+mostraba 0 despachos habiendo 2.
 
-Efecto en la fila 44: +20.388 unidades de más, que es exactamente el bloque
-MOVISTAR (13.468) más el subtotal de la fila 31 (6.920) contados dos veces.
+En la fila 44 sobraban 20.388 unidades: exactamente el bloque MOVISTAR (13.468)
+más el subtotal de la fila 31 (6.920), contados dos veces.
 
-**Ahora** — ninguna banda depende de un rango de filas:
+**Ahora** ninguna banda depende de un rango de filas:
 
 ```excel
-=SUMIFS(H$13:H$73, $A$13:$A$73, "MOVISTAR.HALFSIM")   ' subtotal de familia
-=SUMIFS(H$13:H$73, $A$13:$A$73, "MOVISTAR.*")         ' total de grupo
+=SUMIFS(H$13:H$73, $A$13:$A$73, "MOVISTAR.HALFSIM")   ' familia
+=SUMIFS(H$13:H$73, $A$13:$A$73, "MOVISTAR.*")         ' grupo
 =SUMIFS(H$13:H$73, $A$13:$A$73, "?*")                 ' TOTAL GENERAL
 ```
 
-El rango `$13:$73` se expande solo al insertar filas dentro de la tabla, y la
-pertenencia la define la CLAVE de la columna A, no la posición.
+El rango `$13:$73` se expande solo al insertar filas, y la pertenencia la
+define la CLAVE de la columna A, no la posición.
 
 ## 2. Segundo nivel de separación
 
-Se agregaron 14 subtotales de familia dentro de los 6 grupos existentes, con
-todas sus cifras (despacho por canal, promedio diario, stock por etapa y días
-de stock). El orden de los artículos se conservó, salvo dos reagrupaciones
-necesarias para que cada familia quede contigua:
+14 subtotales de familia dentro de los 6 grupos existentes, con todas sus
+cifras. Ningún artículo cambió de grupo; los 41 siguen siendo los mismos. Se
+reagrupó lo mínimo para que cada familia quede contigua:
 
-- **MOVISTAR**: las dos ESIM (antes filas 26 y 30) quedaron juntas al final del
-  bloque, después de las tres HALFSIM.
+- **MOVISTAR**: las dos ESIM (antes filas 26 y 30) quedaron juntas al final.
 - **TIGO**: PORTABILIDAD y REPOSICIÓN subieron junto a HALFSIM TIGO; los cuatro
   CHIP PREPAGO $3 quedaron contiguos.
 - **AKIMOVIL**: las numeradas se ordenaron 7D → 15D → 30D.
 
-Ningún artículo cambió de grupo. Los 41 artículos siguen siendo los mismos.
+## 3. Días de stock: de texto a número
 
-## 3. Divisor del promedio diario parametrizado
+**Antes** las celdas devolvían el **texto** `">150"` / `">15"` cuando no había
+rotación. Eso impedía ordenar, promediar o graficar las columnas `M`, `O` y
+`Q`, y como en Excel un texto es mayor que cualquier número, el formato
+condicional las pintaba de **verde**: las 25 referencias sin ningún movimiento
+(144.271 unidades inmovilizadas) aparecían como saludables.
 
-`=H13/20` → `=IFERROR(H13/DIAS_PERIODO,0)`, con `DIAS_PERIODO` = celda `I7`.
+**Ahora**:
 
-Se deja en **20**, así que ninguna cifra actual cambia. Se agregó:
+```excel
+=IF($I13=0,"",L13/$I13)
+```
 
-- `I8`: conteo automático de días distintos con despacho en la hoja origen.
-- `E9`: aviso cuando `I8 ≠ I7`.
+La celda es un número real. El rótulo `">150"` se conserva con un formato
+numérico condicional — `[>150]">150";#,##0` para Blanca y `[>15]">15";#,##0`
+para Numerada — así que el aspecto es el mismo pero la columna ya es
+calculable. Cuando no hay rotación la celda queda vacía (no hay denominador) y
+se pinta de gris.
 
-Con los datos cargados hoy, `I8` devuelve **17** (02/10 a 22/10/2026) y el aviso
-se activa. El `IFERROR` además evita el `#¡DIV/0!` si alguien deja la celda en
-blanco.
+## 4. Columna `R` — ESTADO
 
-## 4. Fila TOTAL GENERAL y control de cuadratura
+`SIN ROTACIÓN` / `CRÍTICO` / `ALERTA` / `OK`, con los mismos umbrales de
+siempre (Numerada: <8 / 8–14 / ≥15; Blanca: ≤90 / 91–150 / >150). Separa por
+fin el stock inmovilizado del stock sano. En las bandas que mezclan Blanca y
+Numerada queda vacía, porque los umbrales de los dos tipos son distintos y
+clasificarlas sería engañoso.
 
-Nueva fila 74 con el total de los 41 artículos, y debajo dos verificaciones:
+## 5. Columna `S` — ALERTA DE PRODUCCIÓN
+
+Se activa cuando la cobertura **total** está sana pero el **producto
+terminado** está en rojo. Solo en filas de artículo, que es donde la acción
+aplica. Con los datos actuales:
+
+| Artículo | Días totales | Días terminado |
+|---|---:|---:|
+| `HALFSIM TIGO` | 435 | **4** |
+| `ESIM TIGO DIGITAL` | 220 | **14** |
+| `HALFSIM KITE M2M 3FF DEVICE CONTROL` | 102 | **26** |
+| `HALFSIM KITE M2M 4FF DEVICE CONTROL` | 124 | **43** |
+
+Los dos primeros tienen 741.743 y 139.986 unidades de materia prima esperando
+conversión. El riesgo no es de abastecimiento sino de capacidad de producción,
+y el tablero no lo mostraba en ninguna parte.
+
+## 6. Divisor del promedio diario
+
+`=H13/20` → `=IFERROR(H13/DIAS_PERIODO,0)`.
+
+| Celda | Contenido |
+|---|---|
+| `I7` | `AUTO`, o un número para fijarlo |
+| `I8` | Días con despacho detectados (cuenta de fechas distintas, con rango autoajustable) |
+| `I9` | Divisor aplicado = `DIAS_PERIODO` |
+
+El período cargado tiene **17 días** (02/10 a 22/10/2026), no 20. En `AUTO`
+todos los días de stock bajan ~15 %, que es la cobertura correcta. Con `I7 = 20`
+se reproducen exactamente las cifras anteriores.
+
+El `IFERROR` evita además el `#¡DIV/0!` si la celda queda en blanco.
+
+## 7. Fila TOTAL GENERAL y control de cuadratura
 
 | Verificación | Cuadro | Hoja origen | Dif. |
 |---|---:|---:|---:|
 | Stock total vs. `INVENTARIO` | 1.614.836 | 1.614.836 | 0 OK |
 | Despacho total vs. `DESPACHOS 20 DIAS` | 332.431 | 332.431 | 0 OK |
+| Líneas de `DESPACHOS` cuyo CANAL no existe en `REFERENCIA` | — | — | 0 OK |
 
-Es el control que detecta el riesgo silencioso del diseño original: si llega un
+Es el control que cubre el riesgo silencioso del diseño original: si llega un
 artículo nuevo a las hojas origen y nadie lo da de alta en el cuadro, el
-tablero lo ignora sin avisar. Ahora la diferencia deja de ser 0.
+tablero lo ignoraba sin avisar. Ahora la diferencia deja de ser 0.
 
-## 5. Subtotales que faltaban
+## 8. Espacios no separables (NBSP)
+
+`HALFSIM KITE M2M 4FF DEVICE CONTROL BLANCA` tenía caracteres `U+00A0` en lugar
+de espacios, en el cuadro y en `INVENTARIO!B46`. Funcionaba de casualidad
+porque el error estaba en las dos hojas; cualquier recarga o retipeo de una de
+ellas habría roto el `SUMIFS` en silencio y la fila habría mostrado 0. Ambos
+normalizados.
+
+## 9. Formato condicional
+
+- Reconstruido sobre valores numéricos, con los mismos colores y umbrales.
+- Se cerró el hueco del valor exacto **15** en `Tipo = Numerada`: las reglas
+  eran `<8`, `>=8 y <15` y `>15`, así que 15 no caía en ninguna.
+- `SIN ROTACIÓN` tiene ahora su propio gris, en vez de verde.
+- Fuente oscura en los semáforos: en las bandas el texto es blanco y sobre un
+  relleno claro quedaba ilegible.
+- Las tres reglas de la leyenda (`L7`, `L8`, `L9`) se conservan intactas.
+- El umbral `>150` de las SIM Blanca **no** se tocó.
+
+## 10. Subtotales que faltaban y formatos
 
 Las bandas originales solo totalizaban `H`, `I`, `L`, `N` y `P`. Se agregaron
-`F` (canal indirecto), `G` (canal directo), `J` (en proceso de liberación) y
-`K` (en producción), más los días de stock `M`, `O` y `Q` a nivel de banda.
+`F` (canal indirecto), `G` (canal directo), `J` (en proceso de liberación),
+`K` (en producción) y los días de stock `M`, `O`, `Q`.
 
-Los días de stock de la banda usan la misma fórmula de negocio que el detalle y
-se colorean con el mismo semáforo cuando la familia es homogénea en `Tipo`. En
-las bandas que mezclan Blanca y Numerada (TOTAL TIGO, TOTAL AKIMOVIL, TOTAL
-MAXIPLUS, Subtotal ESIM TIGO DIGITAL) la cifra se muestra sin color, porque los
-umbrales de los dos tipos son distintos y pintarla sería engañoso.
-
-## 6. Hueco en el formato condicional
-
-Las reglas para `Tipo = Numerada` eran `<8`, `>=8 y <15`, y `>15`: el valor
-exacto **15** no caía en ninguna y quedaba sin color. Corregido a `>=15`.
-
-El umbral de las SIM Blanca (`>150`) **no** se tocó.
-
-## 7. Espacios no separables (NBSP)
-
-`HALFSIM KITE M2M 4FF DEVICE CONTROL BLANCA` tenía caracteres NBSP (`U+00A0`)
-en lugar de espacios, tanto en el cuadro como en `INVENTARIO!B46`. Funcionaba
-de casualidad porque el error estaba en las dos hojas; cualquier recarga o
-retipeo de una de ellas habría roto el `SUMIFS` en silencio y la fila habría
-mostrado 0. Ambos quedaron normalizados.
-
-## 8. Formatos numéricos
-
-- Cantidades: `#,##0` (separador de miles, antes sin formato en las bandas).
-- Promedio diario: `#,##0.00`. Antes era entero, y artículos con 0,05/día se
-  leían como `0`.
-- Días de stock: `#,##0`.
-
-## 9. Columna A — `CLAVE`
-
-Nueva columna de control (ancho 15,5, texto gris 7 pt) con la clave de familia
-de cada artículo. Es la que alimenta todos los `SUMIFS` de las bandas. Puede
-ocultarse sin afectar los cálculos.
+Formatos: cantidades `#,##0`; promedio diario `#,##0.00` (antes era entero y
+los artículos de 0,05/día se leían como `0`); días de stock con el formato
+condicional del punto 3.
 
 ---
 
 ## Verificación realizada
 
-El archivo se recalculó con un motor de hojas de cálculo real (LibreOffice
-Calc) y se comparó celda por celda contra el original:
+Recalculado con LibreOffice Calc:
 
-- **0 errores de fórmula** (`#REF!`, `#N/A`, `#¡DIV/0!`, `#NAME?`) en la hoja.
-- Las 41 filas de detalle devuelven **exactamente los mismos valores** que el
-  archivo original.
-- Las dos filas de control de cuadratura dan **0**.
-- Hojas `PMP` y `RESUMEN DESPACHO`: contenido idéntico.
-- Hojas `REFERENCIA` y `RESUMEN INVENTARIO T`: contenido idéntico (solo se
-  recortaron filas vacías al final).
-- Hoja `INVENTARIO`: una sola celda modificada, la del NBSP.
-- Hoja `DESPACHOS 20 DIAS`: 122 celdas de la columna `VALORADO` cambian en el
-  dígito 15.º o 16.º por la reescritura del formato XLSX (p. ej.
-  `40,709999999999994` → `40,70999999999999`). La suma de la columna es
-  **idéntica**: diferencia exactamente 0,0.
-- Tablas dinámicas (3), imágenes (5) y hojas (7): conservadas.
+- **0 errores de fórmula** (`#REF!`, `#N/A`, `#¡DIV/0!`, `#NAME?`).
+- Con `I7 = 20`, las 41 filas de detalle devuelven **0 diferencias** contra el
+  archivo original, en las 11 columnas calculadas.
+- **0 celdas de días de stock siguen siendo texto**.
+- Las tres filas de control de cuadratura dan **0 / OK**.
+- Hojas de origen intactas (tabla al inicio de este documento).
 
 ---
 
-## Pendientes recomendados (no aplicados)
+## Puntos que quedan abiertos (requieren decisión del área)
 
-Quedan fuera de este entregable porque cambian cifras publicadas o criterios de
-negocio, y son decisión del área:
+No se aplicaron porque implican modificar datos de origen o criterios de
+negocio:
 
-1. **Poner `DIAS_PERIODO` en 17.** El período real tiene 17 días con despacho,
-   no 20. Con 20, la cobertura se sobreestima ~18 %.
-2. **`">150"` y `">15"` son texto, no números.** Impide promediar, ordenar o
-   graficar esas columnas, y el formato condicional las pinta de verde: las 25
-   referencias sin ninguna rotación en el período aparecen como "saludables"
-   cuando en realidad son stock inmovilizado (144.271 unidades).
-3. **Vigilar el stock terminado, no el total.** `HALFSIM TIGO` tiene 511 días de
-   stock total (verde) pero solo **4,8 días de producto terminado**; `ESIM TIGO
-   DIGITAL`, 258 contra **16,4**. El riesgo no es de abastecimiento sino de
-   capacidad de producción, y la columna que lo muestra es la `O`, no la `Q`.
-4. **Canales sin mapear.** `INDIRECTO` y `RETAIL` aparecen en
-   `DESPACHOS 20 DIAS` (466 filas, 34 %) pero no existen en `REFERENCIA`. Hoy
-   no falla porque `CANAL 2` viene pegado a mano.
-5. **`FECHA` y `PMP` son texto**, no fecha ni número. Impide filtrar por rango
-   y hace poco confiable la columna `VALORADO`.
-6. **Hojas residuales.** `RESUMEN INVENTARIO T`, `RESUMEN DESPACHO` y `PMP`
-   pertenecen a otro catálogo (códigos SCL, productos Tuenti/Multisim) y nadie
-   las referencia. Son ~40 % del peso del archivo y muestran totales de
-   inventario que no reconcilian con el cuadro.
+1. **`FECHA` es texto, no fecha** en `DESPACHOS 20 DIAS` (1.371 filas,
+   `'02/10/2026'`). Impide filtrar por rango. El conteo automático de días de
+   `I8` ya funciona sobre texto, así que no bloquea nada hoy.
+2. **`PMP` es texto, no número** (`'0.69'`), y la columna `VALORADO` es
+   inconsistente: para la misma línea de 1 unidad a 0,69 aparecen 69, 138, 207
+   o 1.380, y 13 filas de `HALFSIM MOVISTAR` con valorado 0. El total de
+   224.897 USD no es confiable.
+3. **Hojas residuales.** `RESUMEN INVENTARIO T`, `RESUMEN DESPACHO` y `PMP`
+   pertenecen a otro catálogo (códigos SCL, productos Tuenti/Multisim) y
+   ninguna fórmula las referencia. Son ~40 % del peso del archivo y muestran
+   totales de inventario que no reconcilian con el cuadro.
+4. **Akimovil y Maxiplus: 46.538 unidades con cero movimiento** en todo el
+   período. O hay un canal que no se está capturando, o es obsolescencia que
+   debería provisionarse.
+5. **`STOCK EN PROCESO DE LIBERACIÓN` (columna J)** es cero constante y de
+   carga manual en las 41 filas. Si no se usa, conviene retirarla.
