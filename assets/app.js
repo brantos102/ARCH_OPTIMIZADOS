@@ -307,15 +307,21 @@
     pintarChips(r.actividades || []);
     var medibles = act.filter(function (a) { return a.estado_medicion === 'medible'; }).length;
 
-    var tiles = [
-      ['Actividades medibles', medibles + ' de ' + act.length,
-        hayFiltro() ? 'Sobre la selección activa' : 'Con todos los campos que exige su fórmula'],
-      ['Series recibidas', fmtNum(rec.filas), (rec.dias || 0) + ' días de arribo · ' + fmtNum(rec.duplicadas) + ' duplicadas'],
+    var entregas = (r.operativos || []).filter(function (o) { return o.id === 'OP-1'; })[0];
+    var tiles = [];
+    if (entregas) {
+      tiles.push(['Entregas registradas', fmtPct(entregas.valor),
+        fmtNum(entregas.numerador) + ' de ' + fmtNum(entregas.denominador) + ' pedidos del ciclo']);
+    }
+    tiles.push(
       ['Pedidos atendidos', fmtNum(ali.pedidos_ciclo), fmtNum(ali.pedidos) + ' en el archivo · ' + fmtNum(ali.filas_vacias) + ' filas vacías'],
+      ['Series recibidas', fmtNum(rec.filas), (rec.dias || 0) + ' días de arribo · ' + fmtNum(rec.duplicadas) + ' duplicadas'],
       ['Stock al cierre', fmtNum(alm.stock), alm.movimiento
         ? fmtNum(alm.movimiento.ingresos) + ' ingresos · ' + fmtNum(alm.movimiento.salidas) + ' salidas'
         : fmtNum(alm.duplicados) + ' series duplicadas'],
-    ];
+      ['Actividades medibles', medibles + ' de ' + act.length,
+        hayFiltro() ? 'Sobre la selección activa' : 'Con todos los campos que exige su fórmula']
+    );
     $('tiles').replaceChildren.apply($('tiles'), tiles.map(function (t) {
       var c = el('div', 'card');
       c.appendChild(el('div', 'stat-k', t[0]));
@@ -363,6 +369,18 @@
     }
     $('eje').replaceChildren.apply($('eje'), ['0,0%', '50,0%', '100,0%'].map(function (t) { return el('span', null, t); }));
     $('notaBarras').textContent = 'Escala completa de 0% a 100%. «n/d» marca la actividad cuyo origen no aporta ninguna medición.';
+
+    var ops = r.operativos || [];
+    if (ops.length) {
+      $('barrasOperativos').replaceChildren.apply($('barrasOperativos'), ops.map(function (o) {
+        return filaBarra(o.nombre, o.detalle + ' · ' + fmtNum(o.numerador) + ' de ' + fmtNum(o.denominador), o.valor, fmtPct(o.valor));
+      }));
+      $('ejeOperativos').replaceChildren.apply($('ejeOperativos'), ['0,0%', '50,0%', '100,0%'].map(function (t) { return el('span', null, t); }));
+      $('operativos').hidden = false;
+    } else {
+      $('barrasOperativos').replaceChildren(el('p', 'vacio-filtro', 'El archivo de este ciclo no trae línea de eventos logísticos.'));
+      $('ejeOperativos').replaceChildren();
+    }
 
     var criticos = r.campos.filter(function (c) {
       return c.critico_para_kpi === 'si' && (!filtros.proceso || c.proceso === filtros.proceso);
