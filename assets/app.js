@@ -67,8 +67,21 @@
     barra.firstElementChild.style.width = Math.max(0, Math.min(100, pct)) + '%';
     if (texto) log(texto);
   }
+  /* Los navegadores no permiten Web Workers ni fetch bajo file://, así que
+     la página necesita servirse por http. Avisamos antes de que falle. */
+  var sinServidor = location.protocol === 'file:';
+  if (sinServidor) {
+    var aviso = el('p', 'cap');
+    aviso.style.color = 'var(--bad)';
+    aviso.textContent = 'Esta página está abierta como archivo local y el navegador bloquea la lectura de Excel en ese modo. '
+      + 'Sírvela por http: abre una terminal en esta carpeta, ejecuta  python3 -m http.server 8000  y entra a http://localhost:8000';
+    $('drop').appendChild(aviso);
+    $('elegir').disabled = true;
+    $('files').disabled = true;
+  }
+
   function procesar(archivos) {
-    if (!archivos || !archivos.length) return;
+    if (sinServidor || !archivos || !archivos.length) return;
     $('log').replaceChildren();
     progreso(2, 'Iniciando lectura de ' + archivos.length + ' archivo(s)…');
     $('elegir').disabled = true;
@@ -316,6 +329,7 @@
   }
 
   /* ---------------------- histórico publicado ---------------------- */
+  if (sinServidor) return;
   fetch('data/historico.json', { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (j) {
