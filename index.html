@@ -18,11 +18,36 @@
         <p class="lede" id="lede">Carga el archivo master, o los archivos por proceso, para calcular los indicadores del ciclo.</p>
       </div>
       <div class="controls">
-        <span class="lab" for="periodo">Ciclo</span>
-        <select id="periodo" disabled><option>—</option></select>
-        <button class="btn" id="tema" type="button" title="Cambiar tema">◐</button>
+        <span class="lab">Ciclo</span>
+        <select id="periodo" aria-label="Ciclo de reporte" disabled><option>—</option></select>
+        <button class="btn" id="presentar" type="button" aria-pressed="false">Modo presentación</button>
+        <button class="btn" id="tema" type="button" title="Cambiar tema" aria-label="Cambiar tema">◐</button>
       </div>
     </div>
+
+    <details class="vista" id="vista">
+      <summary>Qué se muestra</summary>
+      <div class="vista-cuerpo">
+        <fieldset>
+          <legend>Columnas de la tabla</legend>
+          <label><input type="checkbox" data-col="proceso" checked> Proceso</label>
+          <label><input type="checkbox" data-col="objetivo" checked> Objetivo</label>
+          <label><input type="checkbox" data-col="medicion" checked> Medición</label>
+          <label><input type="checkbox" data-col="quemide" checked> Qué mide</label>
+          <label><input type="checkbox" data-col="falta" checked> Campo ausente</label>
+        </fieldset>
+        <fieldset>
+          <legend>Secciones</legend>
+          <label><input type="checkbox" data-sec="cifras" checked> Resumen del ciclo</label>
+          <label><input type="checkbox" data-sec="medicion" checked> Estado de medición</label>
+          <label><input type="checkbox" data-sec="control" checked> Indicador de control</label>
+          <label><input type="checkbox" data-sec="campos" checked> Completitud de campos</label>
+          <label><input type="checkbox" data-sec="volumen" checked> Volumetría</label>
+          <label><input type="checkbox" data-sec="reparto" checked> Reparto y fuentes</label>
+        </fieldset>
+        <p class="cap muted">La actividad y su indicador de control no se ocultan: son lo que da sentido a la cifra. El modo presentación esconde la carga de archivos y agranda la letra para proyectar.</p>
+      </div>
+    </details>
 
     <div class="drop" id="drop">
       <h2>Archivos de origen</h2>
@@ -42,6 +67,18 @@
     </div>
   </header>
 
+  <div class="filtros" id="filtros" hidden>
+    <div class="filtro-grupo">
+      <span class="lab">Proceso</span>
+      <div class="chips" id="chipsProceso"></div>
+    </div>
+    <div class="filtro-grupo">
+      <span class="lab">Medición</span>
+      <div class="chips" id="chipsEstado"></div>
+    </div>
+    <button class="btn limpiar" id="limpiar" type="button" hidden>Limpiar filtros</button>
+  </div>
+
   <section id="cifras">
     <div class="grid" id="tiles"></div>
   </section>
@@ -52,8 +89,13 @@
       <div class="tablewrap">
         <table id="tabla">
           <thead><tr>
-            <th>Proceso</th><th>Actividad</th><th>Objetivo</th><th>Medición</th>
-            <th>Indicador de control</th><th>Valor</th><th>Campo ausente en el origen</th>
+            <th data-col="proceso">Proceso</th>
+            <th data-col="actividad">Actividad</th>
+            <th data-col="objetivo">Objetivo</th>
+            <th data-col="medicion">Medición</th>
+            <th data-col="quemide">Qué mide</th>
+            <th data-col="valor">Indicador de control</th>
+            <th data-col="falta">Campo ausente en el origen</th>
           </tr></thead>
           <tbody></tbody>
         </table>
