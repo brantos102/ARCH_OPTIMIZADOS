@@ -39,6 +39,7 @@
         <fieldset>
           <legend>Secciones</legend>
           <label><input type="checkbox" data-sec="cifras" checked> Resumen del ciclo</label>
+          <label><input type="checkbox" data-sec="operativos" checked> Indicadores operativos</label>
           <label><input type="checkbox" data-sec="medicion" checked> Estado de medición</label>
           <label><input type="checkbox" data-sec="control" checked> Indicador de control</label>
           <label><input type="checkbox" data-sec="campos" checked> Completitud de campos</label>
@@ -81,6 +82,15 @@
 
   <section id="cifras">
     <div class="grid" id="tiles"></div>
+  </section>
+
+  <section id="operativos">
+    <h2>Indicadores operativos del ciclo</h2>
+    <div class="card">
+      <div class="rows" id="barrasOperativos"></div>
+      <div class="axis" id="ejeOperativos"></div>
+      <p class="cap muted">Medidos sobre la línea de eventos logísticos del archivo: entrega al destino, incidencias en ruta y tiempo de tránsito. Son indicadores de servicio verificables contra el origen; no son los SLA de Activos Fijos, que miden el picking en bodega.</p>
+    </div>
   </section>
 
   <section id="medicion">

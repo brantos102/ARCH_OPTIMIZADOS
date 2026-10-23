@@ -1,7 +1,7 @@
 {
  "ciclos": {
   "2026-09": {
-   "generado": "2026-10-23T15:38:36.536Z",
+   "generado": "2026-10-23T16:35:02.331Z",
    "periodo": "2026-09",
    "periodos": [
     "2026-05",
@@ -1890,7 +1890,7 @@
      "actividad": "Picking y embalaje en 2 h - horario de oficina",
      "objetivo_pct": 100,
      "estado_medicion": "no_medible",
-     "campo_faltante": "Hora de despacho. Solo existe FEC_CREAC de la solicitud",
+     "campo_faltante": "Qué codigo_evento marca la salida de bodega. Los eventos registrados son de transporte y entrega, no de picking",
      "indicador_sustituto": "Pedidos con hora de creación registrada",
      "numerador": 373,
      "denominador": 861,
@@ -1905,7 +1905,7 @@
      "actividad": "Picking y embalaje en 2 h - horario extendido",
      "objetivo_pct": 100,
      "estado_medicion": "no_medible",
-     "campo_faltante": "Marca de horario extendido y hora de despacho",
+     "campo_faltante": "No hay columna de franja horaria. TIPO_SERVICIO distingue NORMAL de EXCLUSIVO, que es nivel de servicio y no jornada",
      "indicador_sustituto": "Pedidos clasificables por franja horaria",
      "numerador": 0,
      "denominador": 861,
@@ -1988,6 +1988,32 @@
      "volumen": 1,
      "unidad_volumen": "cierre del ciclo",
      "fuente": "3 archivos"
+    }
+   ],
+   "operativos": [
+    {
+     "id": "OP-1",
+     "nombre": "Pedidos con evento de entrega registrado",
+     "detalle": "El transportista reportó entrega al destino",
+     "numerador": 839,
+     "denominador": 845,
+     "valor": 0.9928994082840237
+    },
+    {
+     "id": "OP-2",
+     "nombre": "Pedidos sin incidencia",
+     "detalle": "Ningún evento de incidencia en la ruta",
+     "numerador": 843,
+     "denominador": 845,
+     "valor": 0.9976331360946745
+    },
+    {
+     "id": "OP-3",
+     "nombre": "Pedidos entregados dentro de 72 h",
+     "detalle": "Desde la creación del pedido hasta el último evento registrado",
+     "numerador": 647,
+     "denominador": 659,
+     "valor": 0.9817905918057663
     }
    ],
    "campos": [
@@ -2420,7 +2446,20 @@
       "INDIRECTO": 378861,
       "RETAIL": 4357,
       "DIRECTO": 4397
-     }
+     },
+     "eventos": {
+      "PEDIDO_ENTREGADO": 164164,
+      "PEDIDO_EN_TRANSITO": 3615,
+      "HABILITADO_RUTEO": 540,
+      "PEDIDO_CON_INCIDENCIA": 500,
+      "EN_TRANSITO": 720,
+      "INCIDENCIA": 300,
+      "ENTREGADO": 217776
+     },
+     "entregados": 839,
+     "con_incidencia": 2,
+     "transito_p50": 24,
+     "transito_p90": 48
     }
    }
   }

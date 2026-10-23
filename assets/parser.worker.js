@@ -253,6 +253,12 @@ function leerAlistamiento(filas, cab, ctx) {
   var iTipo = buscaCol(c, /^TIPO ARTICULO$/), iCanal = buscaCol(c, /^CANAL$/);
   var iImei = buscaCol(c, /^IMEI$/), iIcc = buscaCol(c, /^ICC$/), iRasca = buscaCol(c, /^RASCA$/), iAcc = buscaCol(c, /^ACCESORIO$/);
   var iDesp = buscaCol(c, RE_DESPACHO), iFranja = buscaCol(c, RE_FRANJA);
+  /* Columnas de evento logístico. Estaban en el archivo desde el principio y el
+     lector no llegaba a ellas: la exploración inicial truncó la cabecera en 16
+     columnas y el resto del parser se construyó sobre esa suposición. */
+  var iEv = buscaCol(c, /^CODIGO_EVENTO$/), iFecEv = buscaCol(c, /^FECHA_EV$/);
+  var iServ = buscaCol(c, /^TIPO_SERVICIO$/), iCiudad = buscaCol(c, /^CIUDAD$/);
+  var iExp = buscaCol(c, /^EXPRESO$/);
   var o = ctx.alistamiento;
   o.pestanas.push(cab.nombre);
   if (iDesp >= 0) o.tieneDespacho = true;
@@ -264,7 +270,12 @@ function leerAlistamiento(filas, cab, ctx) {
     var doc = String(f[iDoc]).trim();
     var bruto = f[iFec], d = aFecha(bruto);
     var p = o.pedidos[doc];
-    if (!p) p = o.pedidos[doc] = { fecha: null, hora: false, items: 0, cli: {}, desp: null, franja: null, pest: cab.nombre };
+    if (!p) {
+      p = o.pedidos[doc] = {
+        fecha: null, hora: false, items: 0, cli: {}, desp: null, franja: null, pest: cab.nombre,
+        eventos: {}, transito: null, servicio: null, ciudad: null, expreso: null,
+      };
+    }
     p.items++;
     var cli = vacio(f[iCli]) ? '(sin cliente)' : String(f[iCli]).trim();
     p.cli[cli] = (p.cli[cli] || 0) + 1;
@@ -275,6 +286,21 @@ function leerAlistamiento(filas, cab, ctx) {
     if (tieneHora(bruto, d)) p.hora = true;
     if (iDesp >= 0) { var dd = aFecha(f[iDesp]); if (dd && (!p.desp || dd > p.desp)) p.desp = dd; }
     if (iFranja >= 0 && !vacio(f[iFranja])) p.franja = String(f[iFranja]).trim();
+    if (iEv >= 0 && !vacio(f[iEv])) {
+      var ev = norm(f[iEv]);
+      p.eventos[ev] = true;
+      o.eventos[ev] = (o.eventos[ev] || 0) + 1;
+    }
+    if (iFecEv >= 0) {
+      var de = aFecha(f[iFecEv]);
+      if (de && d) {
+        var horas = (de - d) / 3600000;
+        if (horas > 0 && (p.transito === null || horas > p.transito)) p.transito = horas;
+      }
+    }
+    if (iServ >= 0 && !vacio(f[iServ])) p.servicio = String(f[iServ]).trim();
+    if (iCiudad >= 0 && !vacio(f[iCiudad])) p.ciudad = String(f[iCiudad]).trim();
+    if (iExp >= 0 && !vacio(f[iExp])) p.expreso = String(f[iExp]).trim();
     o.campos.doc_ext = (o.campos.doc_ext || 0) + 1;
     if (!vacio(bruto)) o.campos.FEC_CREAC = (o.campos.FEC_CREAC || 0) + 1;
     if (tieneHora(bruto, d)) o.campos['FEC_CREAC (con hora)'] = (o.campos['FEC_CREAC (con hora)'] || 0) + 1;
@@ -316,7 +342,7 @@ function contexto() {
     archivos: [], hojas: [], avisos: [], diagnostico: [],
     recepcion: { filas: 0, series: {}, porDia: {}, ciclos: {}, conHora: 0, campos: {}, pestanas: [], tieneDisponibilizacion: false, sla: { ok: 0, total: 0 } },
     almacenaje: { bloques: [], simcards: 0, lineasSimcard: 0, ubicaciones: 0, detalleUbicaciones: [], pestanas: [], tieneConteo: false, tieneEtiqueta: false },
-    alistamiento: { filas: 0, filasVacias: 0, pedidos: {}, itemsCliente: {}, tipos: {}, canales: {}, campos: {}, pestanas: [], tieneDespacho: false, tieneFranja: false },
+    alistamiento: { filas: 0, filasVacias: 0, pedidos: {}, itemsCliente: {}, tipos: {}, canales: {}, campos: {}, pestanas: [], tieneDespacho: false, tieneFranja: false, eventos: {} },
   };
 }
 
@@ -368,6 +394,43 @@ function calcular(ctx, periodoPedido) {
   var porDiaPedidos = {};
   pedidosCiclo.forEach(function (p) { var k = iso(p.fecha); porDiaPedidos[k] = (porDiaPedidos[k] || 0) + 1; });
 
+  /* Indicadores que la línea de eventos sí permite medir. No son los SLA de
+     Activos Fijos: miden la entrega al destino, no el picking en bodega. */
+  var ENTREGA = { ENTREGADO: 1, PEDIDO_ENTREGADO: 1 };
+  var INCIDENCIA = { INCIDENCIA: 1, PEDIDO_CON_INCIDENCIA: 1 };
+  var tieneAlguno = function (p, mapa) {
+    return Object.keys(p.eventos || {}).some(function (e) { return mapa[e]; });
+  };
+  var entregados = pedidosCiclo.filter(function (p) { return tieneAlguno(p, ENTREGA); }).length;
+  var conIncidencia = pedidosCiclo.filter(function (p) { return tieneAlguno(p, INCIDENCIA); }).length;
+  var transitos = pedidosCiclo.map(function (p) { return p.transito; })
+    .filter(function (t) { return t !== null && t > 0; }).sort(function (a, b) { return a - b; });
+  var percentil = function (lista, q) {
+    return lista.length ? lista[Math.min(lista.length - 1, Math.floor(lista.length * q))] : null;
+  };
+  var dentro72 = transitos.filter(function (t) { return t <= 72; }).length;
+  var operativos = pedidosCiclo.length ? [
+    {
+      id: 'OP-1', nombre: 'Pedidos con evento de entrega registrado',
+      detalle: 'El transportista reportó entrega al destino',
+      numerador: entregados, denominador: pedidosCiclo.length,
+      valor: entregados / pedidosCiclo.length,
+    },
+    {
+      id: 'OP-2', nombre: 'Pedidos sin incidencia',
+      detalle: 'Ningún evento de incidencia en la ruta',
+      numerador: pedidosCiclo.length - conIncidencia, denominador: pedidosCiclo.length,
+      valor: (pedidosCiclo.length - conIncidencia) / pedidosCiclo.length,
+    },
+  ] : [];
+  if (transitos.length) {
+    operativos.push({
+      id: 'OP-3', nombre: 'Pedidos entregados dentro de 72 h',
+      detalle: 'Desde la creación del pedido hasta el último evento registrado',
+      numerador: dentro72, denominador: transitos.length, valor: dentro72 / transitos.length,
+    });
+  }
+
   var slaAli = { ok: 0, total: 0, oficina: { ok: 0, total: 0 }, extendido: { ok: 0, total: 0 } };
   if (ali.tieneDespacho) {
     pedidosCiclo.forEach(function (p) {
@@ -412,14 +475,14 @@ function calcular(ctx, periodoPedido) {
       ? act('AF-2', P_ALI, 'Picking y embalaje en 2 h - horario de oficina', 100, 'medible', '',
             'Pedidos despachados dentro de 2 h en horario de oficina', slaAli.oficina.ok, slaAli.oficina.total, pedidosCiclo.length, 'pedidos del ciclo', ali.pestanas.length + ' pestañas')
       : act('AF-2', P_ALI, 'Picking y embalaje en 2 h - horario de oficina', 100, 'no_medible',
-            'Hora de despacho. Solo existe FEC_CREAC de la solicitud',
+            'Qué codigo_evento marca la salida de bodega. Los eventos registrados son de transporte y entrega, no de picking',
             'Pedidos con hora de creación registrada', conHora, pedidos.length, pedidosCiclo.length, 'pedidos del ciclo', ali.pestanas.length + ' pestañas'),
 
     ali.tieneDespacho && ali.tieneFranja && slaAli.extendido.total > 0
       ? act('AF-3', P_ALI, 'Picking y embalaje en 2 h - horario extendido', 100, 'medible', '',
             'Pedidos despachados dentro de 2 h fuera de horario', slaAli.extendido.ok, slaAli.extendido.total, slaAli.extendido.total, 'pedidos fuera de horario', ali.pestanas.length + ' pestañas')
       : act('AF-3', P_ALI, 'Picking y embalaje en 2 h - horario extendido', 100, 'no_medible',
-            'Marca de horario extendido y hora de despacho',
+            'No hay columna de franja horaria. TIPO_SERVICIO distingue NORMAL de EXCLUSIVO, que es nivel de servicio y no jornada',
             'Pedidos clasificables por franja horaria', ali.tieneFranja ? pedidos.length : 0, pedidos.length, 0, 'pedidos fuera de horario identificados', ali.pestanas.length + ' pestañas'),
 
     ubicPobl > 0
@@ -513,7 +576,7 @@ function calcular(ctx, periodoPedido) {
     generado: new Date().toISOString(),
     periodo: periodo, periodos: periodos, etiqueta: etiquetaPeriodo(periodo), ciclo: rango,
     archivos: ctx.archivos, hojas: ctx.hojas, avisos: ctx.avisos, diagnostico: ctx.diagnostico,
-    resumen: resumen, actividades: actividades, campos: campos, diaria: diaria,
+    resumen: resumen, actividades: actividades, operativos: operativos, campos: campos, diaria: diaria,
     detalle: {
       recepcion: {
         filas: totalRec, series_unicas: seriesRec.length, duplicadas: dupRec,
@@ -527,7 +590,9 @@ function calcular(ctx, periodoPedido) {
       alistamiento: {
         filas: ali.filas, filas_vacias: ali.filasVacias, pedidos: pedidos.length,
         pedidos_ciclo: pedidosCiclo.length, con_hora: conHora, clientes: clientes,
-        tipos: ali.tipos, canales: ali.canales,
+        tipos: ali.tipos, canales: ali.canales, eventos: ali.eventos,
+        entregados: entregados, con_incidencia: conIncidencia,
+        transito_p50: percentil(transitos, 0.5), transito_p90: percentil(transitos, 0.9),
       },
     },
   };

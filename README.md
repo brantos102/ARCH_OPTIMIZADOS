@@ -23,6 +23,22 @@ proforma (*«DEL 24 DE AGOSTO AL 23 DE SEPTIEMBRE»*).
    La página carga ese archivo al abrirse, así los ciclos anteriores quedan a la vista
    sin volver a cargar el libro.
 
+## Indicadores operativos
+
+Las pestañas de alistamiento traen una línea de eventos logísticos —`codigo_evento`,
+`FECHA_EV`, `TIPO_SERVICIO`, `CIUDAD`, `EXPRESO`— que permite medir el servicio de
+entrega contra el propio origen:
+
+| Indicador | Septiembre 2026 |
+|---|---|
+| Pedidos con evento de entrega registrado | 99,3% (839 de 845) |
+| Pedidos sin incidencia | 99,8% (843 de 845) |
+| Pedidos entregados dentro de 72 h | 98,2% (647 de 659) |
+| Tránsito | p50 24 h · p90 48 h |
+
+Son indicadores de **entrega al destino**, no los SLA de Activos Fijos, que miden el
+picking en bodega. La página lo dice bajo la sección para que nadie los confunda.
+
 ## Qué calcula
 
 Las ocho actividades del contrato, cada una con su **estado de medición**:
