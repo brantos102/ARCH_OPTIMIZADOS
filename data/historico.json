@@ -1,7 +1,7 @@
 {
  "ciclos": {
   "2026-09": {
-   "generado": "2026-10-23T15:37:06.525Z",
+   "generado": "2026-10-23T15:38:36.536Z",
    "periodo": "2026-09",
    "periodos": [
     "2026-05",
@@ -53,7 +53,7 @@
      "nombre": "ALM ACCESORIOS SEPTIEMBRE",
      "tipo": "alm_ubicacion",
      "filas": 8,
-     "aporte": "150 ubicaciones"
+     "aporte": "73 ubicaciones"
     },
     {
      "archivo": "ALMACENAJE.xlsx",
@@ -67,7 +67,7 @@
      "nombre": "ALM TERMINALES SEPTIEMBRE",
      "tipo": "alm_stock",
      "filas": 12243,
-     "aporte": "23.604 series en stock"
+     "aporte": "23.604 filas de inventario"
     },
     {
      "archivo": "ALMACENAJE.xlsx",
@@ -119,7 +119,9 @@
      "aporte": ""
     }
    ],
-   "avisos": [],
+   "avisos": [
+    "«ALM ACCESORIOS SEPTIEMBRE» trae 2 bloques de mes; se tomó el último (Septiembre) como cierre del ciclo."
+   ],
    "diagnostico": [
     {
      "archivo": "RECEPCIÓN EQUIPOS MATERIALES Y-O REPUESTOS.xlsx",
@@ -2357,7 +2359,7 @@
      "stock": 12243,
      "unicos": 12231,
      "duplicados": 12,
-     "ubicaciones": 150,
+     "ubicaciones": 73,
      "simcards": 2738780,
      "lineas_simcard": 71,
      "movimiento": {

@@ -215,19 +215,34 @@ function leerAlmCantidad(filas, cab, ctx) {
   }
 }
 
+/* La pestaña apila un bloque por mes, cada uno encabezado por el nombre del
+   mes en la columna A con la columna B vacía. Vale el último bloque, que es el
+   cierre del ciclo; sumarlos todos mezclaría dos meses. */
 function leerAlmUbicacion(filas, cab, ctx) {
   var c = cab.cols;
   var iT = 0, iC = buscaCol(c, /CANTIDAD DE UBICACION/);
   var o = ctx.almacenaje;
   o.pestanas.push(cab.nombre);
+  var bloques = [], actual = null;
   for (var r = 0; r < filas.length; r++) {
     var f = filas[r] || [];
-    var n = aNumero(f[iC]);
-    if (n == null || vacio(f[iT])) continue;
+    if (vacio(f[iT])) continue;
     var etiqueta = String(f[iT]).trim();
-    if (/CANTIDAD/.test(norm(etiqueta))) continue;
-    o.ubicaciones += n;
-    o.detalleUbicaciones.push({ tipo: etiqueta, cantidad: n });
+    if (/CANTIDAD|TIPO DE PRODUCTO/.test(norm(etiqueta))) continue;
+    var n = aNumero(f[iC]);
+    if (n == null) { actual = { mes: etiqueta, total: 0, detalle: [] }; bloques.push(actual); continue; }
+    if (!actual) { actual = { mes: '', total: 0, detalle: [] }; bloques.push(actual); }
+    actual.total += n;
+    actual.detalle.push({ tipo: etiqueta, cantidad: n });
+  }
+  var ultimo = bloques.length ? bloques[bloques.length - 1] : null;
+  if (ultimo) {
+    o.ubicaciones += ultimo.total;
+    o.detalleUbicaciones = o.detalleUbicaciones.concat(ultimo.detalle);
+    if (bloques.length > 1) {
+      ctx.avisos.push('«' + cab.nombre + '» trae ' + bloques.length + ' bloques de mes; se tomó el último ('
+        + (ultimo.mes || 'sin nombre') + ') como cierre del ciclo.');
+    }
   }
 }
 
@@ -532,7 +547,7 @@ function aporte(antes, despues) {
   var partes = [];
   var etiquetas = {
     recepcion: 'series recibidas', alistamiento: 'filas de pedido',
-    stock: 'series en stock', simcards: 'unidades', ubicaciones: 'ubicaciones',
+    stock: 'filas de inventario', simcards: 'unidades', ubicaciones: 'ubicaciones',
   };
   Object.keys(etiquetas).forEach(function (k) {
     var d = despues[k] - antes[k];
