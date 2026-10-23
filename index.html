@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Indicadores Activos Fijos</title>
+<meta name="description" content="Tablero de indicadores de servicio de Activos Fijos. Lee los libros de Excel del proveedor en el navegador, sin subirlos a ningún servidor.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>📊</text></svg>">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="topline">
+      <div style="display:grid;gap:6px;min-width:0">
+        <h1>Indicadores de servicio — Activos Fijos</h1>
+        <p class="lede" id="lede">Carga el archivo master, o los archivos por proceso, para calcular los indicadores del ciclo.</p>
+      </div>
+      <div class="controls">
+        <span class="lab" for="periodo">Ciclo</span>
+        <select id="periodo" disabled><option>—</option></select>
+        <button class="btn" id="tema" type="button" title="Cambiar tema">◐</button>
+      </div>
+    </div>
+
+    <div class="drop" id="drop">
+      <h2>Archivos de origen</h2>
+      <p class="cap muted">
+        Acepta el libro master completo o los archivos separados por proceso (<code>.xlsx</code>, <code>.xlsb</code>, <code>.xlsm</code>).
+        Puedes arrastrarlos aquí. El archivo se procesa dentro de tu navegador: no se sube a ningún servidor, así que el tamaño no tiene límite de carga.
+      </p>
+      <div class="controls">
+        <input type="file" id="files" multiple accept=".xlsx,.xlsb,.xlsm,.xls" hidden>
+        <button class="btn primary" id="elegir" type="button">Elegir archivos</button>
+        <button class="btn" id="descargar" type="button" disabled>Descargar indicadores.json</button>
+        <button class="btn" id="descargarCsv" type="button" disabled>Descargar CSV</button>
+        <button class="btn" id="descargarDiag" type="button" disabled>Descargar diagnóstico</button>
+      </div>
+      <div class="bar-progress" id="progress" hidden><i></i></div>
+      <div class="log" id="log" hidden></div>
+    </div>
+  </header>
+
+  <section id="cifras">
+    <div class="grid" id="tiles"></div>
+  </section>
+
+  <section id="medicion">
+    <h2>Estado de medición por actividad</h2>
+    <div class="card">
+      <div class="tablewrap">
+        <table id="tabla">
+          <thead><tr>
+            <th>Proceso</th><th>Actividad</th><th>Objetivo</th><th>Medición</th>
+            <th>Indicador de control</th><th>Valor</th><th>Campo ausente en el origen</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="cap muted">El objetivo es el del contrato. El indicador de control es una medición auxiliar que sí admite el dato disponible; no sustituye al KPI contractual. Cuando el origen incorpore el campo que falta, la fila pasa a «Medible» y el valor mostrado es el KPI real.</p>
+    </div>
+  </section>
+
+  <section id="control">
+    <h2>Indicador de control por actividad</h2>
+    <div class="card">
+      <div class="rows" id="barras"></div>
+      <div class="axis" id="eje"></div>
+      <p class="cap muted" id="notaBarras"></p>
+    </div>
+  </section>
+
+  <section id="campos">
+    <h2>Completitud de los campos críticos</h2>
+    <div class="card">
+      <div class="rows" id="barrasCampos"></div>
+      <p class="cap muted">Campos que la fórmula de cada KPI necesita. Un campo en 0% existe como columna vacía o no existe en absoluto; en ninguno de los dos casos aporta dato.</p>
+    </div>
+  </section>
+
+  <section id="volumen">
+    <h2>Volumetría del ciclo</h2>
+    <div class="grid2">
+      <div class="card"><h3 class="stat-k">Pedidos creados por día</h3><div class="chart" id="chartPed"></div></div>
+      <div class="card"><h3 class="stat-k">Series recibidas por día</h3><div class="chart" id="chartRec"></div></div>
+    </div>
+  </section>
+
+  <section id="reparto">
+    <h2>Reparto por cliente y fuentes leídas</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3 class="stat-k">Participación por cliente en el alistamiento</h3>
+        <div class="rows" id="clientes"></div>
+        <p class="cap muted">Si el informe se presenta a un cliente en particular, las filas de los demás deben excluirse antes de reportar.</p>
+      </div>
+      <div class="card">
+        <h3 class="stat-k">Pestañas leídas y qué aporta cada una</h3>
+        <div class="tablewrap">
+          <table id="hojas"><thead><tr><th>Pestaña</th><th>Tipo</th><th>Filas</th><th>Aporta al total</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p id="pie">Los datos se calculan en el navegador. Para conservar el histórico, descarga <code>indicadores.json</code> y súbelo a <code>data/historico.json</code> en el repositorio.</p>
+  </footer>
+
+</div>
+<script src="assets/app.js"></script>
+</body>
+</html>
