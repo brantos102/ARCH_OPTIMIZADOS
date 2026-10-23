@@ -104,6 +104,7 @@
         pintar(m.resultado);
         $('descargar').disabled = false;
         $('descargarCsv').disabled = false;
+        $('descargarDiag').disabled = false;
       }
     };
     worker.onerror = function (e) {
@@ -154,6 +155,12 @@
   }
   $('descargar').addEventListener('click', function () {
     bajar('indicadores.json', JSON.stringify({ ciclos: historico }, null, 1), 'application/json');
+  });
+  $('descargarDiag').addEventListener('click', function () {
+    if (!actual) return;
+    bajar('diagnostico-' + (actual.periodo || 'ciclo') + '.json',
+      JSON.stringify({ generado: actual.generado, archivos: actual.archivos, hojas: actual.diagnostico || [] }, null, 1),
+      'application/json');
   });
   $('descargarCsv').addEventListener('click', function () {
     if (!actual) return;
@@ -251,10 +258,13 @@
     var th = $('hojas').querySelector('tbody');
     th.replaceChildren.apply(th, (r.hojas || []).map(function (h) {
       var tr = el('tr');
-      tr.appendChild(el('td', null, h.archivo));
-      tr.appendChild(el('td', null, h.nombre));
-      tr.appendChild(el('td', null, h.tipo));
+      tr.appendChild(el('td', 'w', h.nombre));
+      var tdT = el('td');
+      var pastilla = el('span', 'pill ' + (h.tipo === 'sin reconocer' ? 'c-warn' : 'c-ok'), h.tipo);
+      tdT.appendChild(pastilla);
+      tr.appendChild(tdT);
       tr.appendChild(el('td', 'n', fmtNum(h.filas)));
+      tr.appendChild(el('td', 'ww', h.aporte || '—'));
       return tr;
     }));
 

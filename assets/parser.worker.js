@@ -37,10 +37,12 @@ function aNumero(v) {
   var n = Number(String(v).replace(/\s/g, '').replace(/,/g, ''));
   return isFinite(n) ? n : null;
 }
-/* El ciclo de reporte corre del 23 de un mes al 22 del siguiente. */
+/* El ciclo de reporte corre del 24 de un mes al 23 del siguiente, tal como lo
+   nombra la proforma: «DEL 24 DE AGOSTO AL 23 DE SEPTIEMBRE». */
+var CORTE_DIA = 24;
 function cicloDe(fecha) {
   var y = fecha.getUTCFullYear(), m = fecha.getUTCMonth(), d = fecha.getUTCDate();
-  if (d >= 23) m += 1;
+  if (d >= CORTE_DIA) m += 1;
   var p = new Date(Date.UTC(y, m, 1));
   return p.getUTCFullYear() + '-' + String(p.getUTCMonth() + 1).padStart(2, '0');
 }
@@ -48,7 +50,10 @@ function rangoCiclo(periodo) {
   var m = /^(\d{4})-(\d{2})$/.exec(periodo);
   if (!m) return null;
   var y = +m[1], mes = +m[2] - 1;
-  return { inicio: iso(new Date(Date.UTC(y, mes - 1, 23))), fin: iso(new Date(Date.UTC(y, mes, 22))) };
+  return {
+    inicio: iso(new Date(Date.UTC(y, mes - 1, CORTE_DIA))),
+    fin: iso(new Date(Date.UTC(y, mes, CORTE_DIA - 1))),
+  };
 }
 function etiquetaPeriodo(p) {
   var m = /^(\d{4})-(\d{2})$/.exec(p || '');
@@ -63,15 +68,33 @@ function diaHabilSiguiente(d) {
 }
 
 /* ---- Detección del tipo de pestaña por su contenido, no por su nombre ---- */
+/* La firma de cada formato. Se exige más de una columna para que una pestaña
+   ajena no entre por coincidir en un solo nombre genérico y contamine los
+   totales en silencio, que es peor que quedar fuera. */
 function cabecera(filas, limite) {
   for (var i = 0; i < Math.min(filas.length, limite || 12); i++) {
     var f = filas[i] || [];
     var h = f.map(norm);
-    if (h.indexOf('DOC_EXT') >= 0) return { fila: i, cols: h, tipo: 'alistamiento' };
-    if (h.indexOf('SERIE') >= 0 && h.indexOf('FECHA INICIAL') >= 0) return { fila: i, cols: h, tipo: 'recepcion' };
-    if (h.indexOf('ALMACEN_DESC') >= 0) return { fila: i, cols: h, tipo: 'alm_stock' };
-    if (h.indexOf('DESCRIPCION') >= 0 && h.indexOf('CANTIDAD') >= 0) return { fila: i, cols: h, tipo: 'alm_cantidad' };
-    if (h.some(function (c) { return c.indexOf('CANTIDAD DE UBICACION') >= 0; })) return { fila: i, cols: h, tipo: 'alm_ubicacion' };
+    var llenas = h.filter(function (c) { return c !== ''; }).length;
+    var tiene = function (n) { return h.indexOf(n) >= 0; };
+
+    if (tiene('DOC_EXT') && tiene('FEC_CREAC')) return { fila: i, cols: h, tipo: 'alistamiento' };
+
+    var recep = ['STATUS', 'TIPO', 'SERIE', 'ARTICULO', 'QTY', 'FECHA INICIAL']
+      .filter(tiene).length;
+    if (tiene('SERIE') && tiene('FECHA INICIAL') && recep >= 4) return { fila: i, cols: h, tipo: 'recepcion' };
+
+    if (tiene('ALMACEN_DESC') && tiene('SERIE')) return { fila: i, cols: h, tipo: 'alm_stock' };
+
+    if (h.some(function (c) { return c.indexOf('CANTIDAD DE UBICACION') >= 0; })) {
+      return { fila: i, cols: h, tipo: 'alm_ubicacion' };
+    }
+    /* Resumen de dos columnas. DESCRIPCION + CANTIDAD por sí solas aparecen en
+       muchas pestañas de la proforma, así que solo vale si la tabla no tiene
+       más columnas que esas. */
+    if (tiene('DESCRIPCION') && tiene('CANTIDAD') && llenas <= 3) {
+      return { fila: i, cols: h, tipo: 'alm_cantidad' };
+    }
   }
   return null;
 }
@@ -248,9 +271,34 @@ function leerAlistamiento(filas, cab, ctx) {
   }
 }
 
+/* Perfil de una pestaña sin exponer valores: solo nombres de columna, tipo y
+   cuántas filas la traen poblada. Sirve para extender el lector a formatos
+   nuevos sin tener que mover el libro, que es lo que no cabe en ningún lado. */
+function perfilar(filas, filaCab) {
+  var cab = filas[filaCab] || [];
+  var muestra = Math.min(filas.length, filaCab + 1 + 400);
+  return cab.slice(0, 40).map(function (h, j) {
+    var pobladas = 0, tipos = {};
+    for (var r = filaCab + 1; r < muestra; r++) {
+      var v = (filas[r] || [])[j];
+      if (vacio(v)) continue;
+      pobladas++;
+      var t = v instanceof Date ? 'fecha' : typeof v === 'number' ? 'numero' : 'texto';
+      tipos[t] = (tipos[t] || 0) + 1;
+    }
+    return {
+      col: j,
+      nombre: String(h == null ? '' : h).slice(0, 60),
+      pobladas: pobladas,
+      de: Math.max(0, muestra - filaCab - 1),
+      tipos: tipos,
+    };
+  }).filter(function (c) { return c.nombre !== '' || c.pobladas > 0; });
+}
+
 function contexto() {
   return {
-    archivos: [], hojas: [], avisos: [],
+    archivos: [], hojas: [], avisos: [], diagnostico: [],
     recepcion: { filas: 0, series: {}, porDia: {}, ciclos: {}, conHora: 0, campos: {}, pestanas: [], tieneDisponibilizacion: false, sla: { ok: 0, total: 0 } },
     almacenaje: { bloques: [], simcards: 0, lineasSimcard: 0, ubicaciones: 0, detalleUbicaciones: [], pestanas: [], tieneConteo: false, tieneEtiqueta: false },
     alistamiento: { filas: 0, filasVacias: 0, pedidos: {}, itemsCliente: {}, tipos: {}, canales: {}, campos: {}, pestanas: [], tieneDespacho: false, tieneFranja: false },
@@ -449,7 +497,7 @@ function calcular(ctx, periodoPedido) {
   return {
     generado: new Date().toISOString(),
     periodo: periodo, periodos: periodos, etiqueta: etiquetaPeriodo(periodo), ciclo: rango,
-    archivos: ctx.archivos, hojas: ctx.hojas, avisos: ctx.avisos,
+    archivos: ctx.archivos, hojas: ctx.hojas, avisos: ctx.avisos, diagnostico: ctx.diagnostico,
     resumen: resumen, actividades: actividades, campos: campos, diaria: diaria,
     detalle: {
       recepcion: {
@@ -468,6 +516,41 @@ function calcular(ctx, periodoPedido) {
       },
     },
   };
+}
+
+/* Cuánto aportó cada pestaña a cada total, para que ninguna suma sea opaca. */
+function instantanea(ctx) {
+  return {
+    recepcion: ctx.recepcion.filas,
+    alistamiento: ctx.alistamiento.filas,
+    stock: ctx.almacenaje.bloques.reduce(function (a, b) { return a + b.filas; }, 0),
+    simcards: ctx.almacenaje.simcards,
+    ubicaciones: ctx.almacenaje.ubicaciones,
+  };
+}
+function aporte(antes, despues) {
+  var partes = [];
+  var etiquetas = {
+    recepcion: 'series recibidas', alistamiento: 'filas de pedido',
+    stock: 'series en stock', simcards: 'unidades', ubicaciones: 'ubicaciones',
+  };
+  Object.keys(etiquetas).forEach(function (k) {
+    var d = despues[k] - antes[k];
+    if (d > 0) partes.push(d.toLocaleString('es-EC') + ' ' + etiquetas[k]);
+  });
+  return partes.join(' · ');
+}
+/* Para una pestaña sin reconocer, la fila con más celdas de texto corto es la
+   mejor candidata a cabecera; es lo que se perfila. */
+function buscaFilaMasLlena(filas) {
+  var mejor = 0, puntaje = -1;
+  for (var i = 0; i < Math.min(filas.length, 15); i++) {
+    var n = (filas[i] || []).filter(function (v) {
+      return typeof v === 'string' && v.trim() !== '' && v.length < 40;
+    }).length;
+    if (n > puntaje) { puntaje = n; mejor = i; }
+  }
+  return mejor;
 }
 
 /* ------------------------------- Worker ------------------------------- */
@@ -494,17 +577,27 @@ self.onmessage = function (ev) {
         var filas = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null, blankrows: true });
         var cab = cabecera(filas);
         if (!cab) {
-          ctx.hojas.push({ archivo: file.name, nombre: nombre, tipo: 'sin reconocer', filas: filas.length });
+          ctx.hojas.push({ archivo: file.name, nombre: nombre, tipo: 'sin reconocer', filas: filas.length, aporte: '' });
+          ctx.diagnostico.push({
+            archivo: file.name, hoja: nombre, tipo: 'sin reconocer', filaCabecera: null,
+            filas: filas.length, columnas: perfilar(filas, buscaFilaMasLlena(filas)),
+          });
           if (filas.length > 1) ctx.avisos.push('La pestaña «' + nombre + '» no coincide con ningún formato conocido y se omitió.');
           continue;
         }
         cab.nombre = nombre;
         ctx.hojas.push({ archivo: file.name, nombre: nombre, tipo: cab.tipo, filas: Math.max(0, filas.length - cab.fila - 1) });
+        ctx.diagnostico.push({
+          archivo: file.name, hoja: nombre, tipo: cab.tipo, filaCabecera: cab.fila + 1,
+          filas: Math.max(0, filas.length - cab.fila - 1), columnas: perfilar(filas, cab.fila),
+        });
+        var antes = instantanea(ctx);
         if (cab.tipo === 'recepcion') leerRecepcion(filas, cab, ctx);
         else if (cab.tipo === 'alm_stock') leerAlmStock(filas, cab, ctx);
         else if (cab.tipo === 'alm_cantidad') leerAlmCantidad(filas, cab, ctx);
         else if (cab.tipo === 'alm_ubicacion') leerAlmUbicacion(filas, cab, ctx);
         else if (cab.tipo === 'alistamiento') leerAlistamiento(filas, cab, ctx);
+        ctx.hojas[ctx.hojas.length - 1].aporte = aporte(antes, instantanea(ctx));
         filas = null;
       }
       wb = null; buf = null;

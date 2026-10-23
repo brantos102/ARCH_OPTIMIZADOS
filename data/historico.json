@@ -1,10 +1,11 @@
 {
  "ciclos": {
   "2026-09": {
-   "generado": "2026-10-23T15:11:01.168Z",
+   "generado": "2026-10-23T15:37:06.525Z",
    "periodo": "2026-09",
    "periodos": [
     "2026-05",
+    "2026-06",
     "2026-07",
     "2026-08",
     "2026-09",
@@ -12,8 +13,8 @@
    ],
    "etiqueta": "Septiembre 2026",
    "ciclo": {
-    "inicio": "2026-08-23",
-    "fin": "2026-09-22"
+    "inicio": "2026-08-24",
+    "fin": "2026-09-23"
    },
    "archivos": [
     {
@@ -37,76 +38,1826 @@
      "archivo": "RECEPCIÓN EQUIPOS MATERIALES Y-O REPUESTOS.xlsx",
      "nombre": "RECEPCION TERMINALES SEPTIEMBRE",
      "tipo": "recepcion",
-     "filas": 5337
+     "filas": 5337,
+     "aporte": "5.337 series recibidas"
     },
     {
      "archivo": "RECEPCIÓN EQUIPOS MATERIALES Y-O REPUESTOS.xlsx",
      "nombre": "RECEPCION SIMCARDS SEPTIEMBRE",
      "tipo": "recepcion",
-     "filas": 30000
+     "filas": 30000,
+     "aporte": "30.000 series recibidas"
     },
     {
      "archivo": "ALMACENAJE.xlsx",
      "nombre": "ALM ACCESORIOS SEPTIEMBRE",
      "tipo": "alm_ubicacion",
-     "filas": 8
+     "filas": 8,
+     "aporte": "150 ubicaciones"
     },
     {
      "archivo": "ALMACENAJE.xlsx",
      "nombre": "ALM SIMCARD SEPTIEMBRE",
      "tipo": "alm_cantidad",
-     "filas": 88
+     "filas": 88,
+     "aporte": "2.738.780 unidades"
     },
     {
      "archivo": "ALMACENAJE.xlsx",
      "nombre": "ALM TERMINALES SEPTIEMBRE",
      "tipo": "alm_stock",
-     "filas": 12243
+     "filas": 12243,
+     "aporte": "23.604 series en stock"
     },
     {
      "archivo": "ALMACENAJE.xlsx",
      "nombre": "Hoja1",
      "tipo": "sin reconocer",
-     "filas": 0
+     "filas": 0,
+     "aporte": ""
     },
     {
      "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
      "nombre": "MATTIENDA PICK&PACK&TRANS SEPTI",
      "tipo": "alistamiento",
-     "filas": 225
+     "filas": 225,
+     "aporte": "2 filas de pedido"
     },
     {
      "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
      "nombre": "PEDIDOS AGOST ENTREGADOS SEPTIE",
      "tipo": "alistamiento",
-     "filas": 4655
+     "filas": 4655,
+     "aporte": "4.655 filas de pedido"
     },
     {
      "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
      "nombre": "PICK&PACK DEV CAN TRANS SEPTIEM",
      "tipo": "alistamiento",
-     "filas": 1020
+     "filas": 1020,
+     "aporte": "1.020 filas de pedido"
     },
     {
      "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
      "nombre": "PICK&PACK&TRANS TUENTI SEPTIEMB",
      "tipo": "alistamiento",
-     "filas": 79213
+     "filas": 79213,
+     "aporte": "79.213 filas de pedido"
     },
     {
      "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
      "nombre": "PICK&PAC&TRANS MOVISTAR SEPTIEM",
      "tipo": "alistamiento",
-     "filas": 387681
+     "filas": 387681,
+     "aporte": "302.725 filas de pedido"
     },
     {
      "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
      "nombre": "Hoja1",
      "tipo": "sin reconocer",
-     "filas": 0
+     "filas": 0,
+     "aporte": ""
     }
    ],
    "avisos": [],
+   "diagnostico": [
+    {
+     "archivo": "RECEPCIÓN EQUIPOS MATERIALES Y-O REPUESTOS.xlsx",
+     "hoja": "RECEPCION TERMINALES SEPTIEMBRE",
+     "tipo": "recepcion",
+     "filaCabecera": 6,
+     "filas": 5337,
+     "columnas": [
+      {
+       "col": 0,
+       "nombre": "STATUS",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 1,
+       "nombre": "TIPO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 2,
+       "nombre": "SERIE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 3,
+       "nombre": "ARTICULO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 4,
+       "nombre": "QTY",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 5,
+       "nombre": "FECHA INICIAL",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "fecha": 400
+       }
+      },
+      {
+       "col": 6,
+       "nombre": "MES",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 8,
+       "nombre": "ARTICULO",
+       "pobladas": 27,
+       "de": 400,
+       "tipos": {
+        "texto": 27
+       }
+      },
+      {
+       "col": 9,
+       "nombre": "MES",
+       "pobladas": 26,
+       "de": 400,
+       "tipos": {
+        "texto": 26
+       }
+      },
+      {
+       "col": 10,
+       "nombre": "CANTIDAD",
+       "pobladas": 27,
+       "de": 400,
+       "tipos": {
+        "numero": 27
+       }
+      },
+      {
+       "col": 11,
+       "nombre": "Suma de QTY",
+       "pobladas": 27,
+       "de": 400,
+       "tipos": {
+        "numero": 27
+       }
+      },
+      {
+       "col": 13,
+       "nombre": "Agosto",
+       "pobladas": 1,
+       "de": 400,
+       "tipos": {
+        "texto": 1
+       }
+      },
+      {
+       "col": 14,
+       "nombre": "810",
+       "pobladas": 1,
+       "de": 400,
+       "tipos": {
+        "numero": 1
+       }
+      },
+      {
+       "col": 15,
+       "nombre": "0.0816",
+       "pobladas": 1,
+       "de": 400,
+       "tipos": {
+        "numero": 1
+       }
+      },
+      {
+       "col": 16,
+       "nombre": "66.096",
+       "pobladas": 2,
+       "de": 400,
+       "tipos": {
+        "numero": 2
+       }
+      }
+     ]
+    },
+    {
+     "archivo": "RECEPCIÓN EQUIPOS MATERIALES Y-O REPUESTOS.xlsx",
+     "hoja": "RECEPCION SIMCARDS SEPTIEMBRE",
+     "tipo": "recepcion",
+     "filaCabecera": 6,
+     "filas": 30000,
+     "columnas": [
+      {
+       "col": 0,
+       "nombre": "STATUS",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 1,
+       "nombre": "TIPO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 2,
+       "nombre": "SERIE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 3,
+       "nombre": "ARTICULO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 4,
+       "nombre": "QTY",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 5,
+       "nombre": "FECHA INICIAL",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "fecha": 400
+       }
+      },
+      {
+       "col": 8,
+       "nombre": "",
+       "pobladas": 3,
+       "de": 400,
+       "tipos": {
+        "texto": 3
+       }
+      },
+      {
+       "col": 9,
+       "nombre": "",
+       "pobladas": 3,
+       "de": 400,
+       "tipos": {
+        "texto": 1,
+        "numero": 2
+       }
+      }
+     ]
+    },
+    {
+     "archivo": "ALMACENAJE.xlsx",
+     "hoja": "ALM ACCESORIOS SEPTIEMBRE",
+     "tipo": "alm_ubicacion",
+     "filaCabecera": 2,
+     "filas": 8,
+     "columnas": [
+      {
+       "col": 0,
+       "nombre": "Tipo de Producto",
+       "pobladas": 6,
+       "de": 8,
+       "tipos": {
+        "texto": 6
+       }
+      },
+      {
+       "col": 1,
+       "nombre": "Cantidad de Ubicación",
+       "pobladas": 5,
+       "de": 8,
+       "tipos": {
+        "numero": 4,
+        "texto": 1
+       }
+      }
+     ]
+    },
+    {
+     "archivo": "ALMACENAJE.xlsx",
+     "hoja": "ALM SIMCARD SEPTIEMBRE",
+     "tipo": "alm_cantidad",
+     "filaCabecera": 1,
+     "filas": 88,
+     "columnas": [
+      {
+       "col": 0,
+       "nombre": "DESCRIPCION",
+       "pobladas": 79,
+       "de": 88,
+       "tipos": {
+        "texto": 79
+       }
+      },
+      {
+       "col": 1,
+       "nombre": "CANTIDAD",
+       "pobladas": 79,
+       "de": 88,
+       "tipos": {
+        "numero": 76,
+        "texto": 3
+       }
+      }
+     ]
+    },
+    {
+     "archivo": "ALMACENAJE.xlsx",
+     "hoja": "ALM TERMINALES SEPTIEMBRE",
+     "tipo": "alm_stock",
+     "filaCabecera": 1,
+     "filas": 12243,
+     "columnas": [
+      {
+       "col": 0,
+       "nombre": "SERIE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 1,
+       "nombre": "DESCRIPCION",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 2,
+       "nombre": "ALMACEN_DESC",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 3,
+       "nombre": "UBICACION",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 4,
+       "nombre": "FECHA_INGRESO",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 5,
+       "nombre": "COD ARTICULO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 8,
+       "nombre": "AGOSTO",
+       "pobladas": 327,
+       "de": 400,
+       "tipos": {
+        "texto": 327
+       }
+      },
+      {
+       "col": 9,
+       "nombre": "",
+       "pobladas": 327,
+       "de": 400,
+       "tipos": {
+        "texto": 1,
+        "numero": 326
+       }
+      },
+      {
+       "col": 12,
+       "nombre": "CLIENTE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 13,
+       "nombre": "SERIE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 14,
+       "nombre": "DESCRIPCION",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 15,
+       "nombre": "ALMACEN_DESC",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 16,
+       "nombre": "UBICACION",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 17,
+       "nombre": "FECHA_INGRESO",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 18,
+       "nombre": "COD ARTICULO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 20,
+       "nombre": "SEPTIEMBRE",
+       "pobladas": 338,
+       "de": 400,
+       "tipos": {
+        "texto": 338
+       }
+      },
+      {
+       "col": 21,
+       "nombre": "",
+       "pobladas": 338,
+       "de": 400,
+       "tipos": {
+        "texto": 1,
+        "numero": 337
+       }
+      }
+     ]
+    },
+    {
+     "archivo": "ALMACENAJE.xlsx",
+     "hoja": "Hoja1",
+     "tipo": "sin reconocer",
+     "filaCabecera": null,
+     "filas": 0,
+     "columnas": []
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "hoja": "MATTIENDA PICK&PACK&TRANS SEPTI",
+     "tipo": "alistamiento",
+     "filaCabecera": 1,
+     "filas": 225,
+     "columnas": [
+      {
+       "col": 0,
+       "nombre": "doc_ext",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "texto": 2
+       }
+      },
+      {
+       "col": 1,
+       "nombre": "FEC_CREAC",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "fecha": 2
+       }
+      },
+      {
+       "col": 2,
+       "nombre": "IMEI",
+       "pobladas": 0,
+       "de": 225,
+       "tipos": {}
+      },
+      {
+       "col": 3,
+       "nombre": "ICC",
+       "pobladas": 0,
+       "de": 225,
+       "tipos": {}
+      },
+      {
+       "col": 4,
+       "nombre": "MIN",
+       "pobladas": 0,
+       "de": 225,
+       "tipos": {}
+      },
+      {
+       "col": 5,
+       "nombre": "RASCA",
+       "pobladas": 0,
+       "de": 225,
+       "tipos": {}
+      },
+      {
+       "col": 6,
+       "nombre": "ACCESORIO",
+       "pobladas": 0,
+       "de": 225,
+       "tipos": {}
+      },
+      {
+       "col": 7,
+       "nombre": "CANTIDAD",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "numero": 2
+       }
+      },
+      {
+       "col": 8,
+       "nombre": "CODIGO PIA",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "texto": 2
+       }
+      },
+      {
+       "col": 9,
+       "nombre": "DESCRIPCION",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "texto": 2
+       }
+      },
+      {
+       "col": 10,
+       "nombre": "PRECIO LISTA 4",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "numero": 2
+       }
+      },
+      {
+       "col": 11,
+       "nombre": "TIPO ARTICULO",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "texto": 2
+       }
+      },
+      {
+       "col": 12,
+       "nombre": "CANAL",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "texto": 2
+       }
+      },
+      {
+       "col": 13,
+       "nombre": "MES",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "numero": 2
+       }
+      },
+      {
+       "col": 14,
+       "nombre": "ANO",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "numero": 2
+       }
+      },
+      {
+       "col": 15,
+       "nombre": "CLIENTE",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "texto": 2
+       }
+      },
+      {
+       "col": 16,
+       "nombre": "codigo_evento",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "texto": 2
+       }
+      },
+      {
+       "col": 17,
+       "nombre": "FECHA_EV",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "fecha": 2
+       }
+      },
+      {
+       "col": 18,
+       "nombre": "TIPO_SERVICIO",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "texto": 2
+       }
+      },
+      {
+       "col": 19,
+       "nombre": "CIUDAD",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "texto": 2
+       }
+      },
+      {
+       "col": 20,
+       "nombre": "EXPRESO",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "texto": 2
+       }
+      },
+      {
+       "col": 21,
+       "nombre": "REMITENTE",
+       "pobladas": 2,
+       "de": 225,
+       "tipos": {
+        "texto": 2
+       }
+      },
+      {
+       "col": 23,
+       "nombre": "",
+       "pobladas": 14,
+       "de": 225,
+       "tipos": {
+        "texto": 5,
+        "numero": 9
+       }
+      },
+      {
+       "col": 24,
+       "nombre": "",
+       "pobladas": 12,
+       "de": 225,
+       "tipos": {
+        "texto": 6,
+        "numero": 6
+       }
+      },
+      {
+       "col": 25,
+       "nombre": "",
+       "pobladas": 14,
+       "de": 225,
+       "tipos": {
+        "texto": 3,
+        "numero": 11
+       }
+      },
+      {
+       "col": 26,
+       "nombre": "",
+       "pobladas": 12,
+       "de": 225,
+       "tipos": {
+        "texto": 3,
+        "numero": 9
+       }
+      },
+      {
+       "col": 27,
+       "nombre": "",
+       "pobladas": 10,
+       "de": 225,
+       "tipos": {
+        "texto": 2,
+        "numero": 8
+       }
+      }
+     ]
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "hoja": "PEDIDOS AGOST ENTREGADOS SEPTIE",
+     "tipo": "alistamiento",
+     "filaCabecera": 1,
+     "filas": 4655,
+     "columnas": [
+      {
+       "col": 0,
+       "nombre": "doc_ext",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 1,
+       "nombre": "FEC_CREAC",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "fecha": 355,
+        "numero": 45
+       }
+      },
+      {
+       "col": 2,
+       "nombre": "IMEI",
+       "pobladas": 10,
+       "de": 400,
+       "tipos": {
+        "texto": 10
+       }
+      },
+      {
+       "col": 3,
+       "nombre": "ICC",
+       "pobladas": 165,
+       "de": 400,
+       "tipos": {
+        "texto": 165
+       }
+      },
+      {
+       "col": 4,
+       "nombre": "MIN",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 5,
+       "nombre": "RASCA",
+       "pobladas": 225,
+       "de": 400,
+       "tipos": {
+        "texto": 225
+       }
+      },
+      {
+       "col": 6,
+       "nombre": "ACCESORIO",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 7,
+       "nombre": "CANTIDAD",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 8,
+       "nombre": "CODIGO PIA",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 9,
+       "nombre": "DESCRIPCION",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 10,
+       "nombre": "PRECIO LISTA 4",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 11,
+       "nombre": "TIPO ARTICULO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 12,
+       "nombre": "CANAL",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 13,
+       "nombre": "MES",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 14,
+       "nombre": "ANO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 15,
+       "nombre": "CLIENTE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 16,
+       "nombre": "codigo_evento",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 17,
+       "nombre": "FECHA_EV",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "fecha": 355,
+        "numero": 45
+       }
+      },
+      {
+       "col": 18,
+       "nombre": "TIPO_SERVICIO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 19,
+       "nombre": "CIUDAD",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 20,
+       "nombre": "EXPRESO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 21,
+       "nombre": "REMITENTE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 23,
+       "nombre": "",
+       "pobladas": 7,
+       "de": 400,
+       "tipos": {
+        "texto": 7
+       }
+      },
+      {
+       "col": 24,
+       "nombre": "",
+       "pobladas": 6,
+       "de": 400,
+       "tipos": {
+        "texto": 2,
+        "numero": 4
+       }
+      },
+      {
+       "col": 25,
+       "nombre": "",
+       "pobladas": 3,
+       "de": 400,
+       "tipos": {
+        "texto": 1,
+        "numero": 2
+       }
+      },
+      {
+       "col": 26,
+       "nombre": "",
+       "pobladas": 3,
+       "de": 400,
+       "tipos": {
+        "texto": 1,
+        "numero": 2
+       }
+      },
+      {
+       "col": 27,
+       "nombre": "",
+       "pobladas": 3,
+       "de": 400,
+       "tipos": {
+        "texto": 1,
+        "numero": 2
+       }
+      },
+      {
+       "col": 28,
+       "nombre": "",
+       "pobladas": 3,
+       "de": 400,
+       "tipos": {
+        "texto": 1,
+        "numero": 2
+       }
+      }
+     ]
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "hoja": "PICK&PACK DEV CAN TRANS SEPTIEM",
+     "tipo": "alistamiento",
+     "filaCabecera": 1,
+     "filas": 1020,
+     "columnas": [
+      {
+       "col": 0,
+       "nombre": "doc_ext",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 1,
+       "nombre": "FEC_CREAC",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "fecha": 400
+       }
+      },
+      {
+       "col": 2,
+       "nombre": "IMEI",
+       "pobladas": 20,
+       "de": 400,
+       "tipos": {
+        "texto": 20
+       }
+      },
+      {
+       "col": 3,
+       "nombre": "ICC",
+       "pobladas": 380,
+       "de": 400,
+       "tipos": {
+        "texto": 380
+       }
+      },
+      {
+       "col": 4,
+       "nombre": "MIN",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 5,
+       "nombre": "RASCA",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 6,
+       "nombre": "ACCESORIO",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 7,
+       "nombre": "CANTIDAD",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 1,
+        "texto": 399
+       }
+      },
+      {
+       "col": 8,
+       "nombre": "CODIGO PIA",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 9,
+       "nombre": "DESCRIPCION",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 10,
+       "nombre": "PRECIO LISTA 4",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 11,
+       "nombre": "TIPO ARTICULO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 12,
+       "nombre": "CANAL",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 13,
+       "nombre": "MES",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 14,
+       "nombre": "ANO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 15,
+       "nombre": "CLIENTE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 16,
+       "nombre": "codigo_evento",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 17,
+       "nombre": "FECHA_EV",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "fecha": 400
+       }
+      },
+      {
+       "col": 18,
+       "nombre": "TIPO_SERVICIO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 19,
+       "nombre": "CIUDAD",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 20,
+       "nombre": "EXPRESO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 21,
+       "nombre": "REMITENTE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 23,
+       "nombre": "",
+       "pobladas": 4,
+       "de": 400,
+       "tipos": {
+        "texto": 4
+       }
+      },
+      {
+       "col": 24,
+       "nombre": "",
+       "pobladas": 4,
+       "de": 400,
+       "tipos": {
+        "texto": 2,
+        "numero": 2
+       }
+      },
+      {
+       "col": 25,
+       "nombre": "",
+       "pobladas": 3,
+       "de": 400,
+       "tipos": {
+        "texto": 1,
+        "numero": 2
+       }
+      },
+      {
+       "col": 26,
+       "nombre": "",
+       "pobladas": 3,
+       "de": 400,
+       "tipos": {
+        "texto": 1,
+        "numero": 2
+       }
+      },
+      {
+       "col": 27,
+       "nombre": "",
+       "pobladas": 3,
+       "de": 400,
+       "tipos": {
+        "texto": 1,
+        "numero": 2
+       }
+      }
+     ]
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "hoja": "PICK&PACK&TRANS TUENTI SEPTIEMB",
+     "tipo": "alistamiento",
+     "filaCabecera": 1,
+     "filas": 79213,
+     "columnas": [
+      {
+       "col": 0,
+       "nombre": "doc_ext",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 1,
+       "nombre": "FEC_CREAC",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 2,
+       "nombre": "IMEI",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 3,
+       "nombre": "ICC",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 4,
+       "nombre": "MIN",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 5,
+       "nombre": "RASCA",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 6,
+       "nombre": "ACCESORIO",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 7,
+       "nombre": "CANTIDAD",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 8,
+       "nombre": "CODIGO PIA",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 9,
+       "nombre": "DESCRIPCION",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 10,
+       "nombre": "PRECIO LISTA 4",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 11,
+       "nombre": "TIPO ARTICULO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 12,
+       "nombre": "CANAL",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 13,
+       "nombre": "MES",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 14,
+       "nombre": "ANO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 15,
+       "nombre": "CLIENTE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 16,
+       "nombre": "codigo_evento",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 17,
+       "nombre": "FECHA_EV",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 18,
+       "nombre": "TIPO_SERVICIO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 19,
+       "nombre": "CIUDAD",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 20,
+       "nombre": "EXPRESO",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 21,
+       "nombre": "REMITENTE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 23,
+       "nombre": "",
+       "pobladas": 8,
+       "de": 400,
+       "tipos": {
+        "texto": 8
+       }
+      },
+      {
+       "col": 24,
+       "nombre": "",
+       "pobladas": 8,
+       "de": 400,
+       "tipos": {
+        "texto": 2,
+        "numero": 6
+       }
+      },
+      {
+       "col": 25,
+       "nombre": "",
+       "pobladas": 4,
+       "de": 400,
+       "tipos": {
+        "texto": 1,
+        "numero": 3
+       }
+      }
+     ]
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "hoja": "PICK&PAC&TRANS MOVISTAR SEPTIEM",
+     "tipo": "alistamiento",
+     "filaCabecera": 1,
+     "filas": 387681,
+     "columnas": [
+      {
+       "col": 0,
+       "nombre": "doc_ext",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 1,
+       "nombre": "FEC_CREAC",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "fecha": 400
+       }
+      },
+      {
+       "col": 2,
+       "nombre": "IMEI",
+       "pobladas": 18,
+       "de": 400,
+       "tipos": {
+        "texto": 18
+       }
+      },
+      {
+       "col": 3,
+       "nombre": "ICC",
+       "pobladas": 382,
+       "de": 400,
+       "tipos": {
+        "texto": 382
+       }
+      },
+      {
+       "col": 4,
+       "nombre": "MIN",
+       "pobladas": 382,
+       "de": 400,
+       "tipos": {
+        "texto": 382
+       }
+      },
+      {
+       "col": 5,
+       "nombre": "RASCA",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 6,
+       "nombre": "ACCESORIO",
+       "pobladas": 0,
+       "de": 400,
+       "tipos": {}
+      },
+      {
+       "col": 7,
+       "nombre": "CANTIDAD",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 8,
+       "nombre": "CODIGO PIA",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 9,
+       "nombre": "DESCRIPCION",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 10,
+       "nombre": "PRECIO LISTA 4",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 11,
+       "nombre": "TIPO ARTICULO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 12,
+       "nombre": "CANAL",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 13,
+       "nombre": "MES",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 14,
+       "nombre": "ANO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "numero": 400
+       }
+      },
+      {
+       "col": 15,
+       "nombre": "CLIENTE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 16,
+       "nombre": "codigo_evento",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 17,
+       "nombre": "FECHA_EV",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "fecha": 400
+       }
+      },
+      {
+       "col": 18,
+       "nombre": "TIPO_SERVICIO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 19,
+       "nombre": "CIUDAD",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 20,
+       "nombre": "EXPRESO",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 21,
+       "nombre": "REMITENTE",
+       "pobladas": 400,
+       "de": 400,
+       "tipos": {
+        "texto": 400
+       }
+      },
+      {
+       "col": 23,
+       "nombre": "",
+       "pobladas": 22,
+       "de": 400,
+       "tipos": {
+        "texto": 22
+       }
+      },
+      {
+       "col": 24,
+       "nombre": "",
+       "pobladas": 17,
+       "de": 400,
+       "tipos": {
+        "texto": 7,
+        "numero": 10
+       }
+      },
+      {
+       "col": 25,
+       "nombre": "",
+       "pobladas": 12,
+       "de": 400,
+       "tipos": {
+        "texto": 5,
+        "numero": 7
+       }
+      },
+      {
+       "col": 26,
+       "nombre": "",
+       "pobladas": 16,
+       "de": 400,
+       "tipos": {
+        "texto": 4,
+        "numero": 12
+       }
+      },
+      {
+       "col": 27,
+       "nombre": "",
+       "pobladas": 11,
+       "de": 400,
+       "tipos": {
+        "texto": 3,
+        "numero": 8
+       }
+      },
+      {
+       "col": 28,
+       "nombre": "",
+       "pobladas": 6,
+       "de": 400,
+       "tipos": {
+        "texto": 3,
+        "numero": 3
+       }
+      },
+      {
+       "col": 29,
+       "nombre": "",
+       "pobladas": 8,
+       "de": 400,
+       "tipos": {
+        "texto": 3,
+        "numero": 5
+       }
+      },
+      {
+       "col": 30,
+       "nombre": "",
+       "pobladas": 6,
+       "de": 400,
+       "tipos": {
+        "texto": 3,
+        "numero": 3
+       }
+      },
+      {
+       "col": 31,
+       "nombre": "",
+       "pobladas": 9,
+       "de": 400,
+       "tipos": {
+        "texto": 3,
+        "numero": 6
+       }
+      }
+     ]
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "hoja": "Hoja1",
+     "tipo": "sin reconocer",
+     "filaCabecera": null,
+     "filas": 0,
+     "columnas": []
+    }
+   ],
    "resumen": {
     "total": 8,
     "medibles": 0,
@@ -142,7 +1893,7 @@
      "numerador": 373,
      "denominador": 861,
      "valor": 0.4332171893147503,
-     "volumen": 816,
+     "volumen": 845,
      "unidad_volumen": "pedidos del ciclo",
      "fuente": "5 pestañas"
     },
@@ -584,6 +2335,12 @@
      "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
      "metrica": "Pedidos creados",
      "valor": 74
+    },
+    {
+     "fecha": "2026-09-23",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 29
     }
    ],
    "detalle": {
@@ -628,7 +2385,7 @@
      "filas": 387615,
      "filas_vacias": 85179,
      "pedidos": 861,
-     "pedidos_ciclo": 816,
+     "pedidos_ciclo": 845,
      "con_hora": 373,
      "clientes": [
       {

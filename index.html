@@ -35,6 +35,7 @@
         <button class="btn primary" id="elegir" type="button">Elegir archivos</button>
         <button class="btn" id="descargar" type="button" disabled>Descargar indicadores.json</button>
         <button class="btn" id="descargarCsv" type="button" disabled>Descargar CSV</button>
+        <button class="btn" id="descargarDiag" type="button" disabled>Descargar diagnóstico</button>
       </div>
       <div class="bar-progress" id="progress" hidden><i></i></div>
       <div class="log" id="log" hidden></div>
@@ -95,9 +96,9 @@
         <p class="cap muted">Si el informe se presenta a un cliente en particular, las filas de los demás deben excluirse antes de reportar.</p>
       </div>
       <div class="card">
-        <h3 class="stat-k">Pestañas reconocidas</h3>
+        <h3 class="stat-k">Pestañas leídas y qué aporta cada una</h3>
         <div class="tablewrap">
-          <table id="hojas"><thead><tr><th>Archivo</th><th>Pestaña</th><th>Tipo</th><th>Filas</th></tr></thead><tbody></tbody></table>
+          <table id="hojas"><thead><tr><th>Pestaña</th><th>Tipo</th><th>Filas</th><th>Aporta al total</th></tr></thead><tbody></tbody></table>
         </div>
       </div>
     </div>
