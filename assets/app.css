@@ -125,3 +125,76 @@ td.ww { min-width: 18rem; color: var(--fg-muted); }
 .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .75rem; color: var(--fg-muted); max-height: 160px; overflow: auto; }
 .log div { padding: 1px 0; }
 footer { color: var(--fg-muted); font-size: .8125rem; border-top: 1px solid var(--line); padding-top: 16px; }
+
+/* ---- Panel «Qué se muestra» ---- */
+.vista {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 0;
+}
+.vista > summary {
+  cursor: pointer; padding: 12px 18px; font-weight: 500; list-style: none;
+  display: flex; align-items: center; gap: 8px;
+}
+.vista > summary::-webkit-details-marker { display: none; }
+.vista > summary::before { content: "▸"; color: var(--fg-muted); }
+.vista[open] > summary::before { content: "▾"; }
+.vista > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius); }
+.vista-cuerpo {
+  padding: 0 18px 18px; display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+}
+.vista-cuerpo fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px 12px; margin: 0; min-width: 0; }
+.vista-cuerpo legend { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-muted); padding: 0 4px; }
+.vista-cuerpo label { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: .8125rem; cursor: pointer; }
+.vista-cuerpo p { grid-column: 1 / -1; margin: 0; }
+
+/* Oculta las columnas que el panel desmarca. */
+#tabla[data-oculta~="proceso"]   [data-col="proceso"],
+#tabla[data-oculta~="objetivo"]  [data-col="objetivo"],
+#tabla[data-oculta~="medicion"]  [data-col="medicion"],
+#tabla[data-oculta~="quemide"]   [data-col="quemide"],
+#tabla[data-oculta~="falta"]     [data-col="falta"] { display: none; }
+
+/* ---- Modo presentación ---- */
+body.presentar { font-size: 16px; }
+body.presentar #drop, body.presentar #vista, body.presentar footer { display: none; }
+body.presentar .stat-v { font-size: 2.25rem; }
+body.presentar h1 { font-size: 2rem; }
+body.presentar table { font-size: .9375rem; }
+body.presentar .row-name, body.presentar .row-val { font-size: .875rem; }
+body.presentar .wrap { gap: 40px; }
+@media print {
+  #drop, #vista, footer, #tema, #presentar { display: none; }
+  .card { break-inside: avoid; }
+}
+
+/* ---- Barra de filtros ---- */
+.filtros {
+  display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 12px 16px;
+  position: sticky; top: 0; z-index: 5;
+}
+.filtro-grupo { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: inherit; font-size: .8125rem; padding: 4px 11px; border-radius: 999px;
+  border: 1px solid var(--line); background: transparent; color: var(--fg-muted); cursor: pointer;
+  white-space: nowrap; transition: background .12s, color .12s, border-color .12s;
+}
+.chip:hover { border-color: var(--accent); color: var(--fg); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chip .n { opacity: .65; margin-left: 5px; font-variant-numeric: tabular-nums; }
+.limpiar { margin-left: auto; }
+
+/* Filas y barras como superficie de filtrado cruzado */
+#tabla tbody tr { cursor: pointer; }
+#tabla tbody tr:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+#tabla tbody tr.apagada { opacity: .32; }
+.row.apagada { opacity: .32; }
+.row.clicable { cursor: pointer; }
+.card.acento { border-left: 3px solid var(--borde-acento, var(--line)); }
+.vacio-filtro { color: var(--fg-muted); font-size: .8125rem; padding: 18px 0; text-align: center; }
+body.presentar .filtros { position: static; }
+@media print { .filtros { display: none; } }

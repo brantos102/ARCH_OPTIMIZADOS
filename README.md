@@ -107,3 +107,29 @@ precios: esos se quedan en el navegador de quien carga el libro y no salen de ah
 Si en algún momento esas cifras no deben ser públicas, basta con quitar
 `data/historico.json`: la página sigue funcionando, cada quien carga su archivo, y no se
 publica ningún número.
+
+## Controlar qué se muestra
+
+**Qué se muestra** (panel plegable bajo el encabezado) permite ocultar columnas de la
+tabla y secciones enteras. La elección se recuerda en ese navegador.
+
+Dos cosas no se ocultan: la **actividad** y su **indicador de control**. Son lo que da
+sentido a la cifra: sin ellas, un 100% de «unicidad de series recibidas» se leería como
+cumplimiento del SLA de 24 horas, que es otra cosa. Por eso la columna del valor se llama
+«Indicador de control» y la que dice qué se está midiendo se llama «Qué mide»: ocultes lo
+que ocultes, el número conserva su nombre.
+
+**Modo presentación** esconde la carga de archivos y el panel, agranda la letra y deja la
+página lista para proyectar. También hay hoja de impresión: `Ctrl+P` da un PDF limpio.
+
+## Filtrar
+
+La barra de filtros se queda fija arriba al desplazarse:
+
+- **Chips de proceso y de medición** con el conteo de actividades de cada uno.
+- **Clic en una fila de la tabla o en una barra** filtra por ese proceso.
+- Pulsar de nuevo el mismo chip lo quita; **Limpiar filtros** los quita todos.
+
+El filtro alcanza a todo: tarjetas, tabla, barras, completitud de campos y volumetría se
+recalculan sobre la selección. La tarjeta «Actividades medibles» pasa a decir «sobre la
+selección activa» para que no se confunda con el total del ciclo.

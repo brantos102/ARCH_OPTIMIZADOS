@@ -6,6 +6,7 @@
   var historico = {};   // periodo -> resultado
   var actual = null;    // resultado mostrado
   var worker = null;
+  var filtros = { proceso: null, estado: null };
 
   var $ = function (id) { return document.getElementById(id); };
   var fmtNum = function (n) { return Number(n || 0).toLocaleString('es-EC'); };
@@ -51,6 +52,56 @@
     var nuevo = ahora ? (ahora === 'dark' ? 'light' : 'dark') : (oscuroPorDefecto ? 'light' : 'dark');
     document.documentElement.setAttribute('data-theme', nuevo);
     try { localStorage.setItem('tema', nuevo); } catch (e) { /* ignorado */ }
+    if (actual) pintar(actual);
+  });
+
+  /* --------------------------- qué se muestra --------------------------- */
+  var VISTA = 'vista.activos-fijos';
+  function leerPref() {
+    try { return JSON.parse(localStorage.getItem(VISTA) || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+  function guardarPref(pref) {
+    try { localStorage.setItem(VISTA, JSON.stringify(pref)); } catch (e) { /* ignorado */ }
+  }
+  function aplicarVista() {
+    var ocultas = [];
+    document.querySelectorAll('#vista [data-col]').forEach(function (c) {
+      if (!c.checked) ocultas.push(c.getAttribute('data-col'));
+    });
+    $('tabla').setAttribute('data-oculta', ocultas.join(' '));
+    document.querySelectorAll('#vista [data-sec]').forEach(function (c) {
+      var sec = document.getElementById(c.getAttribute('data-sec'));
+      if (sec) sec.hidden = !c.checked;
+    });
+    var pref = { cols: {}, secs: {}, presentar: document.body.classList.contains('presentar') };
+    document.querySelectorAll('#vista [data-col]').forEach(function (c) { pref.cols[c.getAttribute('data-col')] = c.checked; });
+    document.querySelectorAll('#vista [data-sec]').forEach(function (c) { pref.secs[c.getAttribute('data-sec')] = c.checked; });
+    guardarPref(pref);
+  }
+  (function restaurarVista() {
+    var pref = leerPref();
+    document.querySelectorAll('#vista [data-col]').forEach(function (c) {
+      var k = c.getAttribute('data-col');
+      if (pref.cols && typeof pref.cols[k] === 'boolean') c.checked = pref.cols[k];
+    });
+    document.querySelectorAll('#vista [data-sec]').forEach(function (c) {
+      var k = c.getAttribute('data-sec');
+      if (pref.secs && typeof pref.secs[k] === 'boolean') c.checked = pref.secs[k];
+    });
+    if (pref.presentar) {
+      document.body.classList.add('presentar');
+      $('presentar').setAttribute('aria-pressed', 'true');
+    }
+    aplicarVista();
+  })();
+  document.querySelectorAll('#vista input[type=checkbox]').forEach(function (c) {
+    c.addEventListener('change', aplicarVista);
+  });
+  $('presentar').addEventListener('click', function () {
+    var activo = document.body.classList.toggle('presentar');
+    $('presentar').setAttribute('aria-pressed', activo ? 'true' : 'false');
+    aplicarVista();
     if (actual) pintar(actual);
   });
 
@@ -178,6 +229,60 @@
     bajar('indicadores-' + (actual.periodo || 'ciclo') + '.csv', cab.join(',') + '\n' + filas.join('\n') + '\n', 'text/csv;charset=utf-8');
   });
 
+  /* ------------------------------ filtros ------------------------------ */
+  function pasa(a) {
+    if (filtros.proceso && a.proceso !== filtros.proceso) return false;
+    if (filtros.estado && a.estado_medicion !== filtros.estado) return false;
+    return true;
+  }
+  function alternar(clave, valor) {
+    filtros[clave] = filtros[clave] === valor ? null : valor;
+    if (actual) pintar(actual);
+  }
+  function hayFiltro() { return !!(filtros.proceso || filtros.estado); }
+
+  function pintarChips(actividades) {
+    var porProceso = {}, porEstado = {};
+    actividades.forEach(function (a) {
+      porProceso[a.proceso] = (porProceso[a.proceso] || 0) + 1;
+      porEstado[a.estado_medicion] = (porEstado[a.estado_medicion] || 0) + 1;
+    });
+    /* Los chips se rehacen en cada repintado, así que hay que devolver el foco
+       al que se pulsó: sin esto, quien navega con teclado queda en el body. */
+    var enfocado = document.activeElement;
+    var foco = enfocado && enfocado.classList && enfocado.classList.contains('chip')
+      ? { clave: enfocado.getAttribute('data-clave'), valor: enfocado.getAttribute('data-valor') }
+      : null;
+
+    function grupo(host, datos, clave, etiqueta) {
+      host.replaceChildren.apply(host, Object.keys(datos).map(function (k) {
+        var b = el('button', 'chip');
+        b.type = 'button';
+        b.setAttribute('data-clave', clave);
+        b.setAttribute('data-valor', k);
+        b.setAttribute('aria-pressed', filtros[clave] === k ? 'true' : 'false');
+        b.appendChild(document.createTextNode(etiqueta(k)));
+        b.appendChild(el('span', 'n', String(datos[k])));
+        b.addEventListener('click', function () { alternar(clave, k); });
+        return b;
+      }));
+    }
+    grupo($('chipsProceso'), porProceso, 'proceso', corto);
+    grupo($('chipsEstado'), porEstado, 'estado', textoEstado);
+    if (foco) {
+      var vuelve = $('filtros').querySelector(
+        '.chip[data-clave="' + foco.clave + '"][data-valor="' + String(foco.valor).replace(/"/g, '\\"') + '"]');
+      if (vuelve) vuelve.focus();
+    }
+    $('filtros').hidden = !actividades.length;
+    $('limpiar').hidden = !hayFiltro();
+  }
+
+  $('limpiar').addEventListener('click', function () {
+    filtros = { proceso: null, estado: null };
+    if (actual) pintar(actual);
+  });
+
   /* ------------------------------ pintado ------------------------------ */
   function pintar(r) {
     actual = r;
@@ -198,8 +303,13 @@
       lede.appendChild(document.createTextNode(' campos críticos en el origen, por lo que el cumplimiento no puede acreditarse ni rebatirse.'));
     }
 
+    var act = (r.actividades || []).filter(pasa);
+    pintarChips(r.actividades || []);
+    var medibles = act.filter(function (a) { return a.estado_medicion === 'medible'; }).length;
+
     var tiles = [
-      ['Actividades medibles', r.resumen.medibles + ' de ' + r.resumen.total, 'Con todos los campos que exige su fórmula'],
+      ['Actividades medibles', medibles + ' de ' + act.length,
+        hayFiltro() ? 'Sobre la selección activa' : 'Con todos los campos que exige su fórmula'],
       ['Series recibidas', fmtNum(rec.filas), (rec.dias || 0) + ' días de arribo · ' + fmtNum(rec.duplicadas) + ' duplicadas'],
       ['Pedidos atendidos', fmtNum(ali.pedidos_ciclo), fmtNum(ali.pedidos) + ' en el archivo · ' + fmtNum(ali.filas_vacias) + ' filas vacías'],
       ['Stock al cierre', fmtNum(alm.stock), alm.movimiento
@@ -215,40 +325,59 @@
     }));
 
     var cuerpo = $('tabla').querySelector('tbody');
-    cuerpo.replaceChildren.apply(cuerpo, r.actividades.map(function (a) {
+    cuerpo.replaceChildren.apply(cuerpo, act.map(function (a) {
       var tr = el('tr');
-      tr.appendChild(el('td', null, corto(a.proceso)));
-      tr.appendChild(el('td', 'w', a.actividad));
-      tr.appendChild(el('td', 'n', fmtPct(a.objetivo_pct / 100)));
-      var tdE = el('td');
+      tr.title = 'Clic para filtrar por ' + corto(a.proceso);
+      tr.addEventListener('click', function () { alternar('proceso', a.proceso); });
+      var celda = function (col, cls, texto) {
+        var td = el('td', cls, texto);
+        td.setAttribute('data-col', col);
+        tr.appendChild(td);
+        return td;
+      };
+      celda('proceso', null, corto(a.proceso));
+      celda('actividad', 'w', a.actividad);
+      celda('objetivo', 'n', fmtPct(a.objetivo_pct / 100));
+      var tdE = celda('medicion', null, '');
       tdE.appendChild(el('span', 'pill ' + claseEstado(a.estado_medicion), textoEstado(a.estado_medicion)));
-      tr.appendChild(tdE);
-      tr.appendChild(el('td', 'w', a.indicador_sustituto));
-      var tdV = el('td', 'n', fmtPct(a.valor));
-      tdV.style.color = colorValor(a.valor);
-      tr.appendChild(tdV);
-      tr.appendChild(el('td', 'ww', a.campo_faltante || '—'));
+      celda('quemide', 'w', a.indicador_sustituto);
+      celda('valor', 'n', fmtPct(a.valor)).style.color = colorValor(a.valor);
+      celda('falta', 'ww', a.campo_faltante || '—');
       return tr;
     }));
 
-    var orden = r.actividades.slice().sort(function (a, b) {
+    var orden = act.slice().sort(function (a, b) {
       var va = a.valor == null ? 2 : a.valor, vb = b.valor == null ? 2 : b.valor;
       return va - vb;
     });
-    $('barras').replaceChildren.apply($('barras'), orden.map(function (a) {
-      return filaBarra(a.indicador_sustituto, a.actividad_id + ' ' + corto(a.proceso), a.valor, fmtPct(a.valor));
-    }));
+    if (orden.length) {
+      $('barras').replaceChildren.apply($('barras'), orden.map(function (a) {
+        var fila = filaBarra(a.indicador_sustituto, a.actividad_id + ' ' + corto(a.proceso), a.valor, fmtPct(a.valor));
+        fila.classList.add('clicable');
+        fila.title = 'Clic para filtrar por ' + corto(a.proceso);
+        fila.addEventListener('click', function () { alternar('proceso', a.proceso); });
+        return fila;
+      }));
+    } else {
+      $('barras').replaceChildren(el('p', 'vacio-filtro', 'Ninguna actividad coincide con el filtro.'));
+    }
     $('eje').replaceChildren.apply($('eje'), ['0,0%', '50,0%', '100,0%'].map(function (t) { return el('span', null, t); }));
     $('notaBarras').textContent = 'Escala completa de 0% a 100%. «n/d» marca la actividad cuyo origen no aporta ninguna medición.';
 
-    var criticos = r.campos.filter(function (c) { return c.critico_para_kpi === 'si'; })
-      .sort(function (a, b) { return a.pct_poblado - b.pct_poblado || (a.proceso < b.proceso ? -1 : 1); });
-    $('barrasCampos').replaceChildren.apply($('barrasCampos'), criticos.map(function (c) {
-      return filaBarra(c.campo, corto(c.proceso), c.pct_poblado / 100, String(c.pct_poblado).replace('.', ',') + '%');
-    }));
+    var criticos = r.campos.filter(function (c) {
+      return c.critico_para_kpi === 'si' && (!filtros.proceso || c.proceso === filtros.proceso);
+    }).sort(function (a, b) { return a.pct_poblado - b.pct_poblado || (a.proceso < b.proceso ? -1 : 1); });
+    if (criticos.length) {
+      $('barrasCampos').replaceChildren.apply($('barrasCampos'), criticos.map(function (c) {
+        return filaBarra(c.campo, corto(c.proceso), c.pct_poblado / 100, String(c.pct_poblado).replace('.', ',') + '%');
+      }));
+    } else {
+      $('barrasCampos').replaceChildren(el('p', 'vacio-filtro', 'Sin campos críticos para esta selección.'));
+    }
 
-    barras($('chartPed'), r.diaria.filter(function (x) { return x.metrica === 'Pedidos creados'; }), 'var(--accent)');
-    barras($('chartRec'), r.diaria.filter(function (x) { return x.metrica === 'Series recibidas'; }), 'var(--ok)');
+    var visible = function (x) { return !filtros.proceso || x.proceso === filtros.proceso; };
+    barras($('chartPed'), r.diaria.filter(function (x) { return x.metrica === 'Pedidos creados' && visible(x); }), 'var(--accent)');
+    barras($('chartRec'), r.diaria.filter(function (x) { return x.metrica === 'Series recibidas' && visible(x); }), 'var(--ok)');
 
     var cl = (ali.clientes || []);
     $('clientes').replaceChildren.apply($('clientes'), cl.map(function (c) {
