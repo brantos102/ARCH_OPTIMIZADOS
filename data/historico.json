@@ -1,0 +1,669 @@
+{
+ "ciclos": {
+  "2026-09": {
+   "generado": "2026-10-23T15:11:01.168Z",
+   "periodo": "2026-09",
+   "periodos": [
+    "2026-05",
+    "2026-07",
+    "2026-08",
+    "2026-09",
+    "2026-10"
+   ],
+   "etiqueta": "Septiembre 2026",
+   "ciclo": {
+    "inicio": "2026-08-23",
+    "fin": "2026-09-22"
+   },
+   "archivos": [
+    {
+     "nombre": "RECEPCIÓN EQUIPOS MATERIALES Y-O REPUESTOS.xlsx",
+     "bytes": 1276594,
+     "hojas": 2
+    },
+    {
+     "nombre": "ALMACENAJE.xlsx",
+     "bytes": 25698636,
+     "hojas": 4
+    },
+    {
+     "nombre": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "bytes": 16494010,
+     "hojas": 6
+    }
+   ],
+   "hojas": [
+    {
+     "archivo": "RECEPCIÓN EQUIPOS MATERIALES Y-O REPUESTOS.xlsx",
+     "nombre": "RECEPCION TERMINALES SEPTIEMBRE",
+     "tipo": "recepcion",
+     "filas": 5337
+    },
+    {
+     "archivo": "RECEPCIÓN EQUIPOS MATERIALES Y-O REPUESTOS.xlsx",
+     "nombre": "RECEPCION SIMCARDS SEPTIEMBRE",
+     "tipo": "recepcion",
+     "filas": 30000
+    },
+    {
+     "archivo": "ALMACENAJE.xlsx",
+     "nombre": "ALM ACCESORIOS SEPTIEMBRE",
+     "tipo": "alm_ubicacion",
+     "filas": 8
+    },
+    {
+     "archivo": "ALMACENAJE.xlsx",
+     "nombre": "ALM SIMCARD SEPTIEMBRE",
+     "tipo": "alm_cantidad",
+     "filas": 88
+    },
+    {
+     "archivo": "ALMACENAJE.xlsx",
+     "nombre": "ALM TERMINALES SEPTIEMBRE",
+     "tipo": "alm_stock",
+     "filas": 12243
+    },
+    {
+     "archivo": "ALMACENAJE.xlsx",
+     "nombre": "Hoja1",
+     "tipo": "sin reconocer",
+     "filas": 0
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "nombre": "MATTIENDA PICK&PACK&TRANS SEPTI",
+     "tipo": "alistamiento",
+     "filas": 225
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "nombre": "PEDIDOS AGOST ENTREGADOS SEPTIE",
+     "tipo": "alistamiento",
+     "filas": 4655
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "nombre": "PICK&PACK DEV CAN TRANS SEPTIEM",
+     "tipo": "alistamiento",
+     "filas": 1020
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "nombre": "PICK&PACK&TRANS TUENTI SEPTIEMB",
+     "tipo": "alistamiento",
+     "filas": 79213
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "nombre": "PICK&PAC&TRANS MOVISTAR SEPTIEM",
+     "tipo": "alistamiento",
+     "filas": 387681
+    },
+    {
+     "archivo": "ALISTAMIENTO DE PEDIDOS Y DESPACHO.xlsb",
+     "nombre": "Hoja1",
+     "tipo": "sin reconocer",
+     "filas": 0
+    }
+   ],
+   "avisos": [],
+   "resumen": {
+    "total": 8,
+    "medibles": 0,
+    "parciales": 2,
+    "no_medibles": 6,
+    "campos_criticos": 13,
+    "campos_ausentes": 10
+   },
+   "actividades": [
+    {
+     "actividad_id": "AF-1",
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "actividad": "Recepción y procesamiento de materiales en 24 h",
+     "objetivo_pct": 100,
+     "estado_medicion": "no_medible",
+     "campo_faltante": "Fecha y hora de disponibilización en inventario. FECHA INICIAL no trae hora",
+     "indicador_sustituto": "Unicidad de series recibidas",
+     "numerador": 35337,
+     "denominador": 35337,
+     "valor": 1,
+     "volumen": 35337,
+     "unidad_volumen": "series recibidas",
+     "fuente": "RECEPCION TERMINALES SEPTIEMBRE + RECEPCION SIMCARDS SEPTIEMBRE"
+    },
+    {
+     "actividad_id": "AF-2",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "actividad": "Picking y embalaje en 2 h - horario de oficina",
+     "objetivo_pct": 100,
+     "estado_medicion": "no_medible",
+     "campo_faltante": "Hora de despacho. Solo existe FEC_CREAC de la solicitud",
+     "indicador_sustituto": "Pedidos con hora de creación registrada",
+     "numerador": 373,
+     "denominador": 861,
+     "valor": 0.4332171893147503,
+     "volumen": 816,
+     "unidad_volumen": "pedidos del ciclo",
+     "fuente": "5 pestañas"
+    },
+    {
+     "actividad_id": "AF-3",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "actividad": "Picking y embalaje en 2 h - horario extendido",
+     "objetivo_pct": 100,
+     "estado_medicion": "no_medible",
+     "campo_faltante": "Marca de horario extendido y hora de despacho",
+     "indicador_sustituto": "Pedidos clasificables por franja horaria",
+     "numerador": 0,
+     "denominador": 861,
+     "valor": 0,
+     "volumen": 0,
+     "unidad_volumen": "pedidos fuera de horario identificados",
+     "fuente": "5 pestañas"
+    },
+    {
+     "actividad_id": "AF-4",
+     "proceso": "ALMACENAJE",
+     "actividad": "Verificación de etiquetado y categorización",
+     "objetivo_pct": 100,
+     "estado_medicion": "no_medible",
+     "campo_faltante": "UBICACION vacía en el 100% de los registros y las clases del almacén no mapean al contrato",
+     "indicador_sustituto": "Registros con ubicación informada",
+     "numerador": 0,
+     "denominador": 12243,
+     "valor": 0,
+     "volumen": 12243,
+     "unidad_volumen": "series en stock",
+     "fuente": "ALM ACCESORIOS SEPTIEMBRE + ALM SIMCARD SEPTIEMBRE + ALM TERMINALES SEPTIEMBRE"
+    },
+    {
+     "actividad_id": "AF-5",
+     "proceso": "ALMACENAJE",
+     "actividad": "Tomas físicas - coincidencia sistema vs físico",
+     "objetivo_pct": 99,
+     "estado_medicion": "no_medible",
+     "campo_faltante": "No existe columna de conteo físico para contrastar contra el sistema",
+     "indicador_sustituto": "Unicidad de series en stock",
+     "numerador": 12231,
+     "denominador": 12243,
+     "valor": 0.9990198480764518,
+     "volumen": 12243,
+     "unidad_volumen": "series en stock",
+     "fuente": "ALM ACCESORIOS SEPTIEMBRE + ALM SIMCARD SEPTIEMBRE + ALM TERMINALES SEPTIEMBRE"
+    },
+    {
+     "actividad_id": "AF-6",
+     "proceso": "REPORTERÍA",
+     "actividad": "Disponibilidad 7x24 del sistema logístico",
+     "objetivo_pct": 100,
+     "estado_medicion": "no_medible",
+     "campo_faltante": "No se entregó registro de disponibilidad ni de caídas del sistema",
+     "indicador_sustituto": "Sin sustituto disponible",
+     "numerador": 0,
+     "denominador": 0,
+     "valor": null,
+     "volumen": 0,
+     "unidad_volumen": "horas monitoreadas",
+     "fuente": "no entregado"
+    },
+    {
+     "actividad_id": "AF-7",
+     "proceso": "REPORTERÍA",
+     "actividad": "Reporte de movimientos e inventario",
+     "objetivo_pct": 100,
+     "estado_medicion": "parcial",
+     "campo_faltante": "Fecha y hora de entrega de cada reporte diario",
+     "indicador_sustituto": "Procesos con archivo del ciclo entregado",
+     "numerador": 3,
+     "denominador": 4,
+     "valor": 0.75,
+     "volumen": 3,
+     "unidad_volumen": "archivos del ciclo",
+     "fuente": "3 archivos"
+    },
+    {
+     "actividad_id": "AF-8",
+     "proceso": "REPORTERÍA",
+     "actividad": "Reporte de cierre mensual",
+     "objetivo_pct": 100,
+     "estado_medicion": "parcial",
+     "campo_faltante": "Fecha y hora de entrega del cierre",
+     "indicador_sustituto": "Procesos con archivo del ciclo entregado",
+     "numerador": 3,
+     "denominador": 4,
+     "valor": 0.75,
+     "volumen": 1,
+     "unidad_volumen": "cierre del ciclo",
+     "fuente": "3 archivos"
+    }
+   ],
+   "campos": [
+    {
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "pestana": "RECEPCION TERMINALES SEPTIEMBRE + RECEPCION SIMCARDS SEPTIEMBRE",
+     "campo": "SERIE",
+     "filas": 35337,
+     "pobladas": 35337,
+     "pct_poblado": 100,
+     "critico_para_kpi": "no"
+    },
+    {
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "pestana": "RECEPCION TERMINALES SEPTIEMBRE + RECEPCION SIMCARDS SEPTIEMBRE",
+     "campo": "ARTICULO",
+     "filas": 35337,
+     "pobladas": 35337,
+     "pct_poblado": 100,
+     "critico_para_kpi": "no"
+    },
+    {
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "pestana": "RECEPCION TERMINALES SEPTIEMBRE + RECEPCION SIMCARDS SEPTIEMBRE",
+     "campo": "FECHA INICIAL",
+     "filas": 35337,
+     "pobladas": 35337,
+     "pct_poblado": 100,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "pestana": "RECEPCION TERMINALES SEPTIEMBRE + RECEPCION SIMCARDS SEPTIEMBRE",
+     "campo": "HORA DE ARRIBO",
+     "filas": 35337,
+     "pobladas": 0,
+     "pct_poblado": 0,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "pestana": "RECEPCION TERMINALES SEPTIEMBRE + RECEPCION SIMCARDS SEPTIEMBRE",
+     "campo": "FECHA/HORA DE DISPONIBILIZACION",
+     "filas": 35337,
+     "pobladas": 0,
+     "pct_poblado": 0,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "ALMACENAJE",
+     "pestana": "ALM ACCESORIOS SEPTIEMBRE + ALM SIMCARD SEPTIEMBRE + ALM TERMINALES SEPTIEMBRE",
+     "campo": "SERIE",
+     "filas": 12243,
+     "pobladas": 12243,
+     "pct_poblado": 100,
+     "critico_para_kpi": "no"
+    },
+    {
+     "proceso": "ALMACENAJE",
+     "pestana": "ALM ACCESORIOS SEPTIEMBRE + ALM SIMCARD SEPTIEMBRE + ALM TERMINALES SEPTIEMBRE",
+     "campo": "UBICACION",
+     "filas": 12243,
+     "pobladas": 0,
+     "pct_poblado": 0,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "ALMACENAJE",
+     "pestana": "ALM ACCESORIOS SEPTIEMBRE + ALM SIMCARD SEPTIEMBRE + ALM TERMINALES SEPTIEMBRE",
+     "campo": "FECHA_INGRESO",
+     "filas": 12243,
+     "pobladas": 0,
+     "pct_poblado": 0,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "ALMACENAJE",
+     "pestana": "ALM ACCESORIOS SEPTIEMBRE + ALM SIMCARD SEPTIEMBRE + ALM TERMINALES SEPTIEMBRE",
+     "campo": "CONTEO FISICO",
+     "filas": 12243,
+     "pobladas": 0,
+     "pct_poblado": 0,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "ALMACENAJE",
+     "pestana": "ALM ACCESORIOS SEPTIEMBRE + ALM SIMCARD SEPTIEMBRE + ALM TERMINALES SEPTIEMBRE",
+     "campo": "ETIQUETA PROYECTO/ADMINISTRADOR/OC",
+     "filas": 12243,
+     "pobladas": 0,
+     "pct_poblado": 0,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "pestana": "5 pestañas PICK&PACK",
+     "campo": "doc_ext",
+     "filas": 387615,
+     "pobladas": 387615,
+     "pct_poblado": 100,
+     "critico_para_kpi": "no"
+    },
+    {
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "pestana": "5 pestañas PICK&PACK",
+     "campo": "CLIENTE",
+     "filas": 387615,
+     "pobladas": 387615,
+     "pct_poblado": 100,
+     "critico_para_kpi": "no"
+    },
+    {
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "pestana": "5 pestañas PICK&PACK",
+     "campo": "IDENTIFICADOR (IMEI/ICC/RASCA)",
+     "filas": 387615,
+     "pobladas": 387610,
+     "pct_poblado": 100,
+     "critico_para_kpi": "no"
+    },
+    {
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "pestana": "5 pestañas PICK&PACK",
+     "campo": "FEC_CREAC (fecha)",
+     "filas": 387615,
+     "pobladas": 387615,
+     "pct_poblado": 100,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "pestana": "5 pestañas PICK&PACK",
+     "campo": "FEC_CREAC (con hora)",
+     "filas": 387615,
+     "pobladas": 89607,
+     "pct_poblado": 23.1,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "pestana": "5 pestañas PICK&PACK",
+     "campo": "FECHA/HORA DE DESPACHO",
+     "filas": 387615,
+     "pobladas": 0,
+     "pct_poblado": 0,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "pestana": "5 pestañas PICK&PACK",
+     "campo": "FRANJA HORARIA (oficina/extendido)",
+     "filas": 387615,
+     "pobladas": 0,
+     "pct_poblado": 0,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "REPORTERÍA",
+     "pestana": "no entregado",
+     "campo": "LOG DE DISPONIBILIDAD DEL SISTEMA",
+     "filas": 0,
+     "pobladas": 0,
+     "pct_poblado": 0,
+     "critico_para_kpi": "si"
+    },
+    {
+     "proceso": "REPORTERÍA",
+     "pestana": "no entregado",
+     "campo": "FECHA/HORA DE ENTREGA DE REPORTES",
+     "filas": 0,
+     "pobladas": 0,
+     "pct_poblado": 0,
+     "critico_para_kpi": "si"
+    }
+   ],
+   "diaria": [
+    {
+     "fecha": "2026-08-24",
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "metrica": "Series recibidas",
+     "valor": 30
+    },
+    {
+     "fecha": "2026-08-28",
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "metrica": "Series recibidas",
+     "valor": 500
+    },
+    {
+     "fecha": "2026-08-31",
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "metrica": "Series recibidas",
+     "valor": 30280
+    },
+    {
+     "fecha": "2026-09-07",
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "metrica": "Series recibidas",
+     "valor": 2667
+    },
+    {
+     "fecha": "2026-09-09",
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "metrica": "Series recibidas",
+     "valor": 150
+    },
+    {
+     "fecha": "2026-09-11",
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "metrica": "Series recibidas",
+     "valor": 510
+    },
+    {
+     "fecha": "2026-09-16",
+     "proceso": "RECEPCIÓN DE EQUIPOS MATERIALES Y/O REPUESTOS",
+     "metrica": "Series recibidas",
+     "valor": 1200
+    },
+    {
+     "fecha": "2026-08-24",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 54
+    },
+    {
+     "fecha": "2026-08-25",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 35
+    },
+    {
+     "fecha": "2026-08-26",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 30
+    },
+    {
+     "fecha": "2026-08-27",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 48
+    },
+    {
+     "fecha": "2026-08-28",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 11
+    },
+    {
+     "fecha": "2026-08-31",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 24
+    },
+    {
+     "fecha": "2026-09-01",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 36
+    },
+    {
+     "fecha": "2026-09-02",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 35
+    },
+    {
+     "fecha": "2026-09-03",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 37
+    },
+    {
+     "fecha": "2026-09-04",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 14
+    },
+    {
+     "fecha": "2026-09-07",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 32
+    },
+    {
+     "fecha": "2026-09-08",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 43
+    },
+    {
+     "fecha": "2026-09-09",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 32
+    },
+    {
+     "fecha": "2026-09-10",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 36
+    },
+    {
+     "fecha": "2026-09-11",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 27
+    },
+    {
+     "fecha": "2026-09-14",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 33
+    },
+    {
+     "fecha": "2026-09-15",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 47
+    },
+    {
+     "fecha": "2026-09-16",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 54
+    },
+    {
+     "fecha": "2026-09-17",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 26
+    },
+    {
+     "fecha": "2026-09-18",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 22
+    },
+    {
+     "fecha": "2026-09-21",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 66
+    },
+    {
+     "fecha": "2026-09-22",
+     "proceso": "ALISTAMIENTO DE PEDIDOS Y DESPACHO",
+     "metrica": "Pedidos creados",
+     "valor": 74
+    }
+   ],
+   "detalle": {
+    "recepcion": {
+     "filas": 35337,
+     "series_unicas": 35337,
+     "duplicadas": 0,
+     "dias": 7,
+     "en_ciclo": 35337,
+     "fuera_ciclo": 0,
+     "con_hora": 0
+    },
+    "almacenaje": {
+     "stock": 12243,
+     "unicos": 12231,
+     "duplicados": 12,
+     "ubicaciones": 150,
+     "simcards": 2738780,
+     "lineas_simcard": 71,
+     "movimiento": {
+      "ingresos": 3774,
+      "salidas": 2904,
+      "permanecen": 8457
+     },
+     "clases": {
+      "ACCESORIOS": 2965,
+      "DISPONIBLE": 620,
+      "MATERIA PRIMA": 4776,
+      "DELIVERY": 1502,
+      "BODEGA CENTRAL": 1820,
+      "BODEGA USADOS": 38,
+      "RESERVAS": 153,
+      "SCRAP": 6,
+      "DEVOLUCION": 109,
+      "DEVOLUCION DELIVERY": 40,
+      "SEED STOCK": 166,
+      "HOMOLOGACION": 48
+     },
+     "bloques": 2
+    },
+    "alistamiento": {
+     "filas": 387615,
+     "filas_vacias": 85179,
+     "pedidos": 861,
+     "pedidos_ciclo": 816,
+     "con_hora": 373,
+     "clientes": [
+      {
+       "cliente": "TIGO",
+       "items": 198566,
+       "pct": 51.2
+      },
+      {
+       "cliente": "MOVISTAR",
+       "items": 105536,
+       "pct": 27.2
+      },
+      {
+       "cliente": "TUENTI",
+       "items": 83513,
+       "pct": 21.5
+      }
+     ],
+     "tipos": {
+      "MATERIAL TIENDA": 4,
+      "RASCA": 225,
+      "TERMINAL": 2789,
+      "SIMCARD": 383960,
+      "TERMINAL + ACCESORIO": 615,
+      "EQUIPO ELECTRONICO": 8,
+      "ACCESORIO": 12,
+      "TERMINAL + ACCESORIO +ACCESORIO": 2
+     },
+     "canales": {
+      "INDIRECTO": 378861,
+      "RETAIL": 4357,
+      "DIRECTO": 4397
+     }
+    }
+   }
+  }
+ }
+}
