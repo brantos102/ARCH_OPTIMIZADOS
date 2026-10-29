@@ -24,6 +24,10 @@ Const N_EXT As Long = 9                 ' V:AD
 Const N_EXTC As Long = 7                ' V:AB calculadas por DatosExt (AC = original, AD = tipo de corrección)
 Const SOLO_FILTRADO As Boolean = True
 Const ZONA_PELIGROSA_A_REVISAR As Boolean = False   ' True = una zona peligrosa deja el pedido en REVISAR
+' --- corrección automática de errores de escritura (ZAROMA -> ZARUMA) ---
+Const AUTO_CORREGIR As Boolean = True       ' False = se sugiere pero nunca se aplica solo
+Const AUTO_CORREGIR_DIST As Long = 1        ' solo se aplica solo cuando cambia 1 letra; 2 o más se sugiere
+Const DMQ_A_CALDERON As Boolean = True      ' Quito sin parroquia en cobertura -> CALDERON (QUI)
 
 Public gSoloRevisar As Boolean          ' frmValidar: mostrar solo REVISAR
 Public gFilaInicio As Long              ' frmValidar: fila con la que empieza
@@ -720,6 +724,56 @@ Function ProvDeCP(a As String) As String
   Next
 End Function
 
+' =====================================================================================
+'  CORRECCIÓN DE ERRORES DE ESCRITURA
+'  Caso real: el cliente escribe EL ORO / ZAROMA / ZAROMA. ZARUMA existe en COBERTURA y
+'  se diferencia en UNA letra, pero el sistema proponía MACHALA ("ciudad principal de la
+'  provincia"). El motivo: la búsqueda por parecido solo miraba DENTRO del cantón escrito
+'  (mCantonParr(P|nc)) y, al estar el cantón mal escrito, esa clave no existe y el fuzzy
+'  nunca llegaba a ejecutarse.
+'
+'  Esta función busca en TODA la provincia y solo acepta la corrección si es INEQUÍVOCA:
+'    - la diferencia está dentro del límite según el largo del nombre;
+'    - NO hay empate: si dos parroquias están a la misma distancia, no se corrige
+'      (ese caso lo decide una persona);
+'    - la triada corregida existe de verdad en COBERTURA.
+'  Devuelve también el cantón correcto, porque si la parroquia estaba mal escrita el
+'  cantón suele estarlo igual.
+' =====================================================================================
+Public Function CorregirEscritura(ByVal P As String, ByVal Q As String, _
+                                  ByRef parrOut As String, ByRef cantonOut As String, _
+                                  ByRef dist As Long) As Boolean
+  Dim it, best, bd As Long, sd As Long, dd As Long, lim As Long, ncB As String
+  dist = 99: parrOut = "": cantonOut = ""
+  If mTriple Is Nothing Then CargarBases
+  If Len(P) = 0 Or Len(Q) < 4 Then Exit Function
+  If Not mParrList.Exists(P) Then Exit Function
+  ' límite de letras distintas según el largo del nombre escrito
+  If Len(Q) <= 5 Then
+    lim = 1
+  ElseIf Len(Q) <= 9 Then
+    lim = 2
+  Else
+    lim = 3
+  End If
+  bd = 999: sd = 999
+  For Each it In mParrList(P)
+    dd = Lev(Q, it(0))
+    If dd < bd Then
+      sd = bd: bd = dd: best = it
+    ElseIf dd < sd Then
+      sd = dd
+    End If
+  Next
+  If bd > lim Then Exit Function          ' demasiado distinto: no es un error de escritura
+  If sd <= bd Then Exit Function          ' empate: hay más de un candidato, decide una persona
+  If IsEmpty(best) Then Exit Function
+  ncB = Normaliza(CStr(best(1)))
+  If Not mTriple.Exists(P & "|" & ncB & "|" & CStr(best(0))) Then Exit Function
+  parrOut = CStr(best(2)): cantonOut = CStr(best(1)): dist = bd
+  CorregirEscritura = True
+End Function
+
 Function FuzzyStr(pool As Collection, Q As String, topN As Long) As String
   Dim n As Long, used() As Boolean, x As Long, j As Long, bi As Long, bd As Long, dd As Long, s As String, lim As Long
   n = pool.Count: If n = 0 Then Exit Function
@@ -780,6 +834,7 @@ Sub ValidarPedidos()
   Dim usedCola As Boolean, cpStr As String, qAlert As String, ncCola As String
   Dim rawParr As String, ncS As String, sc, motivoS As String, cantonSug As String, ambig As Boolean
   Dim tipoCorr As String, origParts, sufConf As Boolean, altC As String, altP As String
+  Dim pCorr As String, cCorr As String, dCorr As Long, nAuto As Long, nDMQ As Long
   For i = 2 To lr
     If SOLO_FILTRADO And ws.Rows(i).Hidden Then GoTo sig
     nP = Normaliza(TXV(d(i, C_PROV))): nG = Normaliza(TXV(d(i, C_CANT))): nQ = Normaliza(TXV(d(i, C_PARR)))
@@ -879,6 +934,16 @@ Sub ValidarPedidos()
       End If
       If Not IsEmpty(cand) Then
         parrFin = cand(0): parrO = cand(2): estParr = "DIR": sug = ""
+      ElseIf CorregirEscritura(prov, nQ, pCorr, cCorr, dCorr) Then
+        ' --- error de escritura inequívoco en TODA la provincia (ZAROMA -> ZARUMA) ---
+        parrO = pCorr: parrFin = Normaliza(pCorr): cantonSug = cCorr
+        motivoS = "Corrección de escritura: " & rawParr & " -> " & pCorr & " (" & dCorr & " letra" & IIf(dCorr = 1, "", "s") & ")"
+        sug = pCorr & " [" & cCorr & "] (" & motivoS & ")"
+        If AUTO_CORREGIR And dCorr <= AUTO_CORREGIR_DIST Then
+          estParr = "AUTOCORR": nAuto = nAuto + 1
+        Else
+          estParr = "SUGERIR"
+        End If
       Else
         ' --- NUEVO: fuera de cobertura -> cobertura cercana (cabecera / ciudad principal o secundaria) ---
         ncS = scopeNc: If Len(ncS) = 0 Then ncS = nG
@@ -902,12 +967,23 @@ Sub ValidarPedidos()
       If Len(cantonSug) > 0 Then cantonFin = cantonSug
     End If
 tras_resolucion:
-    ' Regla Quito / DMQ (se mantiene): parroquia DMQ y sigla CALDERON (QUI)
-    If prov = "PICHINCHA" And estParr <> "OK" Then
-      If InStr(a, " QUITO ") > 0 Or InStr(a, " DMQ ") > 0 Or InStr(a, " DISTRITO METROPOLITANO ") > 0 Then
+    ' Regla Quito / DMQ. "Distrito Metropolitano de Quito" ya no existe como parroquia:
+    ' si el pedido es de Quito y la parroquia escrita NO está en la cobertura de Quito,
+    ' la parroquia es CALDERON (QUI). Antes esto solo se aplicaba cuando el estado era
+    ' OTRA_PROV, FUERA_COB o SUGERIR sin cantón, así que en muchos casos no entraba y
+    ' quedaba la sugerencia de "ciudad principal".
+    If prov = "PICHINCHA" And estParr <> "OK" And estParr <> "AUTOCORR" Then
+      If InStr(a, " QUITO ") > 0 Or InStr(a, " DMQ ") > 0 Or InStr(a, " DISTRITO METROPOLITANO ") > 0 _
+         Or Normaliza(cantonFin) = "QUITO" Or nG = "QUITO" Then
         cantonFin = "QUITO"
-        If estParr = "OTRA_PROV" Or estParr = "FUERA_COB" Or (estParr = "SUGERIR" And Len(cantonSug) = 0) Then
-          parrO = "DISTRITO METROPOLITANO DE QUITO": parrFin = "QUITO": estParr = "QUITO"
+        If Not mTriple.Exists("PICHINCHA|QUITO|" & parrFin) Then
+          If DMQ_A_CALDERON And mTriple.Exists("PICHINCHA|QUITO|CALDERON") Then
+            parrFin = "CALDERON"
+            parrO = OrigParr("PICHINCHA|QUITO|CALDERON", "CALDERON (QUI)")
+            cantonSug = "QUITO": estParr = "QUITO": nDMQ = nDMQ + 1
+          Else
+            parrO = "DISTRITO METROPOLITANO DE QUITO": parrFin = "QUITO": estParr = "QUITO"
+          End If
         End If
       End If
     End If
@@ -946,7 +1022,7 @@ tras_resolucion:
       If uDup.Count > 1 Then alert = "Parroquia repetida en: " & Left$(Join(uDup.Items, " ; "), 90)
     End If
     ex = DatosExt(prov, ncF, parrFin, a)
-    esOK = (estParr = "OK")
+    esOK = (estParr = "OK" Or estParr = "AUTOCORR")
     If esOK And Not mPC.Exists(prov) Then esOK = False
     If esOK And Not (nP = "" Or nP = prov) And Not usedCola Then esOK = False
     If esOK And (Len(alert) > 0 And Not cantonConf) And Not usedCola Then esOK = False
@@ -957,6 +1033,7 @@ tras_resolucion:
     Else
       est = "REVISAR": revC = revC + 1
       Select Case True
+        Case estParr = "AUTOCORR": accion = "Corrección de escritura: confirmar"
         Case sufConf: accion = "Sufijo de otro cantón: confirmar parroquia"
         Case estParr = "COLA": accion = "Confirmar parroquia (dirección/CP)"
         Case estParr = "AMBIG": accion = "Verificar cantón (parroquia en varios cantones)"
@@ -981,6 +1058,7 @@ tras_resolucion:
       Case "FUERA_COB": tipoCorr = "COBERTURA CERCANA: " & motivoS
       Case "SUGERIR"
         If Len(motivoS) > 0 Then tipoCorr = "CORRECCION DE ESCRITURA" Else tipoCorr = "SUGERENCIA POR SIMILITUD"
+      Case "AUTOCORR": tipoCorr = "CORRECCION AUTOMATICA DE ESCRITURA: " & rawParr & " -> " & parrO
       Case "QUITO": tipoCorr = "DMQ -> CALDERON (QUI)"
       Case "AMBIG": tipoCorr = "VERIFICAR CANTON"
       Case "OTRA_PROV": tipoCorr = "PARROQUIA DE OTRA PROVINCIA"
@@ -998,6 +1076,10 @@ tras_resolucion:
     End Select
     out2(i - 1, N_EXTC + 2) = tipoCorr
     ws.Cells(i, C_SIG).Value = SiglaFinal(prov, ncF, parrFin, parrO)
+    If estParr = "AUTOCORR" Then LogP "Fila " & i & " pedido " & TXV(d(i, C_REF)) & ": corrección automática de escritura | cliente: " & _
+         TXV(d(i, C_PROV)) & "/" & TXV(d(i, C_CANT)) & "/" & rawParr & " -> " & Pretty(prov) & "/" & cantonFin & "/" & parrO & _
+         " (" & dCorr & " letra" & IIf(dCorr = 1, "", "s") & " de diferencia)", "CORRIGE"
+    If estParr = "QUITO" And nDMQ > 0 Then LogP "Fila " & i & " pedido " & TXV(d(i, C_REF)) & ": Quito sin parroquia en cobertura -> " & parrO, "CORRIGE"
     If est = "REVISAR" Then LogP "Fila " & i & " pedido " & TXV(d(i, C_REF)) & ": " & accion & " | cliente: " & _
          TXV(d(i, C_PROV)) & "/" & TXV(d(i, C_CANT)) & "/" & rawParr & " -> propuesta: " & Pretty(prov) & "/" & cantonFin & "/" & parrO, "REVISAR"
     If Len(ex(4)) > 0 Then LogP "Fila " & i & " pedido " & TXV(d(i, C_REF)) & ": " & ex(4) & " -> " & ex(3), "ZONA"
@@ -1010,11 +1092,23 @@ sig:
   ColorearCambios ws, lr
 fin:
   Application.Calculation = xlCalculationAutomatic: Application.ScreenUpdating = True
-  LogP "VALIDAR: terminado. OK " & okC & " | REVISAR " & revC
+  LogP "VALIDAR: terminado. OK " & okC & " | REVISAR " & revC & _
+       IIf(nAuto > 0, " | corregidos solos (escritura) " & nAuto, "") & _
+       IIf(nDMQ > 0, " | Quito -> CALDERON (QUI) " & nDMQ, "")
   If revC > 0 Then
-    If MsgBox("Validación lista." & vbCrLf & "OK: " & okC & "    Por revisar: " & revC & vbCrLf & vbCrLf & _
-              "¿Revisar ahora los " & revC & " casos pendientes en el validador?", _
-              vbYesNo + vbQuestion, "Validación HYCITE") = vbYes Then AbrirValidadorRevisar
+    Dim rsp As VbMsgBoxResult
+    rsp = MsgBox("Validación lista." & vbCrLf & "OK: " & okC & "    Por revisar: " & revC & _
+              IIf(nAuto > 0, vbCrLf & "Corregidos solos (error de escritura): " & nAuto, "") & _
+              IIf(nDMQ > 0, vbCrLf & "Quito sin parroquia en cobertura -> CALDERON (QUI): " & nDMQ, "") & vbCrLf & vbCrLf & _
+              "SÍ = tabla de sugerencias (todos a la vez, lo más rápido)" & vbCrLf & _
+              "NO = validador de uno en uno" & vbCrLf & _
+              "CANCELAR = más tarde", _
+              vbYesNoCancel + vbQuestion, "Validación HYCITE")
+    If rsp = vbYes Then
+      AbrirSugerencias
+    ElseIf rsp = vbNo Then
+      AbrirValidadorRevisar
+    End If
   Else
     MsgBox "Validación lista." & vbCrLf & "OK: " & okC & "    Por revisar: 0", vbInformation, "Validación HYCITE"
   End If
@@ -1101,6 +1195,34 @@ Sub FormatoPanel(ws As Worksheet, lr As Long)
   With r.FormatConditions.Add(Type:=xlTextString, String:="ZONA PELIGROSA", TextOperator:=xlContains)
     .Interior.Color = RGB(255, 199, 206)
   End With
+End Sub
+
+' Tabla de sugerencias: todos los pendientes a la vez, con su confianza, para
+' confirmarlos en bloque en vez de uno por uno.
+Sub AbrirSugerencias()
+  Dim ws As Worksheet, lr As Long, i As Long, n As Long
+  If gOcupado Then MsgBox "Hay un proceso en curso.", vbInformation: Exit Sub
+  Set ws = ThisWorkbook.Worksheets(HD)
+  lr = ws.Cells(ws.Rows.Count, C_REF).End(xlUp).Row
+  For i = 2 To lr
+    If Not (SOLO_FILTRADO And ws.Rows(i).Hidden) Then
+      If UCase$(Trim$(TX(ws.Cells(i, C_NN + 3)))) = "REVISAR" Then n = n + 1
+    End If
+  Next
+  If n = 0 Then
+    MsgBox "No hay pedidos en REVISAR." & vbCrLf & "Si ya los aprobaste, el siguiente paso es '5 Aplicar aprobados'.", _
+           vbInformation, "Sugerencias"
+    Exit Sub
+  End If
+  CargarBases
+  On Error GoTo sinForm
+  frmLote.Show vbModal
+  Exit Sub
+sinForm:
+  LogP "SUGERENCIAS: no se pudo abrir frmLote (" & Err.Description & ")", "AVISO"
+  MsgBox "No se pudo abrir la tabla de sugerencias." & vbCrLf & _
+         "Comprueba que el formulario frmLote existe y tiene su código." & vbCrLf & vbCrLf & _
+         "Mientras tanto puedes usar '3 Revisar pendientes'.", vbExclamation
 End Sub
 
 Sub AprobarTodas()
@@ -1355,6 +1477,7 @@ Sub CrearMenuHycite()
   AddBtn bar, "1 Limpiar", "LimpiarValidacion", 47, False
   AddBtn bar, "2 Validar", "ValidarPedidos", 25, False
   AddBtn bar, "3 Revisar pendientes", "AbrirValidadorRevisar", 6362, False
+  AddBtn bar, "3b Tabla de sugerencias", "AbrirSugerencias", 1017, False
   AddBtn bar, "4 Aprobar lote", "AprobarTodas", 356, False
   AddBtn bar, "5 Aplicar aprobados", "AplicarAprobados", 358, False
   AddBtn bar, "6 Actualizar siglas", "ActualizarSiglas", 1017, False

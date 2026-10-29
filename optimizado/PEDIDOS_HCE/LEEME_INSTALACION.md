@@ -377,3 +377,93 @@ cobertura y no se despacha. Por eso hay [`SQL_PEDIDOS_VERIFICACION.sql`](SQL_PED
 > Mientras el bloque 2 no esté revisado, lo prudente es aplicar **solo** los cambios 1, 3, 4 y 5 (quitar el
 > `NOT EXISTS`): la corrección de la ventana de fechas por sí sola ya arregla el caso del feriado, aunque traiga
 > algunos pedidos ya procesados a la lista.
+
+## Validación: corrección automática, Quito y tabla de sugerencias
+
+### 1. Errores de escritura que ahora se corrigen solos
+
+**El caso:** el cliente escribe `EL ORO / ZAROMA / ZAROMA`. En COBERTURA existe **ZARUMA**, a **una letra** de
+diferencia, pero el sistema proponía **MACHALA** ("ciudad principal de la provincia") y el pedido iba a revisión
+manual.
+
+**Por qué pasaba:** la búsqueda por parecido solo miraba **dentro del cantón escrito**
+(`mCantonParr(provincia|cantón)`). Como el **cantón** también estaba mal escrito, esa clave no existe, el bloque no
+se ejecutaba nunca y la búsqueda caía hasta la regla de "ciudad principal". ZARUMA sí aparecía en la lista
+informativa de abajo, pero nunca como propuesta.
+
+**Qué hace ahora** (`CorregirEscritura`): busca en **toda la provincia** y solo acepta la corrección si es
+**inequívoca**:
+
+- la diferencia está dentro del límite según el largo del nombre (1 letra hasta 5 caracteres, 2 hasta 9, 3 en
+  adelante);
+- **no hay empate**: si dos parroquias están a la misma distancia, no se corrige — eso lo decide una persona;
+- la triada corregida **existe de verdad en COBERTURA**;
+- corrige también el **cantón**, porque si la parroquia venía mal escrita el cantón suele venir igual.
+
+**Cuándo se aplica sola y cuándo solo se sugiere:**
+
+| Diferencia | Qué pasa |
+|---|---|
+| **1 letra** | se aplica sola, el pedido queda **OK** y no va a revisión |
+| **2 o 3 letras** | se **sugiere**, el pedido sigue en **REVISAR** |
+| empate, o no se parece | no se toca, va a revisión como siempre |
+
+Comprobado con el caso real y con los que **no** deben corregirse:
+
+```
+ZAROMA     -> ZARUMA    (1 letra)  se aplica sola
+PORTOBELO  -> PORTOVELO (1 letra)  se aplica sola
+HUAQUILAS  -> HUAQUILLAS(1 letra)  se aplica sola
+SAN MANUEL -> SAN MIGUEL(2 letras) solo se sugiere, sigue en REVISAR
+BALSAR     -> no corrige (empate: BALSAS y BALZAR a la misma distancia)
+XYZABC     -> no corrige (no se parece a nada)
+```
+
+Todo lo que se corrige solo queda **registrado**: en `AD` con `CORRECCION AUTOMATICA DE ESCRITURA: ZAROMA -> ZARUMA`,
+en `AC` el dato original del cliente, y en el registro del panel con las letras de diferencia. Es dato de
+facturación, así que queda la trazabilidad completa.
+
+**Se puede apagar** sin tocar nada más: `Const AUTO_CORREGIR As Boolean = False` al inicio de Módulo1. Con
+`AUTO_CORREGIR_DIST` se cambia hasta cuántas letras se aplica solo (por defecto 1).
+
+### 2. Quito: ya no existe "Distrito Metropolitano de Quito"
+
+La regla existía pero **solo entraba** cuando el estado era `OTRA_PROV`, `FUERA_COB` o `SUGERIR` sin cantón. Si la
+búsqueda de cobertura cercana ya había propuesto un cantón, la regla no se aplicaba y quedaba esa propuesta — por eso
+"muchas veces no lo hacía".
+
+Ahora: si el pedido es de Quito (cantón resuelto QUITO, cantón escrito QUITO, o la dirección dice QUITO / DMQ /
+DISTRITO METROPOLITANO) y la parroquia **no está en la cobertura de Quito**, la parroquia pasa a **CALDERON (QUI)**.
+
+> La guarda que lo hace seguro: solo actúa si `PICHINCHA|QUITO|<parroquia>` **no existe** en COBERTURA. Si la
+> parroquia sí está cubierta en Quito, no se toca nada. Y si `CALDERON` no estuviera en COBERTURA, se mantiene el
+> comportamiento anterior. Se puede apagar con `Const DMQ_A_CALDERON As Boolean = False`.
+
+### 3. Tabla de sugerencias (confirmar en lote)
+
+Formulario nuevo **frmLote**: insertar un UserForm, nombrarlo `frmLote` y pegar [`frmLote.frm`](frmLote.frm).
+
+Muestra **todos** los pendientes a la vez: pedido · lo que escribió el cliente · la propuesta · por qué · **confianza**
+· fila. Ordenados con los más seguros arriba.
+
+| Confianza | Qué significa |
+|---|---|
+| **ALTA** | la propuesta está en COBERTURA y el nombre coincide, cambia poco, o es una corrección de escritura / el nombre oficial / Quito→CALDERON |
+| **MEDIA** | está en COBERTURA pero el nombre difiere bastante (cabecera del cantón, cobertura cercana) |
+| **BAJA** | no está en COBERTURA, falta provincia o parroquia, o hay zona peligrosa |
+
+Botones: **Marcar las de confianza ALTA**, marcar todo, quitar marcas, filtro por confianza y búsqueda.
+**Aprobar marcados** escribe la propuesta exactamente igual que el validador de uno en uno (APROBADO, sigla, V:AD y
+registro). **Lo que no se marca no se toca.** Doble clic en una fila la abre en el validador de siempre.
+
+Se abre desde **Complementos › 3b Tabla de sugerencias**, o al terminar la validación: el aviso ahora pregunta
+*SÍ = tabla de sugerencias · NO = uno en uno · CANCELAR = más tarde*.
+
+> No sustituye a `4 Aprobar lote`, que sigue aprobando **todo** a ciegas. La tabla es el camino intermedio: ves qué
+> vas a aprobar antes de hacerlo. Después de aprobar, el paso siguiente sigue siendo **5 Aplicar aprobados**.
+
+### Qué NO se tocó
+
+Las reglas de cobertura, la votación de provincia, el parser de la dirección, `SugerirCercana`, las zonas peligrosas,
+los gestores y trayectos, el export y el historial de CAMBIOS: **sin cambios**. Lo nuevo se añade **antes** de la
+búsqueda de cobertura cercana y solo actúa cuando esa búsqueda iba a fallar.
